@@ -124,6 +124,11 @@ TypeScript SDK, — генеруються з `proto/plugin.proto`, власно
 | Rust: псевдоніми `compat::HostClient` / `DaemonClient` | 0.6.0 | 0.8.0 | `ctx.host()` / `ctx.daemon()` |
 | Python: `dict` там, де очікується dataclass можливості | 0.5.0 | 0.7.0 | Dataclass — `VoiceInfo`, `ToolDef`, … — або його `to_proto()` |
 | TypeScript: псевдонім типу `UiPanel` | 0.5.0 | 0.7.0 | `UiContribution` |
+| Rust: `DaemonClient` | 0.7.5 | 0.9.0 | `ctx.host()` — `send_chat_message`, `speak`, `subscribed_events()`, `get_user_identity` |
+| Python: `DaemonClient` | 0.6.5 | 0.8.0 | `self.host` — `send_chat_message`, `speak`, `subscribe_events`, `get_user_identity` |
+| TypeScript: `DaemonClient` | 0.7.4 | 0.9.0 | `ctx.host` і хелпери контексту — `ctx.sendChatMessage()`, `ctx.speak()`, `ctx.getUserIdentity()` |
+
+`DaemonClient` в усіх трьох застарів із причини іншого роду: він нічого не робить від SDK 0.5.0. Astra приймає сесійний токен плагіна в `PluginHostService` і більше ніде, тож кожен його виклик відхиляється. Його оголошено застарілим, а не видалено, щоб код, який його згадує, далі компілювався; ніщо з того, що працювало, не перестає працювати.
 
 Одне застарівання було скасовано, а не доведено до кінця: хук `AiGetModels`, позначений застарілим у 0.6.0, бо жоден демон його не питав, знову live — Astra питає в кожного AI-провайдера його список моделей (Rust SDK 0.7.5, Python 0.6.5, TypeScript 0.7.4). Нічого не видалено, і плагін, що зберіг прив'язку, працює як раніше.
 
@@ -184,6 +189,16 @@ spec/hooks.yaml is malformed:
 - **Власна поведінка демона.** Інтерфейс Astra, розкладка її конфігурації
   і її внутрішні сервіси — не API плагіна. На що плагін може покладатися —
   це протокол, хуки в `spec/hooks.yaml`, і дозволи в його маніфесті.
+- **Що несе корисне навантаження події.** `payload_json` події вирішує
+  демон, для кожного читача окремо, і воно може звузитися в будь-якому
+  релізі Astra без релізу SDK. Наочний приклад: від Astra 2026-11-12
+  `auth_changed` несе `authenticated`, `authorized`, `timestamp` і
+  `account_id` — псевдонім, створений для вашого плагіна, `""`, якщо в
+  плагіна немає `read_user_identity` або акаунт не має доступу до Astra.
+  Власний id акаунта, ім'я людини та її тариф більше не надсилаються:
+  `user_id` і `user_name` надходять як `null`, а `subscription_tier` — як
+  `""`, і їх залишено лише для того, щоб старий парсер далі розбирав. Див.
+  [Знати, хто користується Astra](3-reference/permissions.md#знати-хто-користується-astra).
 - **Усе, позначене `#[doc(hidden)]`, `_private`, або експортоване для
   тестового harness.** Може змінитися в patch.
 - **Немаршрутизовані (`unrouted`) хуки.** Хук може існувати в proto і в

@@ -15,7 +15,7 @@
  */
 
 /** SHA-256 of the `spec/limits.yaml` these constants were generated from. */
-export const SPEC_SHA256 = "b8e7f779f476ed942dc6dcbee15e4cccae0807326f7b967a10851f875e0dd31a";
+export const SPEC_SHA256 = "40f2f3873139c095b37d80d6b1c63b86c7fcd4d00bcfbf334adaef0573eae35f";
 
 /**
  * Capacity of the audio channel that carries streaming-STT chunks from the
@@ -164,3 +164,12 @@ export const PLUGIN_MAX_MESSAGE_BYTES = 67108864;
  * (`plugins::capability_bridge::PLUGIN_IMAGE_REQUEST_MAX_BYTES`).
  */
 export const PLUGIN_IMAGE_REQUEST_MAX_BYTES = 20971520;
+
+/**
+ * The longest text one `host.speak()` may carry, in characters (Unicode scalar
+ * values, about twenty seconds spoken). A longer text is REFUSED with
+ * `BAD_ARGUMENTS`, never cut short (`plugins::speech::SPEAK_TEXT_MAX_CHARS`).
+ * A plugin's speaking time is budgeted in characters on top of this, so a
+ * backlog never holds the person's own reply past the speech queue's wait limit.
+ */
+export const SPEAK_TEXT_MAX_CHARS = 300;

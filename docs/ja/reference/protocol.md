@@ -2,12 +2,12 @@
 
 # プロトコルリファレンス
 
-プロトコル世代 **1**。10 個のサービス、192 個の RPC。出典:
+プロトコル世代 **1**。10 個のサービス、197 個の RPC。出典:
 [`proto/plugin.proto`](../../../proto/plugin.proto)、Astra の
-`astra.proto` から生成された一部(`surface-sha256: 9db774712359b4ab…`
+`astra.proto` から生成された一部(`surface-sha256: 05b5a063feba39c7…`
 — このページが説明しているプラグイン向け本体のダイジェスト)、
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION)
-によって `sha256:5beecd4b94806b5b…` に固定されています。3 つの SDK
+によって `sha256:eda1054aab8e9985…` に固定されています。3 つの SDK
 それぞれに vendor されたコピーはすべて同じハッシュを持っています;
 `tools/check-proto.sh` がそれを保証します。
 
@@ -15,8 +15,8 @@
 
 | サービス | 方向 | RPC 数 | 誰が提供するか |
 |---|---|---|---|
-| [`PluginCapabilityService`](#plugincapabilityservice) | デーモン → プラグイン | 26 | あなたのプラグイン |
-| [`PluginHostService`](#pluginhostservice) | プラグイン → デーモン | 10 | デーモン |
+| [`PluginCapabilityService`](#plugincapabilityservice) | デーモン → プラグイン | 31 | あなたのプラグイン |
+| [`PluginHostService`](#pluginhostservice) | プラグイン → デーモン | 14 | デーモン |
 | [`PluginService`](#pluginservice) | UI → デーモン | 23 | デーモン |
 
 プロトコル世代が契約です。プラグインはそれを
@@ -89,6 +89,9 @@
 | `SetVariable` | `set_variable` | `PluginSetVariableRequest` | `Empty` | unary | live | コマンドや他のプラグインが読める変数を公開します。 |
 | `SetThemeContribution` | `set_theme_contribution` | `PluginThemeContribution` | `Empty` | unary | live | アクティブな Astra テーマに色、壁紙、シェーダーを提供します。 |
 | `PushToUi` | `push_to_ui` | `PluginUiPushRequest` | `Empty` | unary | live | このプラグイン自身の iframe にイベントを push します — CallFromUi の戻り経路です。 |
+| `Speak` | `speak` | `PluginSpeakRequest` | `PluginSpeakResponse` | unary | live | Say the plugin's own words aloud in Astra's voice; answers once they were said, stopped, or refused. |
+| `StopSpeaking` | `speak` | `Empty` | `Empty` | unary | live | Stop everything this plugin asked to be said, sounding and queued, and nothing else Astra is saying. |
+| `GetUserIdentity` | `read_user_identity` | `Empty` | `PluginUserIdentity` | unary | live | Pseudonyms for this installation and the signed-in account, made for this plugin alone; never the account's own id, a name, an email or a hardware serial. |
 | `GetAiSettings` | `read_ai_settings` | `GetAiSettingsRequest` | `PluginAiSettings` | unary | live | The user's chat provider, model and endpoint (never a key), so a plugin never reads Astra's files for them. |
 
 `none` は、どのプラグインでも常にそれを呼び出せることを意味します —

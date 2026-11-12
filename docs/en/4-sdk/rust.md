@@ -145,7 +145,7 @@ behind a lock.
 
 | | |
 |---|---|
-| `ctx.host()` | `&Arc<dyn Host>` — the eleven host RPCs. Always present |
+| `ctx.host()` | `&Arc<dyn Host>` — twelve of the fourteen host RPCs (the runner makes `Register` and `SubscribeEvents`). Always present |
 | `ctx.daemon()` | `Option<&Arc<dyn Daemon>>` — **`Some` only for `client` plugins** |
 | `ctx.language()` | The Astra UI language, updated by `OnLanguageChanged` |
 | `ctx.active_triggers()` | Which of your trigger types a command is currently listening for |
@@ -155,7 +155,7 @@ From a place a parameter cannot reach — a `Drop` impl, a callback from a C
 library, a `std::thread` spawned at startup — `astra_plugin_sdk::ctx()` returns
 the running plugin's context, and `try_ctx()` the fallible version.
 
-### `Host` — the eleven calls out
+### `Host` — the twelve calls out
 
 | Method | Permission |
 |---|---|
@@ -163,6 +163,9 @@ the running plugin's context, and `try_ctx()` the fallible version.
 | `get_config` | none |
 | `get_daemon_info` | none |
 | `get_ai_settings` — the chat's provider, model and endpoint, never a key | `read_ai_settings` |
+| `speak(text)` — say it aloud in Astra's voice; answers once it was said, stopped or refused | `speak` (high-risk) |
+| `stop_speaking()` — stop everything this plugin asked to be said | `speak` |
+| `get_user_identity()` — pseudonyms for this installation and the signed-in account | `read_user_identity` |
 | `fire_trigger(type, payload_json)` | `fire_trigger` |
 | `set_variable(name, value, scope)` | `set_variable` |
 | `push_to_ui(event, payload_json)` | `push_to_ui` |
@@ -172,6 +175,18 @@ the running plugin's context, and `try_ctx()` the fallible version.
 `set_variable` takes **three** arguments — name, value and scope. Event
 subscription is not on `Host`: declare `subscribed_events()` and the runner owns
 the stream (below).
+
+`speak` returns the daemon's answer, `proto::PluginSpeakResponse`: read
+`outcome()` — `PluginSpeechOutcome::Spoken`, `Stopped` (silence was asked for;
+**not an error**) or `NotSpoken`, whose `error` is the same `proto::PluginError`
+a chat chunk's `error_detail` carries (`code()`, `message`, `retry_after_ms`).
+`Host::speak`'s own documentation has the example. `speak` needs an account that opens Astra and the person's reply voice on, and
+the daemon refuses a text over `limits::SPEAK_TEXT_MAX_CHARS` (300) characters
+rather than cut it. [Permissions](../3-reference/permissions.md#speaking-in-astras-voice)
+has the whole table. `speak`, `stop_speaking` and `get_user_identity` are
+defaulted `Host` methods, so a `Host` of your own written before them still
+compiles. `testing::RecordingHost::set_speak_response` / `set_user_identity`
+stage the answers, and `spoken()` lists what your plugin asked to say.
 
 `Host` is a trait, so a test can substitute `RecordingHost` and assert on what
 your plugin told Astra.
@@ -193,6 +208,11 @@ your plugin told Astra.
 >
 > **`Host::send_chat_message` is the only working way to drive an AI turn**, and
 > it works for any plugin that has been granted `send_chat_message`.
+>
+> **`DaemonClient` is deprecated since 0.7.5** (`#[deprecated]`, removable in
+> 0.9.0 at the earliest) for exactly this reason. Its `speak` is
+> `VoiceService.Speak`, which refuses a plugin; `Host::speak` is the one that
+> works.
 
 The API surface, for when the daemon side lands: `ctx.daemon()` is `Some` only
 when the plugin declares `client = true` and `is_client()` returns true. It

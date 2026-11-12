@@ -117,6 +117,9 @@ Convenience methods on `Plugin` — `self.log_info`, `self.log_warn`,
 |---|---|
 | `log(level, message)` · `get_config()` · `get_daemon_info()` | none |
 | `get_ai_settings()` — the chat's provider, model and endpoint, never a key | `read_ai_settings` |
+| `speak(text)` — say it aloud in Astra's voice; answers once it was said, stopped or refused | `speak` (high-risk) |
+| `stop_speaking()` — stop everything this plugin asked to be said | `speak` |
+| `get_user_identity()` — pseudonyms for this installation and the signed-in account | `read_user_identity` |
 | `fire_trigger(type, payload_json)` | `fire_trigger` |
 | `set_variable(name, value, scope="session")` | `set_variable` |
 | `subscribe_events(types, exclude_source_id="")` | `subscribe_events` |
@@ -124,7 +127,19 @@ Convenience methods on `Plugin` — `self.log_info`, `self.log_warn`,
 | `send_chat_message(text, …)` | `send_chat_message` |
 | `set_theme_contribution(theme)` | `set_theme_contribution` |
 
-> **`DaemonClient` does not work today, for any plugin.** The daemon registers
+`speak` returns the daemon's `PluginSpeakResponse`. Its `outcome` is
+`PLUGIN_SPEECH_OUTCOME_SPOKEN`, `…_STOPPED` (silence was asked for — **not an
+error**; do not say it again unasked) or `…_NOT_SPOKEN`, whose `error` is the
+same `PluginError` a chat chunk's `error_detail` carries — `code`, `message`,
+and `retry_after_ms` with `PLUGIN_ERROR_RATE_LIMITED`. It needs an account that
+opens Astra and the person's reply voice on, and the daemon refuses a text over
+`limits.SPEAK_TEXT_MAX_CHARS` (300) characters rather than cut it.
+[Permissions](../3-reference/permissions.md#speaking-in-astras-voice) has the
+whole table. In a test, `RecordingHost.speak_response` and `.user_identity`
+stage the answers and `spoken()` lists what your plugin asked to say.
+
+> **`DaemonClient` is deprecated** (0.6.5; constructing one warns) **because it
+> does not work today, for any plugin.** The daemon registers
 > every plugin as `ClientType::PluginClient` and its auth interceptor rejects
 > that identity on any path outside `/astra.PluginHostService/` with
 > `permission_denied("plugin session tokens are scoped to PluginHostService")` —

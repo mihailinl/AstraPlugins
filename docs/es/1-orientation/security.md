@@ -158,9 +158,9 @@ sus propios permisos editando su propio `plugin.toml` entre reinicios, hasta
 todo el vocabulario. Esa es una razón más por la que el modo desarrollador es
 una herramienta de desarrollo y no una vía de instalación.
 
-Cinco permisos son de alto riesgo y cada uno recibe su propia casilla de
+Seis permisos son de alto riesgo y cada uno recibe su propia casilla de
 consentimiento: `send_chat_message`, `push_to_ui`, `set_theme_contribution`,
-`dom_access`, `client`. `dom_access` recibe una segunda pantalla. Detalles,
+`dom_access`, `client`, `speak`. `dom_access` recibe una segunda pantalla. Detalles,
 incluyendo cómo escribir un `reason` que valga la pena leer:
 [permisos](../3-reference/permissions.md).
 

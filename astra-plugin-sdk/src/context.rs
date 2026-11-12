@@ -139,6 +139,92 @@ pub trait Host: Send + Sync + 'static {
         ))
     }
 
+    /// Say `text` aloud in Astra's voice. Permission: `speak` — **high-risk**,
+    /// its own consent checkbox, because the words are heard as Astra's.
+    ///
+    /// Besides the grant it needs an account that opens Astra, and the person's
+    /// reply voice on. The call lasts as long as the speech, and answers with
+    /// what became of it — read [`outcome()`](proto::PluginSpeakResponse::outcome):
+    ///
+    /// * `PluginSpeechOutcome::Spoken` — it was heard.
+    /// * `PluginSpeechOutcome::Stopped` — silence was asked for before it
+    ///   finished: the wake word, reply voice turned off, Stop, your own
+    ///   [`stop_speaking`](Self::stop_speaking). **Not an error**; do not say it
+    ///   again unasked.
+    /// * `PluginSpeechOutcome::NotSpoken` — it was not said, and `error` (a
+    ///   [`proto::PluginError`], the same message a chat chunk's `error_detail`
+    ///   carries) says why: `PluginErrorBadArguments` for an empty text or one
+    ///   longer than [`limits::SPEAK_TEXT_MAX_CHARS`](crate::limits::SPEAK_TEXT_MAX_CHARS)
+    ///   characters (refused, never cut); `PluginErrorRateLimited` with
+    ///   `retry_after_ms` once this plugin's speaking time is used up (450
+    ///   characters at once, then 3 a second, each call costing at least 20);
+    ///   `PluginErrorUnavailable` while voice is off, Astra is locked, there is
+    ///   no voice, or the speech queue could not take it. Nothing refused is
+    ///   queued.
+    ///
+    /// ```ignore
+    /// use astra_plugin_sdk::proto::{PluginErrorCode, PluginSpeechOutcome};
+    ///
+    /// let said = ctx.host().speak("The kettle has boiled.").await?;
+    /// if said.outcome() == PluginSpeechOutcome::NotSpoken {
+    ///     let why = said.error.unwrap_or_default();
+    ///     if why.code() == PluginErrorCode::PluginErrorRateLimited {
+    ///         // wait why.retry_after_ms, or show the text instead
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// Your words queue behind your own earlier ones on a lane of their own, so
+    /// they never cut Astra's replies. A refusal by the daemon's gates (no
+    /// grant, no account that opens Astra) is an `Err`, like every host call.
+    /// An Astra older than this RPC answers `UNIMPLEMENTED`.
+    ///
+    /// Defaulted, like [`Host::get_ai_settings`]: a `Host` written before this
+    /// method existed keeps compiling and answers with an error that says so,
+    /// never an invented outcome. Every `Host` in this crate overrides it.
+    async fn speak(&self, text: &str) -> Result<proto::PluginSpeakResponse> {
+        let _ = text;
+        Err(anyhow::anyhow!("this Host does not implement Speak (speak)"))
+    }
+
+    /// Stop everything this plugin asked to be said, sounding and queued.
+    /// Permission: `speak` — stopping your own speech is part of speaking.
+    ///
+    /// Never touches anything else Astra is saying, and is allowed whether or
+    /// not anybody is signed in. Each [`speak`](Self::speak) it cuts answers
+    /// `PluginSpeechOutcome::Stopped`. Defaulted like [`Host::speak`].
+    async fn stop_speaking(&self) -> Result<()> {
+        Err(anyhow::anyhow!(
+            "this Host does not implement StopSpeaking (stop_speaking)"
+        ))
+    }
+
+    /// Who is using Astra, as THIS plugin may know it.
+    /// Permission: `read_user_identity` (not high-risk).
+    ///
+    /// Both ids are pseudonyms made for this plugin alone: another plugin reads
+    /// different ones for the same person and machine, so two plugins using
+    /// this API cannot join their records on them (it holds against honest
+    /// plugins: native plugin code can read Astra's files, and neither id is a
+    /// secret). Never the account's own id, a name, an email or a hardware
+    /// serial.
+    ///
+    /// * `install_id` — this installation of Astra, stable across restarts and
+    ///   updates; empty while Astra has no installation key yet.
+    /// * `signed_in` — a person is signed in; `authorized` — and their account
+    ///   opens Astra.
+    /// * `account_id` — the signed-in account, the same on every device the
+    ///   person signs in on; empty unless `authorized`. The same value arrives
+    ///   as `account_id` on this plugin's `auth_changed` events.
+    ///
+    /// An Astra older than this RPC answers `UNIMPLEMENTED`. Defaulted like
+    /// [`Host::speak`].
+    async fn get_user_identity(&self) -> Result<proto::PluginUserIdentity> {
+        Err(anyhow::anyhow!(
+            "this Host does not implement GetUserIdentity (get_user_identity)"
+        ))
+    }
+
     /// Publish a variable commands and other plugins can read.
     /// Permission: `set_variable`. `scope` is `session` or `persistent`.
     async fn set_variable(&self, name: &str, value: &str, scope: &str) -> Result<()>;
@@ -773,6 +859,23 @@ impl Host for CausalHost {
         self.inner.get_ai_settings().await
     }
 
+    // The three below are defaulted on `Host`, so forgetting one here would
+    // compile and answer "this Host does not implement …" from inside a
+    // handler while the real client underneath implements it perfectly well.
+    // `tests::the_scoping_wrapper_forwards_speech_and_identity` is the guard.
+
+    async fn speak(&self, text: &str) -> Result<proto::PluginSpeakResponse> {
+        self.inner.speak(text).await
+    }
+
+    async fn stop_speaking(&self) -> Result<()> {
+        self.inner.stop_speaking().await
+    }
+
+    async fn get_user_identity(&self) -> Result<proto::PluginUserIdentity> {
+        self.inner.get_user_identity().await
+    }
+
     async fn set_variable(&self, name: &str, value: &str, scope: &str) -> Result<()> {
         self.inner.set_variable(name, value, scope).await
     }
@@ -807,12 +910,20 @@ impl Host for CausalHost {
 #[derive(Default)]
 pub(crate) struct CauseSpy {
     fires: std::sync::Mutex<Vec<(String, Option<String>)>>,
+    /// Every `speak` text, and `"<stop>"` for each `stop_speaking`, in order —
+    /// so a test can tell "forwarded to the inner host" from "answered by the
+    /// trait's default".
+    spoken: std::sync::Mutex<Vec<String>>,
 }
 
 #[cfg(test)]
 impl CauseSpy {
     pub(crate) fn causes(&self) -> Vec<Option<String>> {
         self.fires.lock().unwrap().iter().map(|(_, c)| c.clone()).collect()
+    }
+
+    pub(crate) fn spoken(&self) -> Vec<String> {
+        self.spoken.lock().unwrap().clone()
     }
 }
 
@@ -845,6 +956,23 @@ impl Host for CauseSpy {
     async fn get_ai_settings(&self) -> Result<proto::PluginAiSettings> {
         Ok(proto::PluginAiSettings {
             provider: "from-inner".into(),
+            ..Default::default()
+        })
+    }
+    async fn speak(&self, text: &str) -> Result<proto::PluginSpeakResponse> {
+        self.spoken.lock().unwrap().push(text.to_owned());
+        Ok(proto::PluginSpeakResponse {
+            outcome: proto::PluginSpeechOutcome::Spoken as i32,
+            error: None,
+        })
+    }
+    async fn stop_speaking(&self) -> Result<()> {
+        self.spoken.lock().unwrap().push("<stop>".to_owned());
+        Ok(())
+    }
+    async fn get_user_identity(&self) -> Result<proto::PluginUserIdentity> {
+        Ok(proto::PluginUserIdentity {
+            install_id: "from-inner".into(),
             ..Default::default()
         })
     }
@@ -924,6 +1052,18 @@ mod tests {
         async fn get_ai_settings(&self) -> Result<proto::PluginAiSettings> {
             Ok(Default::default())
         }
+        async fn speak(&self, _: &str) -> Result<proto::PluginSpeakResponse> {
+            Ok(proto::PluginSpeakResponse {
+                outcome: proto::PluginSpeechOutcome::Spoken as i32,
+                error: None,
+            })
+        }
+        async fn stop_speaking(&self) -> Result<()> {
+            Ok(())
+        }
+        async fn get_user_identity(&self) -> Result<proto::PluginUserIdentity> {
+            Ok(Default::default())
+        }
         async fn set_variable(&self, _: &str, _: &str, _: &str) -> Result<()> {
             Ok(())
         }
@@ -938,7 +1078,8 @@ mod tests {
         }
     }
 
-    /// A `Host` that never heard of `get_ai_settings`: the defaulted method.
+    /// A `Host` that never heard of `get_ai_settings`, `speak`,
+    /// `stop_speaking` or `get_user_identity`: the defaulted methods.
     struct BareHost;
 
     #[async_trait::async_trait]
@@ -1008,6 +1149,63 @@ mod tests {
             h.get_ai_settings()
                 .await
                 .unwrap_or_else(|e| panic!("{name} fell to the default: {e}"));
+        }
+    }
+
+    /// Additive: a `Host` written before `Speak`, `StopSpeaking` and
+    /// `GetUserIdentity` compiles unchanged and gets a plain error for each —
+    /// never an invented outcome or an invented identity.
+    #[tokio::test]
+    async fn a_host_without_speech_or_identity_answers_with_plain_errors() {
+        let err = BareHost.speak("hello").await.unwrap_err().to_string();
+        assert!(err.contains("does not implement Speak"), "{err}");
+        let err = BareHost.stop_speaking().await.unwrap_err().to_string();
+        assert!(err.contains("does not implement StopSpeaking"), "{err}");
+        let err = BareHost.get_user_identity().await.unwrap_err().to_string();
+        assert!(err.contains("does not implement GetUserIdentity"), "{err}");
+    }
+
+    /// The scoped host a handler is given (`for_invocation` wraps the real one
+    /// in `CausalHost`) must reach the inner host for all three, not fall to
+    /// the trait's defaults — those compile, so only this test notices.
+    #[tokio::test]
+    async fn the_scoping_wrapper_forwards_speech_and_identity() {
+        let (ctx, spy) = spied();
+        let scoped = ctx.for_invocation(Some(Arc::from("lease-1")));
+
+        let said = scoped.host().speak("The kettle has boiled.").await.expect("forwarded");
+        assert_eq!(said.outcome(), proto::PluginSpeechOutcome::Spoken);
+        scoped.host().stop_speaking().await.expect("forwarded");
+        let who = scoped.host().get_user_identity().await.expect("forwarded");
+        assert_eq!(who.install_id, "from-inner");
+
+        assert_eq!(
+            spy.spoken(),
+            vec!["The kettle has boiled.".to_string(), "<stop>".to_string()]
+        );
+        // Speaking is not a fire: nothing about it spends or carries the lease.
+        assert!(spy.causes().is_empty());
+    }
+
+    /// Every `Host` impl in this crate answers the three without the default.
+    /// Add a new wrapper or fake to the list.
+    #[tokio::test]
+    async fn every_in_repo_host_answers_speech_and_identity_without_the_default() {
+        let recording = crate::testing::RecordingHost::new("rec");
+        let hosts: Vec<(&str, Arc<dyn Host>)> = vec![
+            ("testing::RecordingHost", recording),
+            ("NullHost", Arc::new(NullHost)),
+        ];
+        for (name, h) in hosts {
+            h.speak("hi")
+                .await
+                .unwrap_or_else(|e| panic!("{name}.speak fell to the default: {e}"));
+            h.stop_speaking()
+                .await
+                .unwrap_or_else(|e| panic!("{name}.stop_speaking fell to the default: {e}"));
+            h.get_user_identity()
+                .await
+                .unwrap_or_else(|e| panic!("{name}.get_user_identity fell to the default: {e}"));
         }
     }
 

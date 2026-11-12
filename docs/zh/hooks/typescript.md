@@ -66,6 +66,9 @@
 | `SendChatMessage` | `client` | `send_chat_message` | required | server | stable | 以这个插件的身份发送一条聊天消息，并把助手的回复流式传回来。 |
 | `PushToUi` | `ui_contributions` | `push_to_ui` | optional | unary | stable | 把一个事件推送进这个插件自己的 iframe 里 —— 这是 CallFromUi 的回程路径。 |
 | `GetAiSettings` | `core` | `read_ai_settings` | optional | unary | stable | 用户聊天所用的提供方、模型和端点（绝不包含密钥），让插件无需读取 Astra 的文件。 |
+| `Speak` | `core` | `speak` | optional | unary | stable | 用 Astra 的声音把插件自己的话说出来；在话说完、被停止或被拒绝时返回。 |
+| `StopSpeaking` | `core` | `speak` | optional | unary | stable | 停止这个插件要求说出的一切，包括正在播放的和排队中的，而不停止 Astra 正在说的其他任何内容。 |
+| `GetUserIdentity` | `core` | `read_user_identity` | optional | unary | stable | 这次安装和已登录账号的假名 id，专为本插件生成；绝不是账号本身的 id、姓名、电子邮件或硬件序列号。 |
 | `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | unary | stable | 为当前激活的 Astra 主题贡献颜色、壁纸和着色器。 |
 
 ## 缺口

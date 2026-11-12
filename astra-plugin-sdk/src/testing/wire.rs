@@ -30,6 +30,7 @@ use tokio::task::JoinHandle;
 
 use super::host::{
     ChatMessage, FiredTrigger, LogLine, Recorded, SDK_HOST_RPCS, UiPush, Variable, check_any_rpc,
+    heard,
 };
 use crate::capability::PluginCapability;
 use crate::proto;
@@ -58,6 +59,10 @@ struct DaemonState {
     /// stays open.
     events: Mutex<Vec<proto::PluginEventMsg>>,
     protocol: (u32, u32),
+    /// What `Speak` answers once it has passed the gates.
+    speak_response: Mutex<proto::PluginSpeakResponse>,
+    /// What `GetUserIdentity` answers.
+    user_identity: Mutex<proto::PluginUserIdentity>,
 }
 
 /// A stand-in for the Astra daemon, serving `PluginHostService` on loopback.
@@ -110,6 +115,15 @@ impl MockDaemon {
             language: Mutex::new("en".to_string()),
             events: Mutex::new(Vec::new()),
             protocol: (protocol, floor),
+            speak_response: Mutex::new(heard()),
+            // Signed in, with an account that opens Astra: the state a plugin
+            // that asks is normally written for. Pseudonyms, like the real ones.
+            user_identity: Mutex::new(proto::PluginUserIdentity {
+                install_id: "mock-install-pseudonym".into(),
+                signed_in: true,
+                authorized: true,
+                account_id: "mock-account-pseudonym".into(),
+            }),
         });
 
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
@@ -184,6 +198,31 @@ impl MockDaemon {
     /// Every `SendChatMessage`.
     pub fn chat_messages(&self) -> Vec<ChatMessage> {
         self.state.recorded.chat_messages()
+    }
+    /// The text of every `Speak` that passed the gates, in order.
+    pub fn spoken(&self) -> Vec<String> {
+        self.state.recorded.spoken()
+    }
+
+    /// What `Speak` answers once it has passed the gates. Heard
+    /// (`PluginSpeechOutcome::Spoken`) until told otherwise — stage a
+    /// `NotSpoken` with a `PluginError` to drive the refusal over the wire.
+    pub fn set_speak_response(&self, response: proto::PluginSpeakResponse) {
+        *self
+            .state
+            .speak_response
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = response;
+    }
+
+    /// What `GetUserIdentity` answers. Signed in and authorized, with
+    /// pseudonyms, until told otherwise.
+    pub fn set_user_identity(&self, identity: proto::PluginUserIdentity) {
+        *self
+            .state
+            .user_identity
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = identity;
     }
 
     /// The `Register` the plugin sent, once it has sent one.
@@ -417,6 +456,57 @@ impl PluginHostService for HostService {
             api_base_url: "http://127.0.0.1:11434".into(),
             is_loopback: true,
         }))
+    }
+
+    async fn speak(
+        &self,
+        req: tonic::Request<proto::PluginSpeakRequest>,
+    ) -> Result<tonic::Response<proto::PluginSpeakResponse>, tonic::Status> {
+        self.gate(&req, "speak")?;
+        self.state.recorded.speech(req.into_inner().text);
+        Ok(tonic::Response::new(
+            self.state
+                .speak_response
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .clone(),
+        ))
+    }
+
+    async fn stop_speaking(
+        &self,
+        req: tonic::Request<proto::Empty>,
+    ) -> Result<tonic::Response<proto::Empty>, tonic::Status> {
+        self.gate(&req, "stop_speaking")?;
+        // The daemon gates StopSpeaking by the `speak` permission — stopping
+        // your own speech is part of speaking — so revoking `speak` here
+        // refuses both, as it does there.
+        if !self
+            .state
+            .granted
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .contains("speak")
+        {
+            return Err(tonic::Status::permission_denied(
+                "plugin has no `speak` grant",
+            ));
+        }
+        Ok(tonic::Response::new(proto::Empty {}))
+    }
+
+    async fn get_user_identity(
+        &self,
+        req: tonic::Request<proto::Empty>,
+    ) -> Result<tonic::Response<proto::PluginUserIdentity>, tonic::Status> {
+        self.gate(&req, "get_user_identity")?;
+        Ok(tonic::Response::new(
+            self.state
+                .user_identity
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .clone(),
+        ))
     }
 
     async fn set_variable(

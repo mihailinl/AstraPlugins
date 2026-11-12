@@ -130,6 +130,11 @@ siguen la regla 3.
 | Rust: alias `compat::HostClient` / `DaemonClient` | 0.6.0 | 0.8.0 | `ctx.host()` / `ctx.daemon()` |
 | Python: un `dict` donde se espera una dataclass de capability | 0.5.0 | 0.7.0 | La dataclass — `VoiceInfo`, `ToolDef`, … — o su `to_proto()` |
 | TypeScript: el alias de tipo `UiPanel` | 0.5.0 | 0.7.0 | `UiContribution` |
+| Rust: `DaemonClient` | 0.7.5 | 0.9.0 | `ctx.host()` — `send_chat_message`, `speak`, `subscribed_events()`, `get_user_identity` |
+| Python: `DaemonClient` | 0.6.5 | 0.8.0 | `self.host` — `send_chat_message`, `speak`, `subscribe_events`, `get_user_identity` |
+| TypeScript: `DaemonClient` | 0.7.4 | 0.9.0 | `ctx.host` y los helpers del contexto — `ctx.sendChatMessage()`, `ctx.speak()`, `ctx.getUserIdentity()` |
+
+`DaemonClient`, en los tres, está obsoleto por una razón de otra índole: no hace nada desde el SDK 0.5.0. Astra acepta el token de sesión de un plugin en `PluginHostService` y en ningún otro sitio, así que cada llamada que hace se rechaza. Se marca obsoleto en lugar de eliminarse para que el código que lo nombra siga compilando; nada que funcionaba deja de funcionar.
 
 Una obsolescencia se retiró en lugar de completarse: el hook `AiGetModels`, marcado obsoleto en 0.6.0 porque ningún daemon lo pedía, vuelve a estar vivo desde que Astra pregunta a cada proveedor de IA por su lista de modelos (SDK de Rust 0.7.5, Python 0.6.5, TypeScript 0.7.4). No se eliminó nada, y un plugin que conservó su enlace funciona como antes.
 
@@ -193,6 +198,16 @@ de release la fecha, y este documento es donde queda escrito.
   disposición de config y sus servicios internos no son una API de
   plugin. En lo que un plugin puede confiar es el protocolo, los hooks
   en `spec/hooks.yaml`, y los permisos de su manifiesto.
+- **Lo que lleva la carga útil de un evento.** El `payload_json` de un
+  evento lo decide el daemon, por lector, y puede restringirse en cualquier
+  release de Astra sin release del SDK. El ejemplo práctico: desde Astra
+  2026-11-12, `auth_changed` lleva `authenticated`, `authorized`, `timestamp`
+  y `account_id` — un seudónimo creado para tu plugin, `""` salvo que tenga
+  `read_user_identity` y la cuenta dé acceso a Astra. El id propio de la
+  cuenta, el nombre de la persona y su plan ya no se envían: `user_id` y
+  `user_name` llegan como `null` y `subscription_tier` como `""`, presentes
+  solo para que un parser antiguo siga funcionando. Véase
+  [Saber quién usa Astra](3-reference/permissions.md#saber-quién-usa-astra).
 - **Cualquier cosa marcada `#[doc(hidden)]`, `_private`, o exportada
   para el harness de pruebas.** Puede cambiar en un patch.
 - **Hooks `unrouted`.** Un hook puede existir en el proto y en los tres

@@ -155,6 +155,14 @@ fn generate_permissions(capabilities: &[&str]) -> String {
             "read the user's chat provider, model and endpoint (never a key)",
         ),
         (
+            "read_user_identity",
+            "per-plugin pseudonyms for this install and the signed-in account",
+        ),
+        (
+            "speak",
+            "say your own words aloud in Astra's voice (high risk: its own consent checkbox)",
+        ),
+        (
             "push_to_ui",
             "push updates to a UI panel this plugin contributes",
         ),

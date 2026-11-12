@@ -273,9 +273,9 @@ pub fn generate_plugin_py(name: &str, capabilities: &[&str]) -> String {
         methods.push_str(
             r#"
     def is_client(self) -> bool:
-        # Asks the daemon for a client session, so `on_daemon_client_ready` gets
-        # a DaemonClient and this plugin can drive chat, voice and commands
-        # rather than only answer.
+        # Asks the daemon for a client session. The DaemonClient that
+        # `on_daemon_client_ready` gets is deprecated (Astra refuses a plugin's
+        # token there); drive chat and speech through `self.host` instead.
         return True
 
     async def on_daemon_client_ready(self, client):

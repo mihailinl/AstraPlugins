@@ -167,6 +167,87 @@ def test_a_call_without_the_daemon_token_is_refused():
         channel.close()
 
 
+# ── speech and identity, over the wire ──────────────────────────────────────
+
+
+class _Announcer(Plugin):
+    @tool("Say something aloud, then report what Astra answered and who it is")
+    async def announce(self, text: str):
+        said = await self.host.speak(text)
+        who = await self.host.get_user_identity()
+        return {
+            "outcome": plugin_pb2.PluginSpeechOutcome.Name(said.outcome),
+            "code": (
+                plugin_pb2.PluginErrorCode.Name(said.error.code)
+                if said.HasField("error")
+                else ""
+            ),
+            "retry_after_ms": said.error.retry_after_ms,
+            "install_id": who.install_id,
+            "signed_in": who.signed_in,
+            "authorized": who.authorized,
+            "account_id": who.account_id,
+        }
+
+    @tool("Stop saying it")
+    async def hush(self):
+        await self.host.stop_speaking()
+        return "hushed"
+
+
+def test_speech_and_identity_from_a_leased_call_reach_the_daemon_with_the_token():
+    """`Speak` and `GetUserIdentity` from inside a leased call: the session token
+    goes with them, the identity round-trips field for field, and speaking is
+    not a fire, so nothing about it spends the lease."""
+    with WireHarness(_Announcer()) as w:
+        with w.lease("lease-speak"):
+            out = json.loads(w.call_tool("announce", text="The kettle has boiled.").result)
+            assert w.call_tool("hush").success
+        assert out == {
+            "outcome": "PLUGIN_SPEECH_OUTCOME_SPOKEN",
+            "code": "",
+            "retry_after_ms": 0,
+            "install_id": "mock-install-pseudonym",
+            "signed_in": True,
+            "authorized": True,
+            "account_id": "mock-account-pseudonym",
+        }
+        assert w.daemon.spoken() == ["The kettle has boiled."]
+        assert w.daemon.stop_count() == 1
+        assert w.daemon.unauthenticated_calls == []
+        assert w.daemon.fired_triggers() == []
+
+
+def test_a_not_spoken_answer_crosses_the_wire_whole():
+    """The daemon's `PluginError` arrives with its code and its wait — a
+    rate-limited plugin needs the number, not a sentence."""
+    daemon = MockDaemon()
+    daemon.speak_response = {
+        "outcome": plugin_pb2.PLUGIN_SPEECH_OUTCOME_NOT_SPOKEN,
+        "error": plugin_pb2.PluginError(
+            code=plugin_pb2.PLUGIN_ERROR_RATE_LIMITED,
+            message="this plugin has used its speaking time",
+            retry_after_ms=1500,
+        ),
+    }
+    with WireHarness(_Announcer(), daemon=daemon) as w:
+        out = json.loads(w.call_tool("announce", text="Again.").result)
+        assert out["outcome"] == "PLUGIN_SPEECH_OUTCOME_NOT_SPOKEN"
+        assert out["code"] == "PLUGIN_ERROR_RATE_LIMITED"
+        assert out["retry_after_ms"] == 1500
+        assert w.daemon.spoken() == ["Again."]
+
+
+def test_denying_speak_refuses_stop_speaking_too():
+    """One permission gates both rpcs, as in the daemon's HOST_RPC_PERMISSIONS."""
+    daemon = MockDaemon(denied_permissions=["Speak"])
+    with WireHarness(_Announcer(), daemon=daemon) as w:
+        assert not w.call_tool("announce", text="x").success
+        assert not w.call_tool("hush").success
+        assert w.daemon.spoken() == []
+        assert w.daemon.stop_count() == 0
+
+
 def test_a_refused_registration_does_not_leave_a_half_started_plugin():
     daemon = MockDaemon(accept_registration=False, registration_error="not installed")
     with pytest.raises(WireError, match="exited with code 1"):

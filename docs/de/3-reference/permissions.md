@@ -45,7 +45,7 @@ Drei Eigenschaften, die irgendwann jeden überraschen:
 
    <!-- doctest: output from="astra-plugin check --strict ." unrun="needs a plugin project in the working directory; re-run it in your own plugin" -->
    ```
-     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings
+     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings, speak, read_user_identity
      FAILED: 1 warning(s), and --strict treats warnings as errors
    ```
 
@@ -66,7 +66,7 @@ Dass `GetDaemonInfo` frei ist, ist eine Entscheidung, kein Versehen: eine
 Checkbox, die nichts schützt, ist der Weg, wie Nutzer lernen, Kästchen
 blind anzuhaken.
 
-## Die neun IDs
+## Die elf IDs
 
 | ID | Sperrt | Eigene Checkbox | Bei lokalem Import verweigert | Was sie dir erlaubt |
 |---|---|---|---|---|
@@ -79,6 +79,8 @@ blind anzuhaken.
 | `dom_access` | — (eine Surface) | **ja** | **ja** | Deinen Code im Astra-Fenster ausführen, mit Zugriff auf Unterhaltungen und die Oberfläche jedes anderen Plugins |
 | `client` | — (eine Surface) | **ja** | **ja** | Ein Chat-Frontend mit eigener Session sein |
 | `read_ai_settings` | `GetAiSettings` | nein | nein | Den Chat-Provider, das Modell und den Endpunkt des Nutzers lesen — nie einen Schlüssel |
+| `speak` | `Speak`, `StopSpeaking` | **ja** | nein | Deine eigenen Worte mit Astras Stimme laut aussprechen und sie anhalten |
+| `read_user_identity` | `GetUserIdentity` | nein | nein | Pseudonyme für diese Installation und das angemeldete Konto lesen, nur für dein Plugin erzeugt |
 
 `dom_access` und `client` sperren kein RPC, und das ist der Punkt: Sie sind
 **Surfaces**. `dom_access` entscheidet, ob eine UI-Contribution als Skript
@@ -136,6 +138,43 @@ Ein Plugin, das das Modell des Nutzers selbst aufruft — ein eigener Assistent,
 | `is_loopback` | Der Endpunkt liegt auf diesem Rechner (`127.0.0.0/8`, `::1`, `localhost`) — ein lokales Modell |
 
 Er enthält nie einen API-Schlüssel, nie die anderen gespeicherten Endpunkte des Nutzers, nie den System-Prompt und keine andere Rolle als die des Chats. Ein Plugin, das einen Schlüssel braucht, fragt den Nutzer in seiner eigenen `[config]` danach (als geheim markieren). Er ist weder hochriskant noch bei einem lokalen Import abgelehnt: Es ist der ehrliche Weg zu dieser Information, und ihn teurer zu machen als das Lesen von `settings.json` würde Plugins in die falsche Richtung schieben. Astras eigene Dateien zu lesen ist etwas, wonach die menschliche Prüfung bei der Veröffentlichung sucht. Ein Astra, das älter als dieser Aufruf ist, antwortet mit `UNIMPLEMENTED`.
+
+## Mit Astras Stimme sprechen
+
+Ein Plugin, das etwas anzukündigen hat — einen Timer, einen fertigen Build, eine eingetroffene Nachricht —, kann Astra das sagen lassen. Deklariere `speak` und rufe `Speak` auf (`speak(text)` in Rust und Python, `ctx.speak(text)` in TypeScript).
+
+`speak` ist **hochriskant**: Deine Worte werden mit Astras Stimme gehört, als hätte Astra sie gesagt, deshalb bekommt es eine eigene Zustimmungs-Checkbox. Bei einem lokalen Import wird es nicht abgelehnt — eine Ansage ist etwas Gewöhnliches, das ein Plugin wollen kann, und die Checkbox ist die Entscheidung. Neben der Gewährung braucht `Speak` **ein Konto, das Astra freischaltet**, und **die eingeschaltete Antwortstimme der Person**; solange Astra gesperrt ist, wird es abgelehnt.
+
+Der Aufruf dauert so lange wie die Sprachausgabe und antwortet damit, was aus ihr wurde:
+
+| Ergebnis | Was es bedeutet | Was zu tun ist |
+|---|---|---|
+| `SPOKEN` | Es wurde gehört | Nichts |
+| `STOPPED` | Bevor es zu Ende war, wurde um Stille gebeten: das Wake-Word, die ausgeschaltete Antwortstimme, Stopp, dein eigenes `StopSpeaking` | Nichts — **es ist kein Fehler**. Sag es nicht ungefragt noch einmal |
+| `NOT_SPOKEN` | Es wurde nicht gesagt; `error` (derselbe `PluginError`, den ein Chat-Chunk trägt) sagt, warum | Lies den Code unten. Nichts Abgelehntes wird eingereiht |
+
+| `error.code` | Wann |
+|---|---|
+| `PLUGIN_ERROR_BAD_ARGUMENTS` | Der Text ist leer, sobald unsichtbare Zeichen entfernt sind, oder länger als **300 Zeichen** (`speak_text_max_chars` in `spec/limits.yaml`). Ein längerer Text wird abgelehnt, nie gekürzt |
+| `PLUGIN_ERROR_RATE_LIMITED` | Deine Sprechzeit ist aufgebraucht. Sie wird in Zeichen bemessen — **450 auf einmal, danach 3 pro Sekunde**, jeder Aufruf kostet mindestens 20 —, und `retry_after_ms` sagt, wann wieder Platz ist |
+| `PLUGIN_ERROR_UNAVAILABLE` | Die Person hat Astras Stimme ausgeschaltet, Astra ist gesperrt, es gibt keine Stimme, oder die Sprachwarteschlange konnte es nicht aufnehmen. Zeig stattdessen den Text; bitte die Person nicht, das zu ändern |
+
+Deine Worte reihen sich hinter deine eigenen früheren ein, auf einer eigenen Spur, sodass sie nie eine von Astras Antworten unterbrechen. `StopSpeaking` hält alles an, was du sagen lassen wolltest — was gerade erklingt und was noch wartet —, und nichts sonst; es teilt sich die Permission `speak` und funktioniert, ob jemand angemeldet ist oder nicht. Die Grenzen sind die des Daemons: Die SDKs exportieren `SPEAK_TEXT_MAX_CHARS`, damit du einen Zähler anzeigen kannst, und prüfen selbst nichts. Ein Astra, das älter als dieser Aufruf ist, antwortet mit `UNIMPLEMENTED`.
+
+## Wissen, wer Astra benutzt
+
+Ein Plugin, das die Nutzung pro Person oder pro Rechner begrenzt — eine Testphase, ein Kontingent, eine Lizenz —, braucht für jede eine stabile ID. **Frag Astra danach; lies nie eine Hardware-Seriennummer oder Astras Dateien.** Deklariere `read_user_identity` und rufe `GetUserIdentity` auf (`get_user_identity()` in Rust und Python, `ctx.getUserIdentity()` in TypeScript):
+
+| Feld | Was es ist |
+|---|---|
+| `install_id` | Diese Installation von Astra: gleich über Neustarts und Updates von Astra und deinem Plugin hinweg, anders auf einer anderen Installation. Leer, solange Astra noch keinen Installationsschlüssel hat |
+| `signed_in` | Eine Person ist bei Astra angemeldet |
+| `authorized` | …und ihr Konto schaltet Astra frei |
+| `account_id` | Das angemeldete Konto: gleich auf jedem Gerät, auf dem sich die Person anmeldet. Leer, außer bei `authorized` |
+
+Beide IDs sind **Pseudonyme, nur für dein Plugin erzeugt**: Ein anderes Plugin liest für dieselbe Person und denselben Rechner andere IDs, sodass zwei Plugins ihre Datensätze nicht darüber verknüpfen können. Das gilt gegenüber Plugins, die diese API ehrlich nutzen: nativer Plugin-Code kann die Dateien von Astra lesen. Keine ist geheim, und keine ist je die eigene ID des Kontos, der Name oder die E-Mail-Adresse der Person oder eine Hardware-Seriennummer. Die Permission ist weder hochriskant noch bei einem lokalen Import abgelehnt: Sie ist die ehrliche Alternative zu einer Seriennummer des Rechners, und ein hoher Preis würde ein Plugin zu einer solchen zurücktreiben. Ein Astra, das älter als dieser Aufruf ist, antwortet mit `UNIMPLEMENTED`.
+
+**`auth_changed` ist entsprechend eingeschränkt** (Astra, 2026-11-12). Ein Plugin, dem das Event `auth_changed` gewährt ist, erhielt früher die eigene ID des Kontos, den Anzeigenamen der Person und ihren Tarif. Jetzt erhält es `authenticated`, `authorized`, `timestamp` und `account_id` — dasselbe Pseudonym, das `GetUserIdentity` liefert, und `""`, außer du hältst `read_user_identity` und das Konto schaltet Astra frei. `user_id` und `user_name` kommen weiterhin an, als `null`, und `subscription_tier` als `""`, damit ein Parser für die alte Form weiter parst; keines davon trägt noch einen Wert.
 
 ## Einen Reason schreiben
 
@@ -244,7 +283,7 @@ Vollständige Tabelle und Begründung:
 
 ## Zustimmung, aus Sicht des Nutzers
 
-Permissions sind nach Risiko gruppiert. Die fünf hochriskanten bekommen
+Permissions sind nach Risiko gruppiert. Die sechs hochriskanten bekommen
 jeweils eine eigene Checkbox, und „Installieren" bleibt deaktiviert, bis
 jede angehakt ist; `dom_access` bekommt einen zweiten Bildschirm. Es gibt
 absichtlich **kein Tippen-zum-Bestätigen**: das ist das Muster für

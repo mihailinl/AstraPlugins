@@ -44,7 +44,7 @@ RPC を述べます。2 つの問い、2 つのセクション; ケーパビリ�
 
    <!-- doctest: output from="astra-plugin check --strict ." unrun="needs a plugin project in the working directory; re-run it in your own plugin" -->
    ```
-     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings
+     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings, speak, read_user_identity
      FAILED: 1 warning(s), and --strict treats warnings as errors
    ```
 
@@ -65,7 +65,7 @@ RPC を述べます。2 つの問い、2 つのセクション; ケーパビリ�
 何も守らないチェックボックスは、ユーザーがチェックボックスにチェックを
 入れることを学習してしまう原因です。
 
-## 9 つの id
+## 11 個の id
 
 | Id | ゲートする対象 | 専用チェックボックス | ローカルインポートで拒否される | 何ができるようになるか |
 |---|---|---|---|---|
@@ -78,6 +78,8 @@ RPC を述べます。2 つの問い、2 つのセクション; ケーパビリ�
 | `dom_access` | — (サーフェス) | **あり** | **あり** | 会話やすべての他プラグインのインターフェースへのアクセスを伴い、Astra ウィンドウ内であなたのコードを実行する |
 | `client` | — (サーフェス) | **あり** | **あり** | 独自のセッションを持つチャットフロントエンドになる |
 | `read_ai_settings` | `GetAiSettings` | なし | なし | ユーザーのチャットのプロバイダー、モデル、エンドポイントを読む(キーは含まない) |
+| `speak` | `Speak`, `StopSpeaking` | **あり** | なし | 自分の言葉を Astra の声で読み上げ、それを止める |
+| `read_user_identity` | `GetUserIdentity` | なし | なし | このインストールとサインイン中のアカウントの、自分のプラグイン専用に作られた仮名 ID を読む |
 
 `dom_access` と `client` はどの RPC もゲートしません。それがまさに
 ポイントです: これらは**サーフェス**です。`dom_access` は、UI コントリビュー
@@ -136,6 +138,43 @@ fire_trigger = { reason = "Fires meeting_summarised when a summary is ready" }
 | `is_loopback` | エンドポイントがこのマシン上にある(`127.0.0.0/8`、`::1`、`localhost`) — ローカルモデル |
 
 API キー、ユーザーが保存した他のエンドポイント、システムプロンプト、チャット以外のロールは決して含まれません。キーが必要なプラグインは、自分の `[config]` でユーザーに尋ねてください(シークレットとして印を付けます)。これは高リスクでもなく、ローカルインポートに対して拒否されることもありません: この情報への誠実な道であり、`settings.json` を読むより高く値付けすればプラグインを誤った方向へ押しやります。Astra 自身のファイルを読むことは、公開時の人間によるレビューが探すものです。この呼び出しより古い Astra は `UNIMPLEMENTED` を返します。
+
+## Astra の声で話す
+
+知らせたいことがあるプラグイン — タイマー、終わったビルド、届いたメッセージ — は、それを Astra に言わせることができます。`speak` を宣言し、`Speak`(Rust と Python では `speak(text)`、TypeScript では `ctx.speak(text)`)を呼びます。
+
+`speak` は**高リスク**です: あなたの言葉は Astra の声で、まるで Astra が言ったかのように聞こえるため、専用の同意チェックボックスを持ちます。ローカルインポートに対して拒否されることはありません — アナウンスはプラグインが望むごく普通のことであり、チェックボックスがその判断です。許可に加えて、`Speak` には **Astra を利用できるアカウント**と、**本人の応答音声がオンであること**が必要です。Astra がロックされている間は拒否されます。
+
+呼び出しは発話が続く間だけ続き、それがどうなったかを返します:
+
+| 結果 | 意味 | どうするか |
+|---|---|---|
+| `SPOKEN` | 聞き届けられた | 何もしない |
+| `STOPPED` | 終わる前に静かにするよう求められた: ウェイクワード、応答音声のオフ、停止、あなた自身の `StopSpeaking` | 何もしない — **エラーではありません**。頼まれていないのにもう一度言わないでください |
+| `NOT_SPOKEN` | 言われなかった。`error`(チャットのチャンクが運ぶのと同じ `PluginError`)が理由を示す | 下のコードを読んでください。拒否されたものはキューに入りません |
+
+| `error.code` | いつ |
+|---|---|
+| `PLUGIN_ERROR_BAD_ARGUMENTS` | 不可視文字を取り除くとテキストが空になる、または **300 文字**(`spec/limits.yaml` の `speak_text_max_chars`)より長い。長いテキストは拒否され、切り詰められることはありません |
+| `PLUGIN_ERROR_RATE_LIMITED` | 発話時間を使い切った。文字数で割り当てられます — **一度に 450、その後は毎秒 3**、1 回の呼び出しは最低 20 — そして `retry_after_ms` が、いつまた余裕ができるかを示します |
+| `PLUGIN_ERROR_UNAVAILABLE` | 本人が Astra の音声をオフにした、Astra がロックされている、音声がない、または発話キューが受け付けられなかった。代わりにテキストを表示してください。本人に設定を変えるよう求めないでください |
+
+あなたの言葉は、あなた自身の以前の言葉の後ろに、専用のレーンで並ぶので、Astra の応答を遮ることはありません。`StopSpeaking` は、あなたが言わせようとしたもの — 鳴っているものもキューにあるものも — をすべて止め、それ以外は何も止めません。`speak` パーミッションを共有し、誰かがサインインしているかどうかに関係なく動作します。上限はデーモンのものです: SDK はカウンターを表示できるよう `SPEAK_TEXT_MAX_CHARS` をエクスポートしますが、自分では何もチェックしません。この呼び出しより古い Astra は `UNIMPLEMENTED` を返します。
+
+## 誰が Astra を使っているかを知る
+
+人やマシンごとに利用を制限するプラグイン — 試用期間、クォータ、ライセンス — には、それぞれの安定した id が必要です。**Astra に尋ねてください。ハードウェアのシリアル番号や Astra のファイルは決して読まないでください。** `read_user_identity` を宣言し、`GetUserIdentity`(Rust と Python では `get_user_identity()`、TypeScript では `ctx.getUserIdentity()`)を呼びます:
+
+| フィールド | 内容 |
+|---|---|
+| `install_id` | この Astra のインストール。Astra とあなたのプラグインの再起動やアップデートをまたいで同じで、別のインストールでは異なる。Astra にまだインストールキーがない間は空 |
+| `signed_in` | 誰かが Astra にサインインしている |
+| `authorized` | …そしてそのアカウントで Astra を利用できる |
+| `account_id` | サインイン中のアカウント。本人がサインインするどのデバイスでも同じ。`authorized` でなければ空 |
+
+どちらの id も**あなたのプラグイン専用に作られた仮名**です: 別のプラグインは同じ人、同じマシンに対して異なる id を読むので、2 つのプラグインがそれを使って記録を突き合わせることはできません。これはこの API を誠実に使うプラグインに対して成り立つことです: プラグインのネイティブコードは Astra のファイルを読めます。どちらも秘密ではなく、アカウント自身の id、本人の名前やメールアドレス、ハードウェアのシリアル番号であることも決してありません。高リスクではなく、ローカルインポートに対して拒否されることもありません: マシンのシリアル番号に代わる誠実な手段であり、高く値付けすればプラグインをそこへ押し戻してしまいます。この呼び出しより古い Astra は `UNIMPLEMENTED` を返します。
+
+**`auth_changed` もそれに合わせて絞られました**(Astra、2026-11-12)。`auth_changed` イベントを許可されたプラグインは、以前はアカウント自身の id、本人の表示名、そのプランを受け取っていました。今は `authenticated`、`authorized`、`timestamp`、`account_id` を受け取ります — `GetUserIdentity` が返すのと同じ仮名で、あなたが `read_user_identity` を持ち、かつアカウントで Astra を利用できる場合を除いて `""` です。`user_id` と `user_name` は引き続き `null` として、`subscription_tier` は `""` として届くので、古い形式向けに書かれたパーサーはそのまま解析できます。どれももう値を運びません。
 
 ## reason を書く
 
@@ -243,7 +282,7 @@ mod tests {
 
 ## 同意、ユーザー側の視点から
 
-パーミッションはリスクによってグループ化されています。5 つの高リスクな
+パーミッションはリスクによってグループ化されています。6 つの高リスクな
 ものはそれぞれ独自のチェックボックスを持ち、そのすべてにチェックが入る
 までインストールは無効のままです; `dom_access` には 2 つ目の画面が
 あります。意図的に**タイプして確認**というパターンは**ありません**: それは

@@ -145,6 +145,64 @@ test("ctx.getAiSettings() without a host is the usual no-host error", async () =
   await assert.rejects(() => h.plugin.ctx().getAiSettings(), /not registered with one/);
 });
 
+test("ctx.speak() reaches the recording host, which records the text and answers SPOKEN", async () => {
+  const host = new RecordingHost("demo");
+  const h = await Harness.create(demo().app).withHost(host).start();
+  assert.deepEqual(await h.plugin.ctx().speak("The kettle has boiled."), { outcome: "SPOKEN" });
+  await h.plugin.ctx().stopSpeaking();
+  assert.deepEqual(host.spoken(), ["The kettle has boiled."]);
+  assert.equal(host.stopCount(), 1);
+});
+
+test("a NOT_SPOKEN answer surfaces its error to the plugin, and the text is still recorded", async () => {
+  const host = new RecordingHost("demo");
+  host.speakResult = {
+    outcome: "NOT_SPOKEN",
+    error: {
+      code: "PLUGIN_ERROR_RATE_LIMITED",
+      message: "this plugin has used its speaking time",
+      hint: "",
+      configField: "",
+      retryAfterMs: 1500,
+      docUrl: "",
+    },
+  };
+  const h = await Harness.create(demo().app).withHost(host).start();
+  const said = await h.plugin.ctx().speak("Again.");
+  assert.equal(said.outcome, "NOT_SPOKEN");
+  assert.equal(said.error.code, "PLUGIN_ERROR_RATE_LIMITED");
+  assert.equal(said.error.retryAfterMs, 1500);
+  assert.deepEqual(host.spoken(), ["Again."]);
+});
+
+test("ctx.getUserIdentity() round-trips what the recording host answers", async () => {
+  const host = new RecordingHost("demo");
+  host.userIdentity = { installId: "install-x", signedIn: true, authorized: false, accountId: "" };
+  const h = await Harness.create(demo().app).withHost(host).start();
+  assert.deepEqual(await h.plugin.ctx().getUserIdentity(), host.userIdentity);
+});
+
+test("ctx.speak / stopSpeaking / getUserIdentity say plainly when the host predates them", async () => {
+  // All three are optional on `Host` (additive); the context throws instead of
+  // an author writing `?.()`.
+  const host = new RecordingHost("demo");
+  host.speak = undefined;
+  host.stopSpeaking = undefined;
+  host.getUserIdentity = undefined;
+  const h = await Harness.create(demo().app).withHost(host).start();
+  await assert.rejects(() => h.plugin.ctx().speak("x"), /does not implement speak \(Speak\)/);
+  await assert.rejects(() => h.plugin.ctx().stopSpeaking(), /does not implement stopSpeaking/);
+  await assert.rejects(() => h.plugin.ctx().getUserIdentity(), /does not implement getUserIdentity/);
+});
+
+test("a denied speak grant is a rejection, not an outcome", async () => {
+  const host = new RecordingHost("demo");
+  host.failAlways("speak", new Error("permission denied: speak"));
+  const h = await Harness.create(demo().app).withHost(host).start();
+  await assert.rejects(() => h.plugin.ctx().speak("x"), /permission denied: speak/);
+  assert.deepEqual(host.spoken(), []);
+});
+
 test("without a host, a handler that reaches for the daemon says so", async () => {
   // Not a silent no-op: the convenience wrappers on `Plugin` swallow a missing
   // host, and a trigger that did not fire and said nothing is the failure that

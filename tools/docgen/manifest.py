@@ -536,11 +536,14 @@ def _render_permissions(
             f"{SRC['permissions']}: HIGH_RISK_PERMISSIONS / TIER2_REFUSED_PERMISSIONS not found."
         )
 
-    gates = {
-        h["permission"]: h["rpc"]
-        for h in doc["hooks"]
-        if h["service"] == "PluginHostService" and h.get("permission", "none") != "none"
-    }
+    # permission -> every host RPC it gates, in spec order. A list, not one
+    # name: `speak` gates both `Speak` and `StopSpeaking`, and a dict keyed on
+    # the permission kept only the LAST row — the page then said `speak`
+    # gated `StopSpeaking` alone.
+    gates: dict[str, list[str]] = {}
+    for h in doc["hooks"]:
+        if h["service"] == "PluginHostService" and h.get("permission", "none") != "none":
+            gates.setdefault(h["permission"], []).append(h["rpc"])
 
     out = [
         "Each key is a permission id and each value is a table.",
@@ -559,8 +562,9 @@ def _render_permissions(
             raise DocgenError(
                 f"{SRC['permissions']}: `Permission::{variant.name}` has no arm in `fn id`."
             )
+        gated = ", ".join(code(rpc) for rpc in gates.get(wire, [])) or code("")
         out.append(
-            f"| `{wire}` | {code(gates.get(wire, ''))} | "
+            f"| `{wire}` | {gated} | "
             f"{'**yes**' if variant.name in high_risk else 'no'} | "
             f"{'**yes**' if variant.name in tier2 else 'no'} | "
             f"{cell(_permission_summary(variant.doc))} |"
@@ -593,12 +597,13 @@ def _render_permissions(
 
 
 def _permission_summary(doc: str) -> str:
-    """A variant's doc, minus the leading `Service.Rpc —` it usually opens with.
+    """A variant's doc, minus the leading `Service.Rpc —` it usually opens with
+    (or `Service.Rpc` / `Rpc —`, for a permission that gates two RPCs).
 
     The RPC is already its own column, and repeating it there would push the
     sentence that says what the permission *grants* off the end of the row.
     """
-    text = re.sub(r"^`[\w.]+`\s*[—-]\s*", "", first_sentence(doc))
+    text = re.sub(r"^`[\w.]+`(?:\s*/\s*`[\w.]+`)*\s*[—-]\s*", "", first_sentence(doc))
     return text[:1].upper() + text[1:] if text else text
 
 

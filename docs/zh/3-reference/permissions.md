@@ -37,7 +37,7 @@
 
    <!-- doctest: output from="astra-plugin check --strict ." unrun="needs a plugin project in the working directory; re-run it in your own plugin" -->
    ```
-     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings
+     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings, speak, read_user_identity
      FAILED: 1 warning(s), and --strict treats warnings as errors
    ```
 
@@ -56,7 +56,7 @@
 `GetDaemonInfo` 是免费的，这是一个决定，不是疏漏：一个什么都保护不了的
 勾选框，只会教会用户去随手勾选各种框。
 
-## 九个 id
+## 十一个 id
 
 | Id | 限制哪个调用 | 有独立的勾选框 | 在本地导入时被拒绝 | 它能让你做什么 |
 |---|---|---|---|---|
@@ -69,6 +69,8 @@
 | `dom_access` | —（一个界面层） | **是** | **是** | 在 Astra 窗口内运行你的代码，能访问对话内容以及每一个其他插件的界面 |
 | `client` | —（一个界面层） | **是** | **是** | 成为一个拥有自己会话的聊天前端 |
 | `read_ai_settings` | `GetAiSettings` | 否 | 否 | 读取用户聊天所用的提供方、模型和端点——绝不包含密钥 |
+| `speak` | `Speak`, `StopSpeaking` | **是** | 否 | 用 Astra 的声音说出你自己的话，并能让它停下 |
+| `read_user_identity` | `GetUserIdentity` | 否 | 否 | 读取这次安装和已登录账号的假名 id，专为你的插件生成 |
 
 `dom_access` 和 `client` 不限制任何 RPC，这正是关键所在：它们是
 **界面层(surface)**。`dom_access` 决定一个 UI 贡献是被渲染为 Astra
@@ -125,6 +127,43 @@ fire_trigger = { reason = "Fires meeting_summarised when a summary is ready" }
 | `is_loopback` | 端点就在本机（`127.0.0.0/8`、`::1`、`localhost`）——本地模型 |
 
 它从不携带 API 密钥、用户保存的其他端点、系统提示词，也不携带聊天以外的任何角色。需要密钥的插件应在自己的 `[config]` 里向用户索取（标记为 secret）。它既不是高风险，也不会在本地导入时被拒绝：这是获取这些信息的诚实途径，把它定得比读取 `settings.json` 更高，只会把插件推向错误的方向。读取 Astra 自己的文件是发布时人工审核会查的内容。早于该调用的 Astra 会返回 `UNIMPLEMENTED`。
+
+## 用 Astra 的声音说话
+
+有事要播报的插件——一个计时器、一次完成的构建、一条刚到的消息——可以让 Astra 把它说出来。声明 `speak`，然后调用 `Speak`（Rust 和 Python 中是 `speak(text)`，TypeScript 中是 `ctx.speak(text)`）。
+
+`speak` 是**高风险**权限：你的话会以 Astra 的声音被听到，就像是 Astra 说的一样，所以它有自己独立的同意勾选框。它不会在本地导入时被拒绝——播报是插件很常见的需求，勾选框就是那个决定。除了授权之外，`Speak` 还需要**一个有权使用 Astra 的账号**，以及**本人开启了回复语音**；Astra 锁定期间它会被拒绝。
+
+这个调用会持续到语音结束，并返回语音的结果：
+
+| 结果 | 含义 | 该怎么做 |
+|---|---|---|
+| `SPOKEN` | 已被听到 | 什么都不用做 |
+| `STOPPED` | 在说完之前有人要求安静：唤醒词、关闭回复语音、停止、你自己的 `StopSpeaking` | 什么都不用做——**这不是错误**。不要在没人要求时再说一遍 |
+| `NOT_SPOKEN` | 没有说出来；`error`（与聊天分块携带的同一个 `PluginError`）说明原因 | 查看下面的代码。被拒绝的内容不会进入队列 |
+
+| `error.code` | 何时 |
+|---|---|
+| `PLUGIN_ERROR_BAD_ARGUMENTS` | 去掉不可见字符后文本为空，或超过 **300 个字符**（`spec/limits.yaml` 中的 `speak_text_max_chars`）。更长的文本会被拒绝，绝不会被截断 |
+| `PLUGIN_ERROR_RATE_LIMITED` | 你的说话时间用完了。它按字符计算——**一次 450 个，之后每秒 3 个**，每次调用至少计 20 个——`retry_after_ms` 告诉你何时再有余量 |
+| `PLUGIN_ERROR_UNAVAILABLE` | 本人关闭了 Astra 的语音、Astra 已锁定、没有可用的语音，或者语音队列无法接收它。改为显示这段文本；不要要求本人去更改设置 |
+
+你的话会排在你自己之前的话后面，走一条独立的通道，所以它们绝不会打断 Astra 的回复。`StopSpeaking` 会停止你要求说出的一切——正在播放的和排队中的——此外什么都不停；它与 `speak` 共用同一个权限，无论是否有人登录都能使用。限制由守护进程执行：SDK 导出 `SPEAK_TEXT_MAX_CHARS` 以便你显示一个计数器，自身不做任何检查。早于该调用的 Astra 会返回 `UNIMPLEMENTED`。
+
+## 知道谁在使用 Astra
+
+按人或按机器限制使用的插件——试用期、配额、许可证——需要为每个人或每台机器提供一个稳定的 id。**向 Astra 询问；绝不要读取硬件序列号或 Astra 的文件。** 声明 `read_user_identity`，然后调用 `GetUserIdentity`（Rust 和 Python 中是 `get_user_identity()`，TypeScript 中是 `ctx.getUserIdentity()`）：
+
+| 字段 | 含义 |
+|---|---|
+| `install_id` | 这次 Astra 安装：在 Astra 和你的插件重启、更新之后保持不变，在另一次安装上则不同。Astra 还没有安装密钥时为空 |
+| `signed_in` | 有人登录了 Astra |
+| `authorized` | ……并且其账号有权使用 Astra |
+| `account_id` | 已登录的账号：在本人登录的每台设备上都相同。除非 `authorized`，否则为空 |
+
+两个 id 都是**专为你的插件生成的假名**：另一个插件对同一个人、同一台机器读到的是不同的 id，因此两个插件无法凭它们把各自的记录关联起来。这只对诚实使用该 API 的插件成立：插件的原生代码可以读取 Astra 的文件。它们都不是秘密，也绝不会是账号本身的 id、本人的姓名或电子邮件，或硬件序列号。它既不是高风险，也不会在本地导入时被拒绝：这是机器序列号的诚实替代方案，把它定得太高只会把插件推回序列号。早于该调用的 Astra 会返回 `UNIMPLEMENTED`。
+
+**`auth_changed` 也随之收窄**（Astra，2026-11-12）。被授予 `auth_changed` 事件的插件，过去会收到账号本身的 id、本人的显示名称和其套餐。现在它收到的是 `authenticated`、`authorized`、`timestamp` 和 `account_id`——与 `GetUserIdentity` 返回的是同一个假名；除非你持有 `read_user_identity` 且该账号有权使用 Astra，否则为 `""`。`user_id` 和 `user_name` 仍然会到达，值为 `null`，`subscription_tier` 为 `""`，这样为旧格式编写的解析器仍能继续解析；它们都不再携带任何值。
 
 ## 编写 reason
 
@@ -227,7 +266,7 @@ mod tests {
 
 ## 从用户的角度看同意机制
 
-权限按风险分组。五种高风险权限各自有独立的勾选框，只要还有一个没被
+权限按风险分组。六种高风险权限各自有独立的勾选框，只要还有一个没被
 勾选，"安装"按钮就保持禁用；`dom_access` 还会有第二个界面。这里刻意
 **没有"输入以确认"**这种设计：那是用于不可逆的破坏性操作的模式，让用户
 习惯于打字敲过去，只会摧毁勾选框本应承载的那个信号。

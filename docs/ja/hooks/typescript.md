@@ -70,6 +70,9 @@
 | `SendChatMessage` | `client` | `send_chat_message` | required | server | stable | このプラグインとしてチャットメッセージを送信し、アシスタントの返信をストリームで受け取ります。 |
 | `PushToUi` | `ui_contributions` | `push_to_ui` | optional | unary | stable | このプラグイン自身の iframe にイベントを push します — CallFromUi の戻り経路です。 |
 | `GetAiSettings` | `core` | `read_ai_settings` | optional | unary | stable | ユーザーのチャットのプロバイダー、モデル、エンドポイント(キーは含まない)。プラグインが Astra のファイルを読まずに済む。 |
+| `Speak` | `core` | `speak` | optional | unary | stable | プラグイン自身の言葉を Astra の声で読み上げます。言い終えた、止められた、または拒否された時点で応答します。 |
+| `StopSpeaking` | `core` | `speak` | optional | unary | stable | このプラグインが言わせようとしたもの — 鳴っているものもキューにあるものも — をすべて止め、Astra が話している他のものは何も止めません。 |
+| `GetUserIdentity` | `core` | `read_user_identity` | optional | unary | stable | このインストールとサインイン中のアカウントの、このプラグイン専用に作られた仮名 ID。アカウント自身の id、名前、メールアドレス、ハードウェアのシリアル番号であることは決してありません。 |
 | `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | unary | stable | アクティブな Astra テーマに色、壁紙、シェーダーを提供します。 |
 
 ## ギャップ

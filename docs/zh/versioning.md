@@ -111,6 +111,11 @@ minor，那么每次同步都会是 minor，minor 槽位也就不再意味着"�
 | Rust：`compat::HostClient` / `DaemonClient` 别名 | 0.6.0 | 0.8.0 | `ctx.host()` / `ctx.daemon()` |
 | Python：在期望某个能力(capability)数据类的地方使用 `dict` | 0.5.0 | 0.7.0 | 对应的数据类 —— `VoiceInfo`、`ToolDef` 等 —— 或其 `to_proto()` |
 | TypeScript：`UiPanel` 类型别名 | 0.5.0 | 0.7.0 | `UiContribution` |
+| Rust：`DaemonClient` | 0.7.5 | 0.9.0 | `ctx.host()` — `send_chat_message`, `speak`, `subscribed_events()`, `get_user_identity` |
+| Python：`DaemonClient` | 0.6.5 | 0.8.0 | `self.host` — `send_chat_message`, `speak`, `subscribe_events`, `get_user_identity` |
+| TypeScript：`DaemonClient` | 0.7.4 | 0.9.0 | `ctx.host` 以及上下文辅助函数——`ctx.sendChatMessage()`、`ctx.speak()`、`ctx.getUserIdentity()` |
+
+`DaemonClient` 在三个 SDK 中被弃用，原因属于另一类：自 SDK 0.5.0 起它就什么也不做。Astra 只在 `PluginHostService` 上接受插件的会话令牌，别处一概不收，所以它发出的每个调用都会被拒绝。它被弃用而不是被删除，是为了让引用它的代码继续能编译；原本能工作的东西不会停止工作。
 
 有一项弃用被撤回而非完成：钩子 `AiGetModels` 曾因没有任何守护进程询问它而在 0.6.0 中被弃用，如今 Astra 会向每个 AI 提供者询问其模型列表，它重新成为 live（Rust SDK 0.7.5、Python 0.6.5、TypeScript 0.7.4）。没有删除任何东西，保留了绑定的插件照常工作。
 
@@ -168,6 +173,14 @@ spec/hooks.yaml is malformed:
 - **守护进程自身的行为。** Astra 的 UI、它的配置布局、它的内部服务，都
   不是插件 API。插件可以依赖的只有协议、`spec/hooks.yaml` 中的钩子，以及
   清单文件中的权限。
+- **事件的载荷携带什么。** 事件的 `payload_json` 由守护进程按每个读取者决定，
+  可以在任何一次 Astra 发布中收窄，而不需要发布 SDK。实际的例子：自 Astra
+  2026-11-12 起，`auth_changed` 携带 `authenticated`、`authorized`、
+  `timestamp` 和 `account_id`——一个为你的插件生成的假名；除非插件持有
+  `read_user_identity` 且该账号有权使用 Astra，否则为 `""`。账号本身的 id、
+  本人的姓名和其套餐不再发送：`user_id` 和 `user_name` 以 `null` 到达，
+  `subscription_tier` 以 `""` 到达，保留它们只是为了让旧的解析器继续解析。参见
+  [知道谁在使用 Astra](3-reference/permissions.md#知道谁在使用-astra)。
 - **任何标记为 `#[doc(hidden)]`、`_private`，或专为测试工具导出的内容。**
   这些可以在 patch 版本中改变。
 - **`unrouted` 的钩子。** 一个钩子可以同时存在于 proto 和全部三个 SDK 中，

@@ -20,6 +20,7 @@
  */
 
 import type * as grpc from "@grpc/grpc-js";
+import type { PluginErrorDetail } from "./errors.js";
 import type { ChatChunk, ThemeContribution } from "./types.js";
 
 /** Info about the running daemon. */
@@ -53,6 +54,58 @@ export interface AiSettings {
   isLoopback: boolean;
 }
 
+/**
+ * What became of one `speak` — `PluginSpeechOutcome`, without its prefix.
+ *
+ * - `"SPOKEN"` — it was heard.
+ * - `"STOPPED"` — silence was asked for before it finished: the wake word,
+ *   reply voice turned off, Stop, this plugin's own `stopSpeaking()`. **Not an
+ *   error**; do not say it again unasked.
+ * - `"NOT_SPOKEN"` — it was not said; `SpeakResult.error` says why.
+ * - `"UNSPECIFIED"` — an outcome this SDK does not know (a newer Astra), or
+ *   none at all. Never invented as one of the three above.
+ */
+export type SpeechOutcome = "SPOKEN" | "STOPPED" | "NOT_SPOKEN" | "UNSPECIFIED";
+
+/** The answer of `Speak`: `PluginSpeakResponse`. */
+export interface SpeakResult {
+  outcome: SpeechOutcome;
+  /**
+   * Set with `"NOT_SPOKEN"`, absent otherwise — the same `PluginErrorDetail` a
+   * chat chunk's `errorDetail` carries. `code` is the proto name:
+   * `PLUGIN_ERROR_BAD_ARGUMENTS` (empty, or longer than
+   * `limits.SPEAK_TEXT_MAX_CHARS` characters — refused, never cut),
+   * `PLUGIN_ERROR_RATE_LIMITED` with `retryAfterMs` (this plugin's speaking
+   * time is used up), `PLUGIN_ERROR_UNAVAILABLE` (voice off, Astra locked, no
+   * voice). Nothing refused is queued.
+   */
+  error?: PluginErrorDetail;
+}
+
+/**
+ * Who is using Astra, as THIS plugin may know it — `PluginUserIdentity`, the
+ * answer of `GetUserIdentity`. Both ids are pseudonyms made for this plugin
+ * alone: another plugin reads different ones for the same person and machine
+ * (against plugins that use this API honestly — native plugin code can read
+ * Astra's files, and neither id is a secret). Never the account's own id, a
+ * name, an email or a hardware serial.
+ */
+export interface UserIdentity {
+  /** This installation of Astra, stable across restarts and updates; `""` while Astra has no installation key. */
+  installId: string;
+  /** A person is signed in to Astra. */
+  signedIn: boolean;
+  /** …and their account opens Astra. */
+  authorized: boolean;
+  /**
+   * The signed-in account, the same on every device the person signs in on;
+   * `""` unless `authorized`. The same value arrives on this plugin's
+   * `auth_changed` events as `payload.account_id` (event payloads keep the
+   * daemon's snake_case keys).
+   */
+  accountId: string;
+}
+
 export interface Host {
   /** Fire one of this plugin's declared trigger types. Needs `fire_trigger`. */
   fireTrigger(triggerType: string, payloadJson?: string): Promise<void>;
@@ -79,6 +132,34 @@ export interface Host {
    * all implement it.
    */
   getAiSettings?(): Promise<AiSettings>;
+
+  /**
+   * Say `text` aloud in Astra's voice, and resolve once it was said, stopped
+   * or refused — see `SpeakResult`. Needs `speak` (**high-risk**: the words are
+   * heard as Astra's) and, besides the grant, an account that opens Astra. A
+   * missing grant, an account that does not open Astra, or an Astra older than
+   * this RPC (`UNIMPLEMENTED`) rejects like every host call. Reply voice off,
+   * a locked Astra or a full speech queue resolve `NOT_SPOKEN` with
+   * `UNAVAILABLE`.
+   *
+   * Optional, like `getAiSettings`, so a `Host` written before it keeps
+   * compiling; plugin code calls `ctx.speak()`.
+   */
+  speak?(text: string): Promise<SpeakResult>;
+
+  /**
+   * Stop everything this plugin asked to be said, sounding and queued, and
+   * nothing else Astra is saying. Needs `speak`. Optional; call
+   * `ctx.stopSpeaking()`.
+   */
+  stopSpeaking?(): Promise<void>;
+
+  /**
+   * Pseudonyms for this installation and the signed-in account, made for this
+   * plugin alone — see `UserIdentity`. Needs `read_user_identity`. Optional;
+   * call `ctx.getUserIdentity()`.
+   */
+  getUserIdentity?(): Promise<UserIdentity>;
 
   /** Publish a variable commands and other plugins can read. Needs `set_variable`. */
   setVariable(name: string, value: string, scope?: string): Promise<void>;

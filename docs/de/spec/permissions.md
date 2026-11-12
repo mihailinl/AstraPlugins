@@ -25,7 +25,7 @@ durch bloße Deklaration selbst gewährte.
 
 ## 1. Das Vokabular
 
-Acht IDs, eine geschlossene Menge (`astra-plugin-manifest/src/permissions.rs`,
+Elf IDs, eine geschlossene Menge (`astra-plugin-manifest/src/permissions.rs`,
 `PERMISSION_NAMES`, per Test an das Enum gepinnt). Die Registry
 validiert die IDs eines Listings gegen diese Liste, und Astras
 lokalisierte Label-Tabelle ist danach indexiert, eine an einer Stelle
@@ -43,14 +43,27 @@ leere Zeile.
 | `dom_access` | *kein RPC* — eine **Surface** | das eigene Skript des Plugins im Astra-Fenster ausführen, mit Zugriff auf die Unterhaltungen des Nutzers und die Oberfläche jedes anderen Plugins | ● |
 | `client` | *kein RPC* — eine **Surface** | als Client-Frontend agieren: eigene Chat-Oberfläche, eigene Session | ● |
 | `read_ai_settings` | `GetAiSettings` | Provider, Modell und Endpunkt des Chats lesen — nie einen Schlüssel, nie eine andere Rolle, nie die gespeicherten Endpunkte des Nutzers | |
+| `speak` | `Speak`, `StopSpeaking` | die eigenen Worte des Plugins mit Astras Stimme laut aussprechen und sie anhalten; `Speak` braucht zusätzlich ein Konto, das Astra freischaltet | ● |
+| `read_user_identity` | `GetUserIdentity` | Pseudonyme für diese Installation und das angemeldete Konto lesen, nur für das aufrufende Plugin erzeugt — nie die eigene ID des Kontos, ein Name, eine E-Mail-Adresse oder eine Hardware-Seriennummer | |
 
-**Die fünf mit ● markierten sind hochriskant** (`HIGH_RISK_PERMISSIONS`)
+**Die sechs mit ● markierten sind hochriskant** (`HIGH_RISK_PERMISSIONS`)
 und bekommen jeweils eine eigene Zustimmungs-Checkbox. §4.3 des Plans
 buchstabiert vier Checkboxen aus und lässt `push_to_ui` weg; §5.6
 listet fünf. Die Implementierung nimmt die **Vereinigung**, weil die
 Uneinigkeit zwischen einem UI-Absatz und dem Sicherheitsabschnitt
 besteht, und eine Checkbox zu viel kostet einen Klick, während eine zu
 wenig die Eigenschaft kostet.
+`speak` kam am 2026-11-12 dazu: Die Worte des Plugins werden als Astras
+gehört. Es wird einem Stufe-2-Import nicht verweigert (§5) — eine Ansage
+ist etwas Gewöhnliches, das ein Plugin wollen kann, und die Checkbox ist
+die Entscheidung.
+
+`speak` ist die eine ID, die zwei RPCs sperrt: Die eigene Sprachausgabe
+anzuhalten gehört zum Sprechen. `read_ai_settings` und `read_user_identity`
+sind absichtlich weder hochriskant noch auf Stufe 2 abgelehnt — jede ist der
+ehrliche Weg zu Informationen, die sich ein Plugin sonst aus Astras Dateien
+oder vom Rechner selbst holen würde, und den ehrlichen Weg teurer zu machen
+als den unehrlichen schiebt Plugins in die falsche Richtung.
 
 **`dom_access` und `client` sperren kein RPC**, genau deshalb brauchen
 sie einen zweiten Durchsetzungspunkt: sie werden dort durchgesetzt, wo
@@ -139,6 +152,9 @@ neues RPC ein Testfehlschlag ist statt eine stille Auslassung:
 | `SetThemeContribution` | `set_theme_contribution` |
 | `PushToUi` | `push_to_ui` |
 | `GetAiSettings` | `read_ai_settings` |
+| `Speak` | `speak` |
+| `StopSpeaking` | `speak` |
+| `GetUserIdentity` | `read_user_identity` |
 
 `GetDaemonInfo` ist die eine Ergänzung zur Dreier-Liste des Plans, und
 das ist eine Entscheidung statt eine Auslassung: es gibt `version`,
@@ -265,9 +281,11 @@ Eine Permission wird nur honoriert, wenn **beide** gelten:
 2. die **Obergrenze** — eine pro Provenienz geltende Regel, die kein
    Record überkaufen kann.
 
-`require_permission` fragt das erste für die sieben Host-RPCs, die eine
+`require_permission` fragt das erste für die zehn Host-RPCs, die eine
 Permission sperren — `SubscribeEvents`, `SendChatMessage`,
-`FireTrigger`, `SetVariable`, `SetThemeContribution`, `PushToUi`, `GetAiSettings`. Die
+`FireTrigger`, `SetVariable`, `SetThemeContribution`, `PushToUi`, `GetAiSettings`,
+`Speak`, `StopSpeaking`, `GetUserIdentity` (`Speak` braucht zusätzlich ein
+Konto, das Astra freischaltet, `require_authorized_plugin`). Die
 verbleibenden vier (`Register`, `GetPluginSelfConfig`, `PluginLog`,
 `GetDaemonInfo`) tragen `None` in `HOST_RPC_PERMISSIONS` und sind
 immer erlaubt; §2 hat die Tabelle und die Begründung.
@@ -304,9 +322,9 @@ einem Autor nicht, dass Veröffentlichen die Obergrenze einer Datei, die
 er jemandem geschickt hat, rückwirkend aufheben wird.
 
 Die Stufe-2-Ablehnungsliste ist `TIER2_REFUSED_PERMISSIONS` — absichtlich
-**nicht** dieselbe Liste wie `HIGH_RISK_PERMISSIONS`: `push_to_ui` ist
-eine Checkbox wert und nicht wert, eine Datei abzulehnen, die der
-Nutzer zum Import ausgewählt hat. Die vier sind aus §5.5 zitiert, nicht
+**nicht** dieselbe Liste wie `HIGH_RISK_PERMISSIONS`: `push_to_ui` und
+`speak` sind eine Checkbox wert und nicht wert, eine Datei abzulehnen,
+die der Nutzer zum Import ausgewählt hat. Die vier sind aus §5.5 zitiert, nicht
 abgeleitet.
 
 **Stufe 3 ist nicht Stufe 2 mit einem netteren Abzeichen.** Die

@@ -122,6 +122,11 @@ Python の `_pb2` メッセージクラス、TypeScript SDK が読み込むデ�
 | Rust: `compat::HostClient` / `DaemonClient` のエイリアス | 0.6.0 | 0.8.0 | `ctx.host()` / `ctx.daemon()` |
 | Python: ケーパビリティのデータクラスが期待される箇所での `dict` | 0.5.0 | 0.7.0 | データクラス — `VoiceInfo`、`ToolDef` など — またはその `to_proto()` |
 | TypeScript: `UiPanel` 型エイリアス | 0.5.0 | 0.7.0 | `UiContribution` |
+| Rust: `DaemonClient` | 0.7.5 | 0.9.0 | `ctx.host()` — `send_chat_message`, `speak`, `subscribed_events()`, `get_user_identity` |
+| Python: `DaemonClient` | 0.6.5 | 0.8.0 | `self.host` — `send_chat_message`, `speak`, `subscribe_events`, `get_user_identity` |
+| TypeScript: `DaemonClient` | 0.7.4 | 0.9.0 | `ctx.host` とコンテキストのヘルパー — `ctx.sendChatMessage()`, `ctx.speak()`, `ctx.getUserIdentity()` |
+
+`DaemonClient` は 3 つすべてで、別の種類の理由により非推奨です: SDK 0.5.0 以来、何もしていません。Astra はプラグインのセッショントークンを `PluginHostService` でしか受け付けないため、それが行う呼び出しはすべて拒否されます。削除ではなく非推奨にしているのは、それを名指しするコードがコンパイルし続けられるようにするためです。動いていたものが動かなくなることはありません。
 
 完了ではなく撤回された非推奨が 1 つあります: フック `AiGetModels` は、どのデーモンも問い合わせなかったため 0.6.0 で非推奨になりましたが、Astra がすべての AI プロバイダにモデル一覧を問い合わせるようになったので再び live です(Rust SDK 0.7.5、Python 0.6.5、TypeScript 0.7.4)。何も削除されておらず、バインディングを残していたプラグインはそのまま動きます。
 
@@ -183,6 +188,16 @@ spec/hooks.yaml is malformed:
   サービスはプラグイン API ではありません。プラグインが依拠してよいのは、
   プロトコル、`spec/hooks.yaml` にあるフック、そしてマニフェスト内の
   パーミッションです。
+- **イベントのペイロードが運ぶもの。** イベントの `payload_json` は読み手ごとに
+  デーモンが決めるもので、SDK のリリースなしに、どの Astra リリースでも絞られる
+  ことがあります。実例: Astra 2026-11-12 以降、`auth_changed` が運ぶのは
+  `authenticated`、`authorized`、`timestamp`、`account_id` です。`account_id`
+  はあなたのプラグイン用に作られた仮名で、プラグインが `read_user_identity` を
+  持ち、かつアカウントで Astra を利用できる場合を除いて `""` です。アカウント
+  自身の id、本人の名前、そのプランはもう送られません: `user_id` と
+  `user_name` は `null` として、`subscription_tier` は `""` として届き、古い
+  パーサーが解析し続けられるようにだけ存在します。
+  [誰が Astra を使っているかを知る](3-reference/permissions.md#誰が-astra-を使っているかを知る)を参照してください。
 - **`#[doc(hidden)]`、`_private`、あるいはテストハーネス向けにエクスポート
   されているとマークされたもの。** これらはパッチリリースで変わり得ます。
 - **`unrouted` なフック。** フックが proto と 3 つの SDK すべてに存在して

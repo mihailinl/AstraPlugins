@@ -24,6 +24,7 @@ from astra_plugin_sdk.testing import (
     wake_seed_burst,
 )
 from astra_plugin_sdk import limits
+from astra_plugin_sdk.proto import plugin_pb2
 from astra_plugin_sdk.types import SttOptions
 
 
@@ -229,6 +230,96 @@ def test_recording_host_answers_get_daemon_info_with_its_port():
     host = RecordingHost(daemon_version="9.9", daemon_port=4242)
     info = asyncio.run(host.get_daemon_info())
     assert (info.version, info.grpc_port) == ("9.9", 4242)
+
+
+# ── speech and identity ─────────────────────────────────────────────────────
+
+
+class _Announcer(Plugin):
+    @tool("Say something aloud, then report what Astra answered and who it is")
+    async def announce(self, text: str):
+        said = await self.host.speak(text)
+        who = await self.host.get_user_identity()
+        return {
+            "outcome": plugin_pb2.PluginSpeechOutcome.Name(said.outcome),
+            "code": (
+                plugin_pb2.PluginErrorCode.Name(said.error.code)
+                if said.HasField("error")
+                else ""
+            ),
+            "retry_after_ms": said.error.retry_after_ms,
+            "install_id": who.install_id,
+            "authorized": who.authorized,
+            "account_id": who.account_id,
+        }
+
+    @tool("Stop saying it")
+    async def hush(self):
+        await self.host.stop_speaking()
+        return "hushed"
+
+
+def test_speech_is_recorded_and_heard_by_default():
+    with Harness(_Announcer()) as h:
+        out = h.call_tool("announce", text="The kettle has boiled.").json
+        assert out["outcome"] == "PLUGIN_SPEECH_OUTCOME_SPOKEN"
+        assert out["code"] == ""
+        assert h.host.spoken() == ["The kettle has boiled."]
+        assert h.call_tool("hush").json == "hushed"
+        assert h.host.stop_count() == 1
+
+
+def test_a_not_spoken_answer_surfaces_its_error_to_the_plugin():
+    """`NOT_SPOKEN` is an answer, not an exception: the plugin reads the code
+    and the wait off `error`, and the text is still on the record."""
+    with Harness(_Announcer()) as h:
+        h.host.speak_response = {
+            "outcome": plugin_pb2.PLUGIN_SPEECH_OUTCOME_NOT_SPOKEN,
+            "error": plugin_pb2.PluginError(
+                code=plugin_pb2.PLUGIN_ERROR_RATE_LIMITED,
+                message="this plugin has used its speaking time",
+                retry_after_ms=1500,
+            ),
+        }
+        out = h.call_tool("announce", text="Again.").json
+        assert out["outcome"] == "PLUGIN_SPEECH_OUTCOME_NOT_SPOKEN"
+        assert out["code"] == "PLUGIN_ERROR_RATE_LIMITED"
+        assert out["retry_after_ms"] == 1500
+        assert h.host.spoken() == ["Again."]
+
+
+def test_the_user_identity_round_trips_through_the_recording_host():
+    with Harness(_Announcer()) as h:
+        h.host.user_identity = {
+            "install_id": "install-x",
+            "signed_in": True,
+            "authorized": False,
+            "account_id": "",
+        }
+        out = h.call_tool("announce", text="hi").json
+        assert (out["install_id"], out["authorized"], out["account_id"]) == (
+            "install-x",
+            False,
+            "",
+        )
+
+
+def test_a_denied_speak_grant_reaches_the_plugin_as_a_failure():
+    with Harness(_Announcer()) as h:
+        h.host.fail_always("speak", Unavailable("permission denied: speak"))
+        result = h.call_tool("announce", text="x")
+        assert not result.success
+        assert h.host.spoken() == []
+
+
+def test_constructing_a_daemon_client_warns_that_it_is_deprecated():
+    """Dead since 0.5.0; deprecated, not removed. The author who builds one
+    is told so — the SDK's own construction (a `client` plugin's
+    `self.daemon`) is silenced, and only that one."""
+    from astra_plugin_sdk import DaemonClient
+
+    with pytest.warns(DeprecationWarning, match="self.host"):
+        DaemonClient("127.0.0.1:9", "token")
 
 
 # ── STT ─────────────────────────────────────────────────────────────────────

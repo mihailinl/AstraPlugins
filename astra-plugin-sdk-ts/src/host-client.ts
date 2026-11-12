@@ -33,12 +33,63 @@ import {
   SDK_VERSION,
 } from "./protocol.js";
 import type { ChatChunk, ThemeContribution } from "./types.js";
-import type { AiSettings, DaemonInfo, Host } from "./host.js";
+import type {
+  AiSettings,
+  DaemonInfo,
+  Host,
+  SpeakResult,
+  SpeechOutcome,
+  UserIdentity,
+} from "./host.js";
+import type { PluginErrorDetail } from "./errors.js";
 import { SESSION_TOKEN_HEADER, X_ASTRA_CAUSE } from "./generated/wire.js";
 import { currentCause } from "./causality.js";
 
 /** Re-exported so `import { DaemonInfo } from "astra-plugin-sdk"` keeps working. */
 export type { DaemonInfo } from "./host.js";
+
+/**
+ * `PluginSpeechOutcome` as the loader delivers it — the proto name (`enums:
+ * String`), or the number should a loader option ever change — to the short
+ * name `SpeakResult` carries. Anything else is `"UNSPECIFIED"`: an outcome this
+ * SDK does not know is never guessed into one it does.
+ */
+const SPEECH_OUTCOMES: Readonly<Record<string, SpeechOutcome>> = {
+  PLUGIN_SPEECH_OUTCOME_SPOKEN: "SPOKEN",
+  PLUGIN_SPEECH_OUTCOME_STOPPED: "STOPPED",
+  PLUGIN_SPEECH_OUTCOME_NOT_SPOKEN: "NOT_SPOKEN",
+  "1": "SPOKEN",
+  "2": "STOPPED",
+  "3": "NOT_SPOKEN",
+};
+
+/** `PluginSpeakResponse` off the wire, as the loader hands it over. */
+interface WireSpeakResponse {
+  outcome?: string | number;
+  /** `null` when unset (`defaults: true`). */
+  error?: Partial<PluginErrorDetail> | null;
+}
+
+/**
+ * The wire answer of `Speak` as a `SpeakResult`. Exported for the SDK's own
+ * tests; `error` is present only when the daemon sent one, field for field.
+ */
+export function speakResultFromWire(res: WireSpeakResponse): SpeakResult {
+  const outcome = SPEECH_OUTCOMES[String(res.outcome ?? "")] ?? "UNSPECIFIED";
+  const e = res.error;
+  if (!e) return { outcome };
+  return {
+    outcome,
+    error: {
+      code: String(e.code ?? ""),
+      message: e.message ?? "",
+      hint: e.hint ?? "",
+      configField: e.configField ?? "",
+      retryAfterMs: Number(e.retryAfterMs ?? 0),
+      docUrl: e.docUrl ?? "",
+    },
+  };
+}
 
 /**
  * A gRPC readable stream as an `AsyncIterable`.
@@ -99,6 +150,9 @@ const REQUIRED_METHODS = [
   "PluginLog",
   "GetDaemonInfo",
   "GetAiSettings",
+  "Speak",
+  "StopSpeaking",
+  "GetUserIdentity",
   "SetVariable",
   "PushToUi",
   "SendChatMessage",
@@ -289,6 +343,27 @@ export class HostClient implements Host {
   /** The chat's provider, model and endpoint — never a key. Needs `read_ai_settings`. */
   getAiSettings(): Promise<AiSettings> {
     return this.unary<AiSettings>("GetAiSettings", {});
+  }
+
+  /**
+   * Say `text` aloud in Astra's voice; resolves once it was said, stopped or
+   * refused (`SpeakResult`). Needs `speak`. The daemon is the authority on the
+   * limits — at most `limits.SPEAK_TEXT_MAX_CHARS` characters, refused rather
+   * than cut, and a speaking-time budget whose refusal carries `retryAfterMs`
+   * — so this client checks neither.
+   */
+  async speak(text: string): Promise<SpeakResult> {
+    return speakResultFromWire(await this.unary<WireSpeakResponse>("Speak", { text }));
+  }
+
+  /** Stop everything this plugin asked to be said, sounding and queued. Needs `speak`. */
+  stopSpeaking(): Promise<void> {
+    return this.unary("StopSpeaking", {}).then(() => undefined);
+  }
+
+  /** Pseudonyms for this installation and the signed-in account. Needs `read_user_identity`. */
+  getUserIdentity(): Promise<UserIdentity> {
+    return this.unary<UserIdentity>("GetUserIdentity", {});
   }
 
   /** Set a variable readable by commands and other plugins. */

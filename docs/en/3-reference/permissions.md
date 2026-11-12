@@ -36,7 +36,7 @@ Three properties, all of which surprise someone eventually:
 
    <!-- doctest: output from="astra-plugin check --strict ." unrun="needs a plugin project in the working directory; re-run it in your own plugin" -->
    ```
-     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings
+     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings, speak, read_user_identity
      FAILED: 1 warning(s), and --strict treats warnings as errors
    ```
 
@@ -56,7 +56,7 @@ Three properties, all of which surprise someone eventually:
 `GetDaemonInfo` being free is a decision, not an oversight: a checkbox that
 protects nothing is how users learn to tick boxes.
 
-## The nine ids
+## The eleven ids
 
 | Id | Gates | Own checkbox | Refused to a local import | What it lets you do |
 |---|---|---|---|---|
@@ -69,6 +69,8 @@ protects nothing is how users learn to tick boxes.
 | `dom_access` | — (a surface) | **yes** | **yes** | Run your code inside the Astra window, with access to conversations and every other plugin's interface |
 | `client` | — (a surface) | **yes** | **yes** | Be a chat front-end with its own session |
 | `read_ai_settings` | `GetAiSettings` | no | no | Read the user's chat provider, model and endpoint — never a key |
+| `speak` | `Speak`, `StopSpeaking` | **yes** | no | Say your own words aloud in Astra's voice, and stop them |
+| `read_user_identity` | `GetUserIdentity` | no | no | Read pseudonyms for this installation and the signed-in account, made for your plugin alone |
 
 `dom_access` and `client` gate no RPC and that is the point: they are
 **surfaces**. `dom_access` decides whether a UI contribution is rendered as a
@@ -102,6 +104,73 @@ local import: it is the honest way to this information, and pricing it above
 reading `settings.json` would push plugins the wrong way. Reading Astra's own
 files is something human review at publication looks for. An Astra older than this call
 answers `UNIMPLEMENTED`.
+
+## Speaking in Astra's voice
+
+A plugin that has something to announce — a timer, a build that finished, a
+message that arrived — can have Astra say it. Declare `speak` and call `Speak`
+(`speak(text)` in Rust and Python, `ctx.speak(text)` in TypeScript).
+
+`speak` is **high-risk**: your words are heard in Astra's voice, as if Astra
+said them, so it gets its own consent checkbox. It is not refused to a local
+import — an announcement is an ordinary thing for a plugin to want, and the
+checkbox is the decision. Besides the grant, `Speak` needs **an account that
+opens Astra** and **the person's reply voice on**; it is refused while Astra is
+locked.
+
+The call lasts as long as the speech and answers with what became of it:
+
+| Outcome | What it means | What to do |
+|---|---|---|
+| `SPOKEN` | It was heard | Nothing |
+| `STOPPED` | Silence was asked for before it finished: the wake word, reply voice turned off, Stop, your own `StopSpeaking` | Nothing — **it is not an error**. Do not say it again unasked |
+| `NOT_SPOKEN` | It was not said; `error` (the same `PluginError` a chat chunk carries) says why | Read the code below. Nothing refused is queued |
+
+| `error.code` | When |
+|---|---|
+| `PLUGIN_ERROR_BAD_ARGUMENTS` | The text is empty once invisible characters are removed, or longer than **300 characters** (`speak_text_max_chars` in `spec/limits.yaml`). A longer text is refused, never cut |
+| `PLUGIN_ERROR_RATE_LIMITED` | Your speaking time is used up. It is budgeted in characters — **450 at once, then 3 a second**, each call costing at least 20 — and `retry_after_ms` says when there is room again |
+| `PLUGIN_ERROR_UNAVAILABLE` | The person turned Astra's voice off, Astra is locked, there is no voice, or the speech queue could not take it. Show the text instead; do not ask the person to change it |
+
+Your words queue behind your own earlier ones, on a lane of their own, so they
+never cut one of Astra's replies. `StopSpeaking` stops everything you asked to be
+said, sounding and queued, and nothing else; it shares the `speak` permission,
+and works whether or not anybody is signed in. The limits are the daemon's: the
+SDKs export `SPEAK_TEXT_MAX_CHARS` so you can show a counter, and check nothing
+themselves. An Astra older than this call answers `UNIMPLEMENTED`.
+
+## Knowing who is using Astra
+
+A plugin that limits use per person or per machine — a trial, a quota, a
+licence — needs a stable id for each. **Ask Astra; never read a hardware serial
+or Astra's files.** Declare `read_user_identity` and call `GetUserIdentity`
+(`get_user_identity()` in Rust and Python, `ctx.getUserIdentity()` in
+TypeScript):
+
+| Field | What it is |
+|---|---|
+| `install_id` | This installation of Astra: the same across restarts and updates of Astra and of your plugin, different on another installation. Empty while Astra has no installation key yet |
+| `signed_in` | A person is signed in to Astra |
+| `authorized` | …and their account opens Astra |
+| `account_id` | The signed-in account: the same on every device the person signs in on. Empty unless `authorized` |
+
+Both ids are **pseudonyms made for your plugin alone**: another plugin reads
+different ids for the same person and the same machine, so two plugins cannot
+join their records on them. That holds against plugins that use this API
+honestly: native plugin code can read Astra's files. Neither is a secret, and neither is ever the
+account's own id, the person's name or email, or a hardware serial. It is not
+high-risk and not refused to a local import: it is the honest alternative to a
+machine serial, and pricing it high would push a plugin back to one. An Astra
+older than this call answers `UNIMPLEMENTED`.
+
+**`auth_changed` is narrowed to match** (Astra, 2026-11-12). A plugin granted
+the `auth_changed` event used to receive the account's own id, the person's
+display name and their plan. It now receives `authenticated`, `authorized`,
+`timestamp` and `account_id` — the same pseudonym `GetUserIdentity` answers, and
+`""` unless you hold `read_user_identity` and the account opens Astra.
+`user_id` and `user_name` still arrive, as `null`, and `subscription_tier` as
+`""`, so a parser written for the old shape keeps parsing; none of them carries a
+value any more.
 
 ## Sending a chat message
 
@@ -378,7 +447,7 @@ Full table and the reasoning: [`spec/permissions.md` §4](../spec/permissions.md
 
 ## Consent, from the user's side
 
-Permissions are grouped by risk. The five high-risk ones each get their own
+Permissions are grouped by risk. The six high-risk ones each get their own
 checkbox and Install stays disabled until every one is ticked; `dom_access` gets
 a second screen. There is deliberately **no type-to-confirm**: that is the
 pattern for irreversible destruction, and habituating users to type through it

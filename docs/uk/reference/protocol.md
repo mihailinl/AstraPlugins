@@ -2,20 +2,20 @@
 
 # Довідник протоколу
 
-Покоління протоколу **1**. 10 сервісів, 192 RPC. Джерело:
+Покоління протоколу **1**. 10 сервісів, 197 RPC. Джерело:
 [`proto/plugin.proto`](../../../proto/plugin.proto), згенерований зріз
-`astra.proto` Astra (`surface-sha256: 9db774712359b4ab…` — дайджест
+`astra.proto` Astra (`surface-sha256: 05b5a063feba39c7…` — дайджест
 оберненого до плагінів тіла, про яке тут і йдеться), закріплений
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) на
-`sha256:5beecd4b94806b5b…`. У кожної завендореної копії в трьох SDK той
+`sha256:eda1054aab8e9985…`. У кожної завендореної копії в трьох SDK той
 самий хеш; `tools/check-proto.sh` — те, що це підтверджує.
 
 ## Три сервіси плагіна
 
 | Сервіс | Напрямок | RPC | Хто обслуговує |
 |---|---|---|---|
-| [`PluginCapabilityService`](#plugincapabilityservice) | демон → плагін | 26 | ваш плагін |
-| [`PluginHostService`](#pluginhostservice) | плагін → демон | 10 | демон |
+| [`PluginCapabilityService`](#plugincapabilityservice) | демон → плагін | 31 | ваш плагін |
+| [`PluginHostService`](#pluginhostservice) | плагін → демон | 14 | демон |
 | [`PluginService`](#pluginservice) | UI → демон | 23 | демон |
 
 Покоління протоколу — це контракт. Плагін надсилає його в
@@ -86,6 +86,9 @@ RPC тут — хук, який ви реалізуєте, і `UNIMPLEMENTED` �
 | `SetVariable` | `set_variable` | `PluginSetVariableRequest` | `Empty` | unary | live | Publish a variable that commands and other plugins can read. |
 | `SetThemeContribution` | `set_theme_contribution` | `PluginThemeContribution` | `Empty` | unary | live | Contribute colours, wallpaper and shader to the active Astra theme. |
 | `PushToUi` | `push_to_ui` | `PluginUiPushRequest` | `Empty` | unary | live | Push an event into this plugin's own iframes — the return path for CallFromUi. |
+| `Speak` | `speak` | `PluginSpeakRequest` | `PluginSpeakResponse` | unary | live | Say the plugin's own words aloud in Astra's voice; answers once they were said, stopped, or refused. |
+| `StopSpeaking` | `speak` | `Empty` | `Empty` | unary | live | Stop everything this plugin asked to be said, sounding and queued, and nothing else Astra is saying. |
+| `GetUserIdentity` | `read_user_identity` | `Empty` | `PluginUserIdentity` | unary | live | Pseudonyms for this installation and the signed-in account, made for this plugin alone; never the account's own id, a name, an email or a hardware serial. |
 | `GetAiSettings` | `read_ai_settings` | `GetAiSettingsRequest` | `PluginAiSettings` | unary | live | The user's chat provider, model and endpoint (never a key), so a plugin never reads Astra's files for them. |
 
 `none` означає, що будь-який плагін може викликати це завжди — стартовий

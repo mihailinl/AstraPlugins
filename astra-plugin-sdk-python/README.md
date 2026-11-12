@@ -92,7 +92,8 @@ class DiceRoller(Plugin):
 `self.log_info` / `log_warn` / `log_error`, `self.fire_trigger`,
 `self.push_to_ui` are the convenience wrappers; the full outbound surface is
 `self.host` (`HostClient`): `fire_trigger`, `log`, `get_config`,
-`get_daemon_info`, `get_ai_settings`, `subscribe_events`, `push_to_ui`,
+`get_daemon_info`, `get_ai_settings`, `speak`, `stop_speaking`,
+`get_user_identity`, `subscribe_events`, `push_to_ui`,
 `send_chat_message`, `set_theme_contribution`, `set_variable`.
 
 **Every one of those is default-deny.** A manifest with no `[permissions]`
@@ -107,7 +108,8 @@ fire_trigger = { reason = "Fires the on_roll_value trigger so your commands can 
 and the `reason` is what the user reads on the install consent sheet.
 
 A plugin whose `is_client()` returns `True` also gets a `DaemonClient` — chat,
-voice, commands, settings. Its "type a message as the user" method is
+voice, commands, settings. **Deprecated since 0.6.5** (constructing one warns),
+for the reason below: use `self.host`. Its "type a message as the user" method is
 **`submit_user_message`**, not `send_message`.
 
 > **That client does not reach anything yet.** The daemon registers every plugin

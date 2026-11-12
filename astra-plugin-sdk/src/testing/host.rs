@@ -88,6 +88,9 @@ pub const HOST_RPCS: &[&str] = &[
     "get_config",
     "get_daemon_info",
     "get_ai_settings",
+    "speak",
+    "stop_speaking",
+    "get_user_identity",
     "set_variable",
     "push_to_ui",
     "send_chat_message",
@@ -148,6 +151,7 @@ struct Inner {
     ui_pushes: Vec<UiPush>,
     chats: Vec<ChatMessage>,
     themes: Vec<proto::PluginThemeContribution>,
+    spoken: Vec<String>,
 }
 
 impl Recorded {
@@ -220,6 +224,14 @@ impl Recorded {
         self.with(|i| i.themes.clone())
     }
 
+    /// The text of every `Speak` that reached the host, in order — including
+    /// one the host then answered `NotSpoken`, because what the plugin ASKED
+    /// to say is the assertion. `StopSpeaking` is in [`calls`](Self::calls)
+    /// (`call_count("stop_speaking")`).
+    pub fn spoken(&self) -> Vec<String> {
+        self.with(|i| i.spoken.clone())
+    }
+
     /// The last value the plugin published for `name`, if any.
     pub fn variable(&self, name: &str) -> Option<String> {
         self.with(|i| {
@@ -262,6 +274,9 @@ impl Recorded {
     pub(crate) fn theme(&self, t: proto::PluginThemeContribution) {
         self.with(|i| i.themes.push(t));
     }
+    pub(crate) fn speech(&self, text: String) {
+        self.with(|i| i.spoken.push(text));
+    }
 }
 
 impl std::fmt::Debug for Recorded {
@@ -303,6 +318,17 @@ pub struct RecordingHost {
     config_json: Mutex<String>,
     daemon_info: Mutex<proto::PluginDaemonInfoResponse>,
     ai_settings: Mutex<proto::PluginAiSettings>,
+    speak_response: Mutex<proto::PluginSpeakResponse>,
+    user_identity: Mutex<proto::PluginUserIdentity>,
+}
+
+/// What a `Speak` that was heard answers: the default of
+/// [`RecordingHost::set_speak_response`] and of the mock daemon.
+pub(crate) fn heard() -> proto::PluginSpeakResponse {
+    proto::PluginSpeakResponse {
+        outcome: proto::PluginSpeechOutcome::Spoken as i32,
+        error: None,
+    }
 }
 
 impl RecordingHost {
@@ -316,6 +342,8 @@ impl RecordingHost {
             config_json: Mutex::new("{}".to_string()),
             daemon_info: Mutex::new(proto::PluginDaemonInfoResponse::default()),
             ai_settings: Mutex::new(proto::PluginAiSettings::default()),
+            speak_response: Mutex::new(heard()),
+            user_identity: Mutex::new(proto::PluginUserIdentity::default()),
         })
     }
 
@@ -364,6 +392,41 @@ impl RecordingHost {
     /// What `get_ai_settings()` answers.
     pub fn set_ai_settings(&self, settings: proto::PluginAiSettings) {
         *self.ai_settings.lock().unwrap_or_else(|e| e.into_inner()) = settings;
+    }
+
+    /// What `speak()` answers. Heard (`PluginSpeechOutcome::Spoken`) until
+    /// told otherwise; stage a `NotSpoken` with a `PluginError` to test the
+    /// branch a rate-limited or voice-off plugin takes:
+    ///
+    /// ```no_run
+    /// # use astra_plugin_sdk::{proto, testing::RecordingHost};
+    /// let host = RecordingHost::new("kettle");
+    /// host.set_speak_response(proto::PluginSpeakResponse {
+    ///     outcome: proto::PluginSpeechOutcome::NotSpoken as i32,
+    ///     error: Some(proto::PluginError {
+    ///         code: proto::PluginErrorCode::PluginErrorRateLimited as i32,
+    ///         retry_after_ms: 2_000,
+    ///         ..Default::default()
+    ///     }),
+    /// });
+    /// ```
+    ///
+    /// The text is recorded either way ([`Recorded::spoken`]). A refusal by
+    /// the daemon's gates (no `speak` grant) is [`deny`](Self::deny)`("speak")`,
+    /// an `Err`, not an outcome.
+    pub fn set_speak_response(&self, response: proto::PluginSpeakResponse) {
+        *self.speak_response.lock().unwrap_or_else(|e| e.into_inner()) = response;
+    }
+
+    /// What `get_user_identity()` answers. Empty (nobody signed in, no
+    /// installation key) until told otherwise.
+    pub fn set_user_identity(&self, identity: proto::PluginUserIdentity) {
+        *self.user_identity.lock().unwrap_or_else(|e| e.into_inner()) = identity;
+    }
+
+    /// The text of every `speak()`, in order.
+    pub fn spoken(&self) -> Vec<String> {
+        self.recorded.spoken()
     }
 
     /// What `send_chat_message()` streams back, one chunk per string.
@@ -521,6 +584,39 @@ impl Host for RecordingHost {
         }
         Ok(self
             .ai_settings
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone())
+    }
+
+    async fn speak(&self, text: &str) -> Result<proto::PluginSpeakResponse> {
+        self.recorded.note("speak");
+        if let Some(e) = self.staged("speak", "Speak") {
+            return Err(e);
+        }
+        self.recorded.speech(text.to_string());
+        Ok(self
+            .speak_response
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone())
+    }
+
+    async fn stop_speaking(&self) -> Result<()> {
+        self.recorded.note("stop_speaking");
+        if let Some(e) = self.staged("stop_speaking", "StopSpeaking") {
+            return Err(e);
+        }
+        Ok(())
+    }
+
+    async fn get_user_identity(&self) -> Result<proto::PluginUserIdentity> {
+        self.recorded.note("get_user_identity");
+        if let Some(e) = self.staged("get_user_identity", "GetUserIdentity") {
+            return Err(e);
+        }
+        Ok(self
+            .user_identity
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .clone())

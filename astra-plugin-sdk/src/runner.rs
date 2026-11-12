@@ -483,6 +483,10 @@ pub async fn run_with<P: PluginCapability>(plugin: P, config: RunConfig) -> Resu
     // EVERY plugin (host_service.rs, SECURITY(B1)) because every host RPC needs
     // one, so an empty-token test says nothing about capability.
     if is_client_plugin && !reg_response.client_session_token.is_empty() {
+        // `DaemonClient` is deprecated for AUTHORS (Astra refuses a plugin's
+        // token on its main services); the runner still builds it so a plugin
+        // that reads `ctx.daemon()` behaves exactly as it did before.
+        #[allow(deprecated)]
         let daemon_client = crate::DaemonClient::connect(
             &args.daemon_addr,
             reg_response.client_session_token.clone(),

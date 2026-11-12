@@ -197,6 +197,84 @@ class HostClient:
             plugin_pb2.GetAiSettingsRequest(), metadata=self._metadata
         )
 
+    async def speak(self, text: str) -> plugin_pb2.PluginSpeakResponse:
+        """Say ``text`` aloud in Astra's voice, and wait until it has been said.
+
+        Needs the ``speak`` permission — **high-risk**, its own consent
+        checkbox, because the words are heard as Astra's — and, besides the
+        grant, an account that opens Astra and the person's reply voice on.
+
+        The call lasts as long as the speech and answers with what became of
+        it, in ``response.outcome``:
+
+        * ``plugin_pb2.PLUGIN_SPEECH_OUTCOME_SPOKEN`` — it was heard.
+        * ``plugin_pb2.PLUGIN_SPEECH_OUTCOME_STOPPED`` — silence was asked for
+          before it finished (the wake word, reply voice turned off, Stop, your
+          own :meth:`stop_speaking`). **Not an error**; do not say it again
+          unasked.
+        * ``plugin_pb2.PLUGIN_SPEECH_OUTCOME_NOT_SPOKEN`` — it was not said, and
+          ``response.error`` (a ``PluginError``, the message a chat chunk's
+          ``error_detail`` carries) says why: ``PLUGIN_ERROR_BAD_ARGUMENTS`` for
+          an empty text or one longer than
+          :data:`astra_plugin_sdk.limits.SPEAK_TEXT_MAX_CHARS` characters
+          (refused, never cut); ``PLUGIN_ERROR_RATE_LIMITED`` with
+          ``retry_after_ms`` once this plugin's speaking time is used up (450
+          characters at once, then 3 a second, each call costing at least 20);
+          ``PLUGIN_ERROR_UNAVAILABLE`` while voice is off, Astra is locked,
+          there is no voice, or the speech queue could not take it. Nothing
+          refused is queued.
+
+        ::
+
+            said = await self.host.speak("The kettle has boiled.")
+            if said.outcome == plugin_pb2.PLUGIN_SPEECH_OUTCOME_NOT_SPOKEN:
+                if said.error.code == plugin_pb2.PLUGIN_ERROR_RATE_LIMITED:
+                    await asyncio.sleep(said.error.retry_after_ms / 1000)
+
+        The daemon is the authority on the limits; this client checks neither.
+        Your words queue behind your own earlier ones, so they never cut
+        Astra's replies. A refusal by the gates — no grant, an account that
+        does not open Astra, an Astra older than this RPC (``UNIMPLEMENTED``) —
+        raises ``grpc.aio.AioRpcError`` like every host call.
+        """
+        return await self._stub.Speak(
+            plugin_pb2.PluginSpeakRequest(text=text), metadata=self._metadata
+        )
+
+    async def stop_speaking(self) -> None:
+        """Stop everything this plugin asked to be said, sounding and queued.
+
+        Needs ``speak`` — stopping your own speech is part of speaking. Never
+        touches anything else Astra is saying, and is allowed whether or not
+        anybody is signed in. Each :meth:`speak` it cuts answers
+        ``PLUGIN_SPEECH_OUTCOME_STOPPED``.
+        """
+        await self._stub.StopSpeaking(plugin_pb2.Empty(), metadata=self._metadata)
+
+    async def get_user_identity(self) -> plugin_pb2.PluginUserIdentity:
+        """Who is using Astra, as THIS plugin may know it.
+
+        Needs the ``read_user_identity`` permission (not high-risk). Both ids
+        are pseudonyms made for this plugin alone — another plugin reads
+        different ones for the same person and machine (against plugins that
+        use this API honestly: native plugin code can read Astra's files, and
+        neither id is a secret) — and never the account's own id, a name, an
+        email or a hardware serial:
+
+        * ``install_id`` — this installation of Astra, stable across restarts
+          and updates; empty while Astra has no installation key yet.
+        * ``signed_in`` — a person is signed in; ``authorized`` — and their
+          account opens Astra.
+        * ``account_id`` — the signed-in account, the same on every device the
+          person signs in on; empty unless ``authorized``. The same value
+          arrives as ``account_id`` on this plugin's ``auth_changed`` events.
+
+        An Astra older than this RPC answers ``UNIMPLEMENTED``.
+        """
+        return await self._stub.GetUserIdentity(
+            plugin_pb2.Empty(), metadata=self._metadata
+        )
+
     async def subscribe_events(self, event_types: list[str] | None = None, exclude_source_id: str = ""):
         """Subscribe to daemon events. Returns an async iterator.
 

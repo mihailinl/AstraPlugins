@@ -67,6 +67,9 @@
 | `SendChatMessage` | `client` | `send_chat_message` | обов'язковий | server | stable | Надіслати повідомлення чату від імені цього плагіна і стрімити відповідь асистента назад. |
 | `PushToUi` | `ui_contributions` | `push_to_ui` | опціональний | unary | stable | Надіслати подію у власні iframe цього плагіна — зворотний шлях для CallFromUi. |
 | `GetAiSettings` | `core` | `read_ai_settings` | optional | unary | stable | Провайдер, модель і адреса чату користувача (але не ключ), щоб плагіну не доводилося читати файли Astra. |
+| `Speak` | `core` | `speak` | опціональний | unary | stable | Вимовити власні слова плагіна вголос голосом Astra; відповідає, коли їх сказано, зупинено або відхилено. |
+| `StopSpeaking` | `core` | `speak` | опціональний | unary | stable | Зупинити все, що цей плагін просив сказати, — те, що звучить, і те, що чекає в черзі, — і нічого іншого з того, що каже Astra. |
+| `GetUserIdentity` | `core` | `read_user_identity` | опціональний | unary | stable | Псевдоніми цього встановлення й акаунта, у який виконано вхід, створені лише для цього плагіна; ніколи не власний id акаунта, ім'я, email чи серійний номер обладнання. |
 | `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | опціональний | unary | stable | Внести кольори, шпалери і шейдер до активної теми Astra. |
 
 ## Прогалини

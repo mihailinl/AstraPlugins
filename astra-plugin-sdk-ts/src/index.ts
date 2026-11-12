@@ -86,7 +86,14 @@ export { PluginContextImpl, NoHostError } from "./context.js";
 export { currentInvocation } from "./invocation.js";
 export type { Invocation } from "./invocation.js";
 export type { PluginContext, ContextSource } from "./context.js";
-export type { Host, DaemonInfo, AiSettings } from "./host.js";
+export type {
+  Host,
+  DaemonInfo,
+  AiSettings,
+  SpeechOutcome,
+  SpeakResult,
+  UserIdentity,
+} from "./host.js";
 export { HostClient, RegistrationError } from "./host-client.js";
 export type { RegisterResponse, RegisterErrorDetail } from "./host-client.js";
 export {

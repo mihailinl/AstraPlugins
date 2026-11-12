@@ -48,6 +48,51 @@ are removable in.
   where grpc-js's default was 4 MiB: a model whose hints say `acceptsImages` is
   sent up to `limits.PLUGIN_IMAGE_REQUEST_MAX_BYTES` (20 MiB) of pictures in one
   `AiComplete`, which the default would refuse as `RESOURCE_EXHAUSTED`.
+- **A plugin can speak in Astra's voice** (Astra `d6fc58808`):
+  `ctx.speak(text)` (and `Host.speak` / `HostClient.speak`) resolves with a
+  `SpeakResult` — `outcome` is `"SPOKEN"`, `"STOPPED"` (silence was asked for —
+  **not an error**), `"NOT_SPOKEN"` with `error` (a `PluginErrorDetail`, as on a
+  chat chunk) saying why, or `"UNSPECIFIED"` for an outcome this SDK does not
+  know: `PLUGIN_ERROR_BAD_ARGUMENTS` (empty, or longer than
+  `limits.SPEAK_TEXT_MAX_CHARS` = 300 characters — refused, never cut),
+  `PLUGIN_ERROR_RATE_LIMITED` with `retryAfterMs` (450 characters of airtime at
+  once, then 3 a second, each call costing at least 20), `PLUGIN_ERROR_UNAVAILABLE` (voice off, Astra locked,
+  no voice). The call lasts as long as the speech. `ctx.stopSpeaking()` stops
+  everything this plugin queued. Both need the new **`speak`** permission —
+  **high-risk**, its own consent checkbox, not refused to a local import — and
+  `speak` also an account that opens Astra and the person's reply voice on. The
+  SDK checks no limit itself.
+- **`ctx.getUserIdentity()`** (and `Host.getUserIdentity`) → `UserIdentity`
+  (`installId`, `signedIn`, `authorized`, `accountId`): pseudonyms for this
+  installation and the signed-in account, made for this plugin alone — never the
+  account's own id, a name, an email or a hardware serial. Needs the new
+  `read_user_identity` permission (not high-risk, not refused to a local import).
+- New types `SpeechOutcome`, `SpeakResult`, `UserIdentity`. The three `Host`
+  methods are OPTIONAL, like `getAiSettings`, so a `Host` implemented outside
+  this package keeps compiling; the `ctx` helpers reject with a clear error when
+  the host lacks one. An Astra older than the calls answers `UNIMPLEMENTED`.
+- Testing: `RecordingHost.speakResult` (heard by default), `userIdentity`,
+  `spoken()` and `stopCount()`; the mock daemon answers `Speak` from
+  `speakResponse` (wire shape) and `GetUserIdentity` from `userIdentity`, and
+  `spoken()` lists what arrived with the session token.
+
+### Changed (Astra `d6fc58808`, no SDK change needed)
+
+- **`auth_changed` is narrowed.** A plugin granted the event used to receive the
+  account's own id, the person's display name and their plan. It now gets
+  `authenticated`, `authorized`, `timestamp` and `account_id` — this plugin's
+  pseudonym for the account, the value `getUserIdentity()` answers, and `""`
+  unless the plugin holds `read_user_identity` and the account opens Astra.
+  `user_id` and `user_name` arrive as `null` and `subscription_tier` as `""`,
+  so a parser written for the old shape keeps parsing; none carries a value.
+
+### Deprecated
+
+- **`DaemonClient`** (`@deprecated`), removable in **0.9.0** at the earliest. It
+  has done nothing since SDK 0.5.0: Astra accepts a plugin's session token on
+  `PluginHostService` only, so every call it makes is refused. Use `ctx.host` and
+  the context helpers — `ctx.sendChatMessage()`, `ctx.speak()`,
+  `ctx.getUserIdentity()`, `host.subscribeEvents()`. Nothing is removed.
 
 ### Un-deprecated
 

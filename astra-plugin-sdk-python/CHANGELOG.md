@@ -44,6 +44,49 @@ are removable in.
   where gRPC's default was 4 MiB: a model whose hints say `accepts_images` is
   sent up to `limits.PLUGIN_IMAGE_REQUEST_MAX_BYTES` (20 MiB) of pictures in one
   `AiComplete`, which the default would refuse as `RESOURCE_EXHAUSTED`.
+- **A plugin can speak in Astra's voice** (Astra `d6fc58808`):
+  `HostClient.speak(text)` → `PluginSpeakResponse`, whose `outcome` is
+  `PLUGIN_SPEECH_OUTCOME_SPOKEN`, `…_STOPPED` (silence was asked for — **not an
+  error**) or `…_NOT_SPOKEN` with `error` (a `PluginError`) saying why:
+  `PLUGIN_ERROR_BAD_ARGUMENTS` (empty, or longer than
+  `limits.SPEAK_TEXT_MAX_CHARS` = 300 characters — refused, never cut),
+  `PLUGIN_ERROR_RATE_LIMITED` with `retry_after_ms` (450 characters of airtime
+  at once, then 3 a second, each call costing at least 20), `PLUGIN_ERROR_UNAVAILABLE` (voice off, Astra
+  locked, no voice). The call lasts as long as the speech.
+  `HostClient.stop_speaking()` stops everything this plugin queued. Both need
+  the new **`speak`** permission — **high-risk**, its own consent checkbox, not
+  refused to a local import — and `speak` also an account that opens Astra and
+  the person's reply voice on. The SDK checks no limit itself.
+- **`HostClient.get_user_identity()`** → `PluginUserIdentity` (`install_id`,
+  `signed_in`, `authorized`, `account_id`): pseudonyms for this installation and
+  the signed-in account, made for this plugin alone — never the account's own
+  id, a name, an email or a hardware serial. Needs the new `read_user_identity`
+  permission (not high-risk, not refused to a local import). An Astra older than
+  any of the three answers `UNIMPLEMENTED`. Additive, as `get_ai_settings` was.
+- Testing: `RecordingHost.speak_response` (heard by default),
+  `RecordingHost.user_identity`, `spoken()` and `stop_count()`; the wire mock's
+  `MockDaemon.speak_response` / `user_identity`, `spoken()` and `stop_count()`,
+  and denying `Speak` on it refuses `StopSpeaking` too, as the daemon does.
+
+### Changed (Astra `d6fc58808`, no SDK change needed)
+
+- **`auth_changed` is narrowed.** A plugin granted the event used to receive the
+  account's own id, the person's display name and their plan. It now gets
+  `authenticated`, `authorized`, `timestamp` and `account_id` — this plugin's
+  pseudonym for the account, the value `get_user_identity()` answers, and `""`
+  unless the plugin holds `read_user_identity` and the account opens Astra.
+  `user_id` and `user_name` arrive as `null` and `subscription_tier` as `""`,
+  so a parser written for the old shape keeps parsing; none carries a value.
+
+### Deprecated
+
+- **`DaemonClient`**, removable in **0.8.0** at the earliest: constructing one
+  now emits a `DeprecationWarning`. It has done nothing since SDK 0.5.0 — Astra
+  accepts a plugin's session token on `PluginHostService` only, so every call it
+  makes is refused. Use `self.host`: `send_chat_message`, `speak`,
+  `subscribe_events`, `get_user_identity`. Nothing is removed; the SDK still
+  builds `self.daemon` for a `client` plugin and silences its own construction's
+  warning (and only that one).
 
 ### Un-deprecated
 

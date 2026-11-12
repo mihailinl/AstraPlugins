@@ -16,7 +16,7 @@ generated and CI re-runs the generator with `--check`.
 """
 
 #: SHA-256 of the ``spec/limits.yaml`` these constants were generated from.
-SPEC_SHA256 = "b8e7f779f476ed942dc6dcbee15e4cccae0807326f7b967a10851f875e0dd31a"
+SPEC_SHA256 = "40f2f3873139c095b37d80d6b1c63b86c7fcd4d00bcfbf334adaef0573eae35f"
 
 #: Capacity of the audio channel that carries streaming-STT chunks from the
 #: daemon's voice pipeline into the plugin process, in chunks.
@@ -138,6 +138,13 @@ PLUGIN_MAX_MESSAGE_BYTES = 67_108_864
 #: (`plugins::capability_bridge::PLUGIN_IMAGE_REQUEST_MAX_BYTES`).
 PLUGIN_IMAGE_REQUEST_MAX_BYTES = 20_971_520
 
+#: The longest text one `host.speak()` may carry, in characters (Unicode scalar
+#: values, about twenty seconds spoken). A longer text is REFUSED with
+#: `BAD_ARGUMENTS`, never cut short (`plugins::speech::SPEAK_TEXT_MAX_CHARS`).
+#: A plugin's speaking time is budgeted in characters on top of this, so a
+#: backlog never holds the person's own reply past the speech queue's wait limit.
+SPEAK_TEXT_MAX_CHARS = 300
+
 __all__ = [
     "SPEC_SHA256",
     "STT_AUDIO_CHANNEL_CAPACITY",
@@ -154,4 +161,5 @@ __all__ = [
     "MUSIC_SEARCH_MAX_ITEMS",
     "PLUGIN_MAX_MESSAGE_BYTES",
     "PLUGIN_IMAGE_REQUEST_MAX_BYTES",
+    "SPEAK_TEXT_MAX_CHARS",
 ]

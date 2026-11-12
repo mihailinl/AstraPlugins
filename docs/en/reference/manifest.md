@@ -148,6 +148,8 @@ An id this Astra does not know is kept and inert: forward compatibility, and `pe
 | `dom_access` | — | **yes** | **yes** | Run the plugin's own code inside the Astra window, with access to the user's conversations and every other plugin's interface. |
 | `client` | — | **yes** | **yes** | Act as a client front-end (its own chat surface, its own session). |
 | `read_ai_settings` | `GetAiSettings` | no | no | Read the user's chat provider, model and endpoint (never a key). |
+| `speak` | `Speak`, `StopSpeaking` | **yes** | no | Say the plugin's own words aloud in Astra's voice. |
+| `read_user_identity` | `GetUserIdentity` | no | no | Pseudonyms for this installation and the signed-in account, made for this plugin alone (never the account's own id, a name or a hardware serial). |
 
 *Gates* is the host RPC the daemon refuses without the permission, from [`spec/hooks.yaml`](../../../spec/hooks.yaml); parity rule R6 checks that column against the daemon's own `HOST_RPC_PERMISSIONS`, the table `require_permission` reads. An empty cell is a **surface** permission that gates no RPC: `dom_access` decides how a UI contribution is rendered, and `client` is a capability ceiling.
 
@@ -188,6 +190,10 @@ Carries an argument: [`PermissionRequest::types`] is the **allowlist** of event 
 **`client`.** Act as a client front-end (its own chat surface, its own session). **High risk.**
 
 **`read_ai_settings`.** `PluginHostService.GetAiSettings` — read the user's chat provider, model and endpoint (never a key). Not high-risk and not refused at Tier 2: it is what lets a plugin that calls the user's model learn where it is WITHOUT reading Astra's files, so pricing it high would push an honest plugin back to `settings.json`.
+
+**`speak`.** `PluginHostService.Speak` / `StopSpeaking` — say the plugin's own words aloud in Astra's voice. **High risk:** they are heard as Astra's. Not refused at Tier 2: an announcement is an ordinary thing for a plugin to want, and the checkbox is the decision.
+
+**`read_user_identity`.** `PluginHostService.GetUserIdentity` — pseudonyms for this installation and the signed-in account, made for this plugin alone (never the account's own id, a name or a hardware serial). Not high-risk and not refused at Tier 2: it is the honest alternative to a machine serial, and pricing it high would push a plugin that limits use per person back to one.
 
 ## `[config]`
 

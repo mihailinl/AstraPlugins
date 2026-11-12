@@ -268,8 +268,9 @@ pub fn generate_index_ts(name: &str, capabilities: &[&str]) -> String {
     if capabilities.contains(&"client") {
         sections.push_str(
             r#"
-  // Declaring `client` is what asks the daemon for a client session, so this
-  // plugin can drive chat, voice and commands rather than only answer.
+  // Declaring `client` asks the daemon for a client session. Its DaemonClient
+  // is deprecated (Astra refuses a plugin's token there): drive chat and
+  // speech through `ctx` (`ctx.speak`, the host calls) instead.
   client: {
     onReady: (_daemon, ctx) => {
       void ctx.info("daemon client ready");

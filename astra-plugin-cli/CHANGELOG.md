@@ -32,6 +32,15 @@ reads to find out how to get the tool.
 
 ### Added
 
+- **Two new `[permissions]` ids**, from the vendored `astra-plugin-manifest`
+  re-synced with Astra `d6fc58808`: `speak` (`Speak` / `StopSpeaking`
+  — the plugin's words in Astra's voice; high-risk, its own consent checkbox,
+  not refused to a local import) and `read_user_identity` (`GetUserIdentity` —
+  per-plugin pseudonyms for the installation and the signed-in account; not
+  high-risk). `astra-plugin check` accepts both instead of warning that this
+  Astra grants nothing for them, and the scaffold offers both as commented
+  optional lines beside `read_ai_settings`.
+
 - **`astra-plugin test` probes `AiGetModels`** for a plugin that declares
   `ai_provider`: Astra (from `17587566b`) calls it again, when the plugin starts
   and on the AI page's refresh, and `spec/hooks.yaml` lists it `live`. The probe

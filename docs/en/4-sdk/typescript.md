@@ -164,6 +164,10 @@ of a function that returns one — which is the shape
 | `pushToUi(event, payload?)` | `push_to_ui` |
 | `sendChatMessage(text, opts?)` | `send_chat_message` |
 | `setThemeContribution(theme)` | `set_theme_contribution` |
+| `getAiSettings()` — the chat's provider, model and endpoint, never a key | `read_ai_settings` |
+| `speak(text)` — say it aloud in Astra's voice; resolves once it was said, stopped or refused | `speak` (high-risk) |
+| `stopSpeaking()` — stop everything this plugin asked to be said | `speak` |
+| `getUserIdentity()` — pseudonyms for this installation and the signed-in account | `read_user_identity` |
 
 The wrappers take a **payload object** and stringify it for you;
 `ctx.host` is the raw client underneath, typed `Host | null`, whose
@@ -172,7 +176,24 @@ The wrappers take a **payload object** and stringify it for you;
 For the chat's provider, model and endpoint (never a key; needs
 `read_ai_settings`) call `ctx.getAiSettings()`: `Host.getAiSettings` is optional
 on the interface, and the wrapper throws a clear error when the host lacks it,
-so you never write `ctx.host?.getAiSettings?.()` yourself.
+so you never write `ctx.host?.getAiSettings?.()` yourself. `ctx.speak()`,
+`ctx.stopSpeaking()` and `ctx.getUserIdentity()` work the same way.
+
+`ctx.speak(text)` resolves with a `SpeakResult`: `outcome` is `"SPOKEN"`,
+`"STOPPED"` (silence was asked for — **not an error**; do not say it again
+unasked) or `"NOT_SPOKEN"`, with `error` — the same `PluginErrorDetail` a chat
+chunk carries — saying why (`error.code === "PLUGIN_ERROR_RATE_LIMITED"` comes
+with `error.retryAfterMs`). An outcome this SDK does not know reads as
+`"UNSPECIFIED"`, never as one it does. `speak` needs an account that opens Astra
+and the person's reply voice on, and the daemon refuses a text over
+`limits.SPEAK_TEXT_MAX_CHARS` (300) characters rather than cut it.
+[Permissions](../3-reference/permissions.md#speaking-in-astras-voice) has the
+whole table. In a test, `RecordingHost.speakResult` and `.userIdentity` stage
+the answers and `spoken()` lists what your plugin asked to say.
+
+`DaemonClient` is `@deprecated` (0.7.4): Astra refuses a plugin's session token
+on every service but `PluginHostService`, so it has done nothing since SDK
+0.5.0. Everything above is the replacement.
 
 `setVariable`, `pushToUi` and the UI call path all exist and are bound; older
 documentation said otherwise because they landed late.

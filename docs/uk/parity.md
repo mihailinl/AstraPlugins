@@ -2,7 +2,7 @@
 
 # Паритет хуків
 
-Протокол **1** · **36** хуків · джерело істини [`spec/hooks.yaml`](../../spec/hooks.yaml).
+Протокол **1** · **45** хуків · джерело істини [`spec/hooks.yaml`](../../spec/hooks.yaml).
 
 *Хук* — це один RPC на одному з двох звернених до плагіна сервісів.
 `PluginCapabilityService` працює **демон → плагін**: ваш плагін його
@@ -82,6 +82,9 @@ Astra, і жоден плагін його ніколи не торкаєтьс�
 | `SendChatMessage` | `client` | `send_chat_message` | required | live | server | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `PushToUi` | `ui_contributions` | `push_to_ui` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `GetAiSettings` | `core` | `read_ai_settings` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `Speak` | `core` | `speak` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `StopSpeaking` | `core` | `speak` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `GetUserIdentity` | `core` | `read_user_identity` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 
 ## Готовність можливостей
@@ -167,4 +170,7 @@ Astra, і жоден плагін його ніколи не торкаєтьс�
 - **`SendChatMessage`** — Надіслати повідомлення чату від імені цього плагіна і стрімити відповідь асистента назад. Токен сесії обмежений PluginHostService, тож шлях DaemonClient/ChatService, на який раніше вказували авторів SDK, — permission_denied — цей rpc єдиний робочий шлях. Прив'язаний у всіх трьох SDK починаючи з 5.4.
 - **`PushToUi`** — Надіслати подію у власні iframe цього плагіна — зворотний шлях для CallFromUi. Тепер прив'язаний у всіх трьох. У Python три релізи був CallFromUi і не було PushToUi, тож Python UI-плагін можна було викликати, але він не міг відповісти асинхронно.
 - **`GetAiSettings`** — Провайдер, модель і адреса чату користувача (але не ключ), щоб плагіну не доводилося читати файли Astra. Astra старша за 2026-11-10 відповідає UNIMPLEMENTED; збережена адреса читається як openai_compatible, власний сервіс Astra — як astra без URL.
+- **`Speak`** — Вимовити власні слова плагіна вголос голосом Astra; відповідає, коли їх сказано, зупинено або відхилено. speak високоризиковий (свій чекбокс згоди). Потрібні акаунт із доступом до Astra та увімкнене озвучення відповідей у людини. Не більше 300 символів, інакше відмова, текст ніколи не обрізається (spec/limits.yaml:speak_text_max_chars); 450 символів мовлення одразу, потім 3 на секунду, понад це NOT_SPOKEN несе RATE_LIMITED і retry_after_ms. STOPPED — не помилка. Astra старша за 2026-11-12 відповідає UNIMPLEMENTED.
+- **`StopSpeaking`** — Зупинити все, що цей плагін просив сказати, — те, що звучить, і те, що чекає в черзі, — і нічого іншого з того, що каже Astra. Закритий дозволом speak — єдиним, який ділять два RPC хоста; дозволений незалежно від того, чи виконано вхід. Кожен перерваний ним Speak відповідає STOPPED.
+- **`GetUserIdentity`** — Псевдоніми цього встановлення й акаунта, у який виконано вхід, створені лише для цього плагіна; ніколи не власний id акаунта, ім'я, email чи серійний номер обладнання. account_id порожній, якщо не authorized, і однаковий на кожному пристрої, де людина входить; те саме значення надходить як account_id у подіях auth_changed цього плагіна. Astra старша за 2026-11-12 відповідає UNIMPLEMENTED.
 - **`SetThemeContribution`** — Внести кольори, шпалери і шейдер до активної теми Astra. Фаза 4 класифікує його як високоризиковий і відхиляє нижче рівня 1, тож прив'язка без виданого дозволу — це permission_denied, а не перефарбована тема. Прив'язаний у всіх трьох SDK починаючи з 5.4.

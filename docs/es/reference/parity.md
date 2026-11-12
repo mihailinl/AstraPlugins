@@ -2,7 +2,7 @@
 
 # Paridad de hooks
 
-Protocolo **1** · **36** hooks · fuente de verdad [`spec/hooks.yaml`](../../../spec/hooks.yaml).
+Protocolo **1** · **45** hooks · fuente de verdad [`spec/hooks.yaml`](../../../spec/hooks.yaml).
 
 Un *hook* es un RPC en uno de los dos servicios orientados a plugins.
 `PluginCapabilityService` corre **daemon → plugin**: tu plugin lo sirve
@@ -82,6 +82,9 @@ forma en que el código de un autor de plugin falla hoy.
 | `SendChatMessage` | `client` | `send_chat_message` | required | live | server | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `PushToUi` | `ui_contributions` | `push_to_ui` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `GetAiSettings` | `core` | `read_ai_settings` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `Speak` | `core` | `speak` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `StopSpeaking` | `core` | `speak` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `GetUserIdentity` | `core` | `read_user_identity` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 
 ## Preparación por capability
@@ -167,5 +170,8 @@ de un plugin roto. Copia legible por máquina:
 - **`SendChatMessage`** — Envía un mensaje de chat como este plugin y transmite en streaming la respuesta del asistente de vuelta. El token de sesión está limitado a PluginHostService, así que la ruta DaemonClient/ChatService a la que los SDK solían dirigir a los autores es permission_denied — este rpc es la única vía que funciona. Vinculado en los tres SDK desde 5.4.
 - **`PushToUi`** — Envía un evento a los propios iframes de este plugin — la ruta de retorno para CallFromUi. Ahora vinculado en los tres. Python tuvo CallFromUi y no PushToUi durante tres releases, así que un plugin de UI en Python podía ser llamado y no podía responder de forma asíncrona.
 - **`GetAiSettings`** — El proveedor, el modelo y el endpoint del chat del usuario (nunca una clave), para que un plugin no tenga que leer los archivos de Astra. Un Astra anterior a 2026-11-10 responde UNIMPLEMENTED; un endpoint guardado se lee como openai_compatible y el servicio propio de Astra como astra sin URL.
+- **`Speak`** — Dice en voz alta las propias palabras del plugin con la voz de Astra; responde cuando se dijeron, se detuvieron o se rechazaron. speak es de alto riesgo (su propia casilla de consentimiento). Necesita una cuenta que dé acceso a Astra y la voz de las respuestas de la persona activada. Como máximo 300 caracteres, rechazado y nunca recortado (spec/limits.yaml:speak_text_max_chars); 450 caracteres de tiempo de habla de una vez, luego 3 por segundo, y más allá NOT_SPOKEN lleva RATE_LIMITED y retry_after_ms. STOPPED no es un error. Un Astra anterior a 2026-11-12 responde UNIMPLEMENTED.
+- **`StopSpeaking`** — Detiene todo lo que este plugin pidió decir, lo que suena y lo que está en cola, y nada más de lo que Astra esté diciendo. Bloqueado por speak, el único permiso que comparten dos rpc del host; permitido haya o no alguien con la sesión iniciada. Cada Speak que corta responde STOPPED.
+- **`GetUserIdentity`** — Seudónimos de esta instalación y de la cuenta con sesión iniciada, creados solo para este plugin; nunca el id propio de la cuenta, un nombre, un correo electrónico ni un número de serie del hardware. account_id está vacío salvo con authorized y es el mismo en cada dispositivo donde la persona inicia sesión; el mismo valor llega como account_id en los eventos auth_changed de este plugin. Un Astra anterior a 2026-11-12 responde UNIMPLEMENTED.
 - **`SetThemeContribution`** — Aporta colores, fondo de pantalla y shader al tema activo de Astra. La Fase 4 lo clasifica como de alto riesgo y lo rechaza por debajo del nivel 1, así que una vinculación sin el permiso concedido es un permission_denied, no un tema repintado. Vinculado en los tres SDK desde 5.4.
 </content>

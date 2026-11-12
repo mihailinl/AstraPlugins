@@ -96,6 +96,18 @@ pub enum Permission {
     /// WITHOUT reading Astra's files, so pricing it high would push an honest
     /// plugin back to `settings.json`.
     ReadAiSettings,
+    /// `PluginHostService.Speak` / `StopSpeaking` — say the plugin's own words
+    /// aloud in Astra's voice. **High risk:** they are heard as Astra's. Not
+    /// refused at Tier 2: an announcement is an ordinary thing for a plugin to
+    /// want, and the checkbox is the decision.
+    Speak,
+    /// `PluginHostService.GetUserIdentity` — pseudonyms for this installation
+    /// and the signed-in account, made for this plugin alone (never the
+    /// account's own id, a name or a hardware serial). Not high-risk and not
+    /// refused at Tier 2: it is the honest alternative to a machine serial, and
+    /// pricing it high would push a plugin that limits use per person back to
+    /// one.
+    ReadUserIdentity,
 }
 
 /// Every permission id, in [`Permission`]'s declaration order.
@@ -114,9 +126,12 @@ pub const PERMISSION_NAMES: &[&str] = &[
     "dom_access",
     "client",
     "read_ai_settings",
+    "speak",
+    "read_user_identity",
 ];
 
-/// The five §5.6 marks *"high-risk, each its own consent checkbox"*.
+/// The five §5.6 marks *"high-risk, each its own consent checkbox"*, and
+/// `speak` (2026-11-12): a plugin's words heard in Astra's voice.
 ///
 /// §4.3 spells four checkboxes and omits `push_to_ui`; §5.6 lists five. This is
 /// the union, because the disagreement is between a UI paragraph and the
@@ -129,6 +144,7 @@ pub const HIGH_RISK_PERMISSIONS: &[Permission] = &[
     Permission::SetThemeContribution,
     Permission::DomAccess,
     Permission::Client,
+    Permission::Speak,
 ];
 
 /// The four §5.5 refuses **outright** to a Tier-2 import — *"refused outright,
@@ -162,6 +178,8 @@ impl Permission {
             Permission::DomAccess => "dom_access",
             Permission::Client => "client",
             Permission::ReadAiSettings => "read_ai_settings",
+            Permission::Speak => "speak",
+            Permission::ReadUserIdentity => "read_user_identity",
         }
     }
 
@@ -194,6 +212,8 @@ pub const ALL_PERMISSIONS: &[Permission] = &[
     Permission::DomAccess,
     Permission::Client,
     Permission::ReadAiSettings,
+    Permission::Speak,
+    Permission::ReadUserIdentity,
 ];
 
 /// What an author wrote for one permission id.
@@ -407,13 +427,20 @@ mod tests {
                 p.id()
             );
         }
-        assert_eq!(HIGH_RISK_PERMISSIONS.len(), 5);
+        assert_eq!(HIGH_RISK_PERMISSIONS.len(), 6);
         assert_eq!(TIER2_REFUSED_PERMISSIONS.len(), 4);
         // Reading the chat's endpoint is the honest alternative to reading
         // `settings.json`; a checkbox or a Tier-2 refusal would price the
         // honest path above the dishonest one.
         assert!(!Permission::ReadAiSettings.is_high_risk());
         assert!(!Permission::ReadAiSettings.refused_at_tier2());
+        // A plugin's words in Astra's voice get their own checkbox, and are not
+        // refused to an import: the checkbox is the decision.
+        assert!(Permission::Speak.is_high_risk());
+        assert!(!Permission::Speak.refused_at_tier2());
+        // The pseudonyms are the honest alternative to a machine serial.
+        assert!(!Permission::ReadUserIdentity.is_high_risk());
+        assert!(!Permission::ReadUserIdentity.refused_at_tier2());
     }
 
     /// The section as §5.6 writes it, parsed.

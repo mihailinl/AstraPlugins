@@ -163,3 +163,10 @@ plugin_max_message_bytes: 67_108_864
 # message text notes one that was left out
 # (`plugins::capability_bridge::PLUGIN_IMAGE_REQUEST_MAX_BYTES`).
 plugin_image_request_max_bytes: 20_971_520
+
+# The longest text one `host.speak()` may carry, in characters (Unicode scalar
+# values, about twenty seconds spoken). A longer text is REFUSED with
+# `BAD_ARGUMENTS`, never cut short (`plugins::speech::SPEAK_TEXT_MAX_CHARS`).
+# A plugin's speaking time is budgeted in characters on top of this, so a
+# backlog never holds the person's own reply past the speech queue's wait limit.
+speak_text_max_chars: 300

@@ -43,7 +43,7 @@ Tres propiedades, todas las cuales sorprenden a alguien tarde o temprano:
 
    <!-- doctest: output from="astra-plugin check --strict ." unrun="needs a plugin project in the working directory; re-run it in your own plugin" -->
    ```
-     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings
+     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings, speak, read_user_identity
      FAILED: 1 warning(s), and --strict treats warnings as errors
    ```
 
@@ -64,7 +64,7 @@ Que `GetDaemonInfo` sea gratis es una decisión, no un descuido: una casilla
 que no protege nada es la forma en que los usuarios aprenden a marcar
 casillas sin pensar.
 
-## Los nueve ids
+## Los once ids
 
 | Id | Bloquea | Casilla propia | Rechazado en importación local | Qué te permite hacer |
 |---|---|---|---|---|
@@ -77,6 +77,8 @@ casillas sin pensar.
 | `dom_access` | — (una superficie) | **sí** | **sí** | Ejecutar tu código dentro de la ventana de Astra, con acceso a conversaciones y a la interfaz de cualquier otro plugin |
 | `client` | — (una superficie) | **sí** | **sí** | Ser un frontend de chat con su propia sesión |
 | `read_ai_settings` | `GetAiSettings` | no | no | Leer el proveedor, el modelo y el endpoint del chat del usuario — nunca una clave |
+| `speak` | `Speak`, `StopSpeaking` | **sí** | no | Decir tus propias palabras en voz alta con la voz de Astra, y detenerlas |
+| `read_user_identity` | `GetUserIdentity` | no | no | Leer seudónimos de esta instalación y de la cuenta con sesión iniciada, creados solo para tu plugin |
 
 `dom_access` y `client` no bloquean ningún RPC, y ese es el punto: son
 **superficies**. `dom_access` decide si una contribución de UI se renderiza
@@ -132,6 +134,43 @@ Un plugin que llama él mismo al modelo del usuario — un asistente propio, un 
 | `is_loopback` | El endpoint está en esta máquina (`127.0.0.0/8`, `::1`, `localhost`) — un modelo local |
 
 Nunca lleva una clave de API, ni los demás endpoints guardados del usuario, ni el prompt del sistema, ni ningún rol salvo el del chat. Un plugin que necesita una clave se la pide al usuario en su propio `[config]` (márcala como secreta). No es de alto riesgo ni se rechaza en una importación local: es el camino honesto a esta información, y ponerle un precio superior al de leer `settings.json` empujaría a los plugins en la dirección equivocada. Leer los archivos propios de Astra es algo que busca la revisión humana en la publicación. Un Astra anterior a esta llamada responde `UNIMPLEMENTED`.
+
+## Hablar con la voz de Astra
+
+Un plugin que tiene algo que anunciar — un temporizador, una compilación que terminó, un mensaje que llegó — puede hacer que Astra lo diga. Declara `speak` y llama a `Speak` (`speak(text)` en Rust y Python, `ctx.speak(text)` en TypeScript).
+
+`speak` es de **alto riesgo**: tus palabras se oyen con la voz de Astra, como si Astra las hubiera dicho, así que recibe su propia casilla de consentimiento. No se rechaza en una importación local — un aviso es algo corriente que un plugin puede querer, y la casilla es la decisión. Además del permiso concedido, `Speak` necesita **una cuenta que dé acceso a Astra** y **la voz de las respuestas de la persona activada**; se rechaza mientras Astra está bloqueado.
+
+La llamada dura lo que dura el habla y responde con lo que fue de ella:
+
+| Resultado | Qué significa | Qué hacer |
+|---|---|---|
+| `SPOKEN` | Se oyó | Nada |
+| `STOPPED` | Se pidió silencio antes de que terminara: la palabra de activación, la voz de las respuestas desactivada, Detener, tu propio `StopSpeaking` | Nada — **no es un error**. No lo repitas sin que te lo pidan |
+| `NOT_SPOKEN` | No se dijo; `error` (el mismo `PluginError` que lleva un fragmento de chat) dice por qué | Lee el código de abajo. Nada rechazado queda en cola |
+
+| `error.code` | Cuándo |
+|---|---|
+| `PLUGIN_ERROR_BAD_ARGUMENTS` | El texto queda vacío al quitar los caracteres invisibles, o supera los **300 caracteres** (`speak_text_max_chars` en `spec/limits.yaml`). Un texto más largo se rechaza, nunca se recorta |
+| `PLUGIN_ERROR_RATE_LIMITED` | Se agotó tu tiempo de habla. Se presupuesta en caracteres — **450 de una vez, luego 3 por segundo**, y cada llamada cuesta al menos 20 — y `retry_after_ms` dice cuándo vuelve a haber sitio |
+| `PLUGIN_ERROR_UNAVAILABLE` | La persona desactivó la voz de Astra, Astra está bloqueado, no hay voz, o la cola de habla no pudo aceptarlo. Muestra el texto en su lugar; no le pidas a la persona que lo cambie |
+
+Tus palabras se ponen en cola detrás de las tuyas anteriores, en un carril propio, así que nunca interrumpen una de las respuestas de Astra. `StopSpeaking` detiene todo lo que pediste decir, lo que suena y lo que está en cola, y nada más; comparte el permiso `speak` y funciona haya o no alguien con la sesión iniciada. Los límites son los del daemon: los SDK exportan `SPEAK_TEXT_MAX_CHARS` para que puedas mostrar un contador, y no comprueban nada por su cuenta. Un Astra anterior a esta llamada responde `UNIMPLEMENTED`.
+
+## Saber quién usa Astra
+
+Un plugin que limita el uso por persona o por máquina — una prueba, una cuota, una licencia — necesita un id estable para cada una. **Pídeselo a Astra; nunca leas un número de serie del hardware ni los archivos de Astra.** Declara `read_user_identity` y llama a `GetUserIdentity` (`get_user_identity()` en Rust y Python, `ctx.getUserIdentity()` en TypeScript):
+
+| Campo | Qué es |
+|---|---|
+| `install_id` | Esta instalación de Astra: la misma tras reinicios y actualizaciones de Astra y de tu plugin, distinta en otra instalación. Vacío mientras Astra aún no tiene clave de instalación |
+| `signed_in` | Una persona ha iniciado sesión en Astra |
+| `authorized` | …y su cuenta da acceso a Astra |
+| `account_id` | La cuenta con sesión iniciada: la misma en cada dispositivo donde la persona inicia sesión. Vacío salvo con `authorized` |
+
+Ambos ids son **seudónimos creados solo para tu plugin**: otro plugin lee ids distintos para la misma persona y la misma máquina, así que dos plugins no pueden cruzar sus registros a través de ellos. Esto vale frente a plugins que usan esta API honestamente: el código nativo de un plugin puede leer los archivos de Astra. Ninguno es secreto, y ninguno es nunca el id propio de la cuenta, el nombre o el correo electrónico de la persona, ni un número de serie del hardware. No es de alto riesgo ni se rechaza en una importación local: es la alternativa honesta a un número de serie de la máquina, y ponerle un precio alto empujaría a un plugin de vuelta a uno. Un Astra anterior a esta llamada responde `UNIMPLEMENTED`.
+
+**`auth_changed` se restringe en consecuencia** (Astra, 2026-11-12). Un plugin al que se le concede el evento `auth_changed` recibía antes el id propio de la cuenta, el nombre visible de la persona y su plan. Ahora recibe `authenticated`, `authorized`, `timestamp` y `account_id` — el mismo seudónimo que responde `GetUserIdentity`, y `""` salvo que tengas `read_user_identity` y la cuenta dé acceso a Astra. `user_id` y `user_name` siguen llegando, como `null`, y `subscription_tier` como `""`, para que un parser escrito para la forma antigua siga funcionando; ninguno lleva ya un valor.
 
 ## Escribir un reason
 
@@ -238,7 +277,7 @@ Tabla completa y el razonamiento:
 
 ## Consentimiento, desde el lado del usuario
 
-Los permisos se agrupan por riesgo. Los cinco de alto riesgo reciben cada
+Los permisos se agrupan por riesgo. Los seis de alto riesgo reciben cada
 uno su propia casilla, e Instalar permanece deshabilitado hasta que todas
 estén marcadas; `dom_access` recibe una segunda pantalla. Deliberadamente
 **no hay "escribe para confirmar"**: ese es el patrón para destrucción

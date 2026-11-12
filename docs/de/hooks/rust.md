@@ -68,6 +68,9 @@ deklariert, bekommt auf der Maschine des Nutzers `permission_denied`.
 | `SendChatMessage` | `client` | `send_chat_message` | required | server | stable | Sendet eine Chat-Nachricht als dieses Plugin und streamt die Antwort des Assistenten zurück. |
 | `PushToUi` | `ui_contributions` | `push_to_ui` | optional | unary | stable | Pusht ein Event in die eigenen iframes dieses Plugins — der Rückweg für CallFromUi. |
 | `GetAiSettings` | `core` | `read_ai_settings` | optional | unary | stable | Chat-Provider, Modell und Endpunkt des Nutzers (nie ein Schlüssel), damit ein Plugin dafür nie Astras Dateien lesen muss. |
+| `Speak` | `core` | `speak` | optional | unary | stable | Die eigenen Worte des Plugins mit Astras Stimme laut aussprechen; antwortet, sobald sie gesagt, angehalten oder abgelehnt wurden. |
+| `StopSpeaking` | `core` | `speak` | optional | unary | stable | Alles anhalten, was dieses Plugin sagen lassen wollte — was gerade erklingt und was noch wartet —, und nichts anderes, was Astra sagt. |
+| `GetUserIdentity` | `core` | `read_user_identity` | optional | unary | stable | Pseudonyme für diese Installation und das angemeldete Konto, nur für dieses Plugin erzeugt; nie die eigene ID des Kontos, ein Name, eine E-Mail-Adresse oder eine Hardware-Seriennummer. |
 | `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | unary | stable | Steuert Farben, Wallpaper und Shader zum aktiven Astra-Theme bei. |
 
 ## Lücken

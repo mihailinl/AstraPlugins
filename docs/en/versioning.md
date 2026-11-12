@@ -115,6 +115,15 @@ A deprecation is a warning, never an error. If a release makes deprecated code
 | Rust: `compat::HostClient` / `DaemonClient` aliases | 0.6.0 | 0.8.0 | `ctx.host()` / `ctx.daemon()` |
 | Python: a `dict` where a capability dataclass is expected | 0.5.0 | 0.7.0 | The dataclass — `VoiceInfo`, `ToolDef`, … — or its `to_proto()` |
 | TypeScript: the `UiPanel` type alias | 0.5.0 | 0.7.0 | `UiContribution` |
+| Rust: `DaemonClient` | 0.7.5 | 0.9.0 | `ctx.host()` — `send_chat_message`, `speak`, `subscribed_events()`, `get_user_identity` |
+| Python: `DaemonClient` | 0.6.5 | 0.8.0 | `self.host` — `send_chat_message`, `speak`, `subscribe_events`, `get_user_identity` |
+| TypeScript: `DaemonClient` | 0.7.4 | 0.9.0 | `ctx.host` and the context helpers — `ctx.sendChatMessage()`, `ctx.speak()`, `ctx.getUserIdentity()` |
+
+`DaemonClient`, in all three, is deprecated for a reason of a different kind: it
+has done nothing since SDK 0.5.0. Astra accepts a plugin's session token on
+`PluginHostService` and nowhere else, so every call it makes is refused. It is
+deprecated rather than removed so that code naming it keeps compiling; nothing
+that worked stops working.
 
 One deprecation was withdrawn rather than completed: the hook `AiGetModels`,
 deprecated in 0.6.0 because no daemon asked for it, is live again since Astra
@@ -176,6 +185,15 @@ release train dates it, and this document is where it is written down.
 - **The daemon's own behaviour.** Astra's UI, its config layout and its internal
   services are not a plugin API. What a plugin may rely on is the protocol, the
   hooks in `spec/hooks.yaml`, and the permissions in its manifest.
+- **What an event's payload carries.** An event's `payload_json` is decided by
+  the daemon, per reader, and can narrow in any Astra release without an SDK
+  release. The worked example: since Astra 2026-11-12, `auth_changed` carries
+  `authenticated`, `authorized`, `timestamp` and `account_id` — a pseudonym made
+  for your plugin, `""` unless it holds `read_user_identity` and the account
+  opens Astra. The account's own id, the person's name and their plan are no
+  longer sent: `user_id` and `user_name` arrive as `null` and
+  `subscription_tier` as `""`, present only so an old parser keeps parsing. See
+  [Knowing who is using Astra](3-reference/permissions.md#knowing-who-is-using-astra).
 - **Anything marked `#[doc(hidden)]`, `_private`, or exported for the test
   harness.** It can change in a patch.
 - **`unrouted` hooks.** A hook can exist in the proto and in all three SDKs and

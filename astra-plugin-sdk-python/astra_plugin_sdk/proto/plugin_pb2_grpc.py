@@ -7271,6 +7271,21 @@ class PluginHostServiceStub(object):
                 request_serializer=plugin__pb2.PluginUiPushRequest.SerializeToString,
                 response_deserializer=plugin__pb2.Empty.FromString,
                 _registered_method=True)
+        self.Speak = channel.unary_unary(
+                '/astra.PluginHostService/Speak',
+                request_serializer=plugin__pb2.PluginSpeakRequest.SerializeToString,
+                response_deserializer=plugin__pb2.PluginSpeakResponse.FromString,
+                _registered_method=True)
+        self.StopSpeaking = channel.unary_unary(
+                '/astra.PluginHostService/StopSpeaking',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.Empty.FromString,
+                _registered_method=True)
+        self.GetUserIdentity = channel.unary_unary(
+                '/astra.PluginHostService/GetUserIdentity',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.PluginUserIdentity.FromString,
+                _registered_method=True)
 
 
 class PluginHostServiceServicer(object):
@@ -7357,6 +7372,36 @@ class PluginHostServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def Speak(self, request, context):
+        """Say `text` aloud in Astra's voice. Gated by the `speak` permission (high
+        risk: the plugin's words in Astra's voice) and by an account that opens
+        Astra. Queued behind this plugin's earlier speech on a lane of its own, so
+        it never cuts Astra's replies; refused while reply voice is off or Astra
+        is locked; stopped by the wake word. Answers when it has been said, or
+        with why not — so the call lasts as long as the speech.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def StopSpeaking(self, request, context):
+        """Stop everything this plugin asked to be said, sounding and queued. Gated
+        by `speak`. Never touches anything else Astra is saying.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetUserIdentity(self, request, context):
+        """Who is using Astra, as THIS plugin may know it: pseudonyms for this
+        installation and the signed-in account, made for this plugin alone.
+        Gated by `read_user_identity`. Never the account's own id, the person's
+        name or email, or a hardware serial.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_PluginHostServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -7414,6 +7459,21 @@ def add_PluginHostServiceServicer_to_server(servicer, server):
                     servicer.PushToUi,
                     request_deserializer=plugin__pb2.PluginUiPushRequest.FromString,
                     response_serializer=plugin__pb2.Empty.SerializeToString,
+            ),
+            'Speak': grpc.unary_unary_rpc_method_handler(
+                    servicer.Speak,
+                    request_deserializer=plugin__pb2.PluginSpeakRequest.FromString,
+                    response_serializer=plugin__pb2.PluginSpeakResponse.SerializeToString,
+            ),
+            'StopSpeaking': grpc.unary_unary_rpc_method_handler(
+                    servicer.StopSpeaking,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.Empty.SerializeToString,
+            ),
+            'GetUserIdentity': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetUserIdentity,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.PluginUserIdentity.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -7715,6 +7775,87 @@ class PluginHostService(object):
             '/astra.PluginHostService/PushToUi',
             plugin__pb2.PluginUiPushRequest.SerializeToString,
             plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def Speak(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginHostService/Speak',
+            plugin__pb2.PluginSpeakRequest.SerializeToString,
+            plugin__pb2.PluginSpeakResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def StopSpeaking(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginHostService/StopSpeaking',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetUserIdentity(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginHostService/GetUserIdentity',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.PluginUserIdentity.FromString,
             options,
             channel_credentials,
             insecure,

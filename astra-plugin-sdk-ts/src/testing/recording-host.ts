@@ -20,7 +20,7 @@
 
 import { Readable } from "node:stream";
 import type * as grpc from "@grpc/grpc-js";
-import type { AiSettings, Host, DaemonInfo } from "../host.js";
+import type { AiSettings, Host, DaemonInfo, SpeakResult, UserIdentity } from "../host.js";
 import type { ChatChunk, ThemeContribution } from "../types.js";
 
 /** One line the plugin logged. */
@@ -64,6 +64,9 @@ export type HostRpc =
   | "getConfig"
   | "getDaemonInfo"
   | "getAiSettings"
+  | "speak"
+  | "stopSpeaking"
+  | "getUserIdentity"
   | "setVariable"
   | "pushToUi"
   | "setThemeContribution"
@@ -85,6 +88,8 @@ export class RecordingHost implements Host {
   private readonly pushes: RecordedUiPush[] = [];
   private readonly themeCalls: ThemeContribution[] = [];
   private readonly chats: RecordedChat[] = [];
+  private readonly spokenTexts: string[] = [];
+  private stops = 0;
   private readonly streams: Readable[] = [];
   /** RPC -> the error to throw, and how many more times to throw it. */
   private readonly failures = new Map<HostRpc, { error: Error; times: number }>();
@@ -179,6 +184,17 @@ export class RecordingHost implements Host {
   chatMessages(): readonly RecordedChat[] {
     return this.chats;
   }
+  /**
+   * The text of every `speak()`, in order — including one `speakResult` then
+   * refused, because what the plugin ASKED to say is the assertion.
+   */
+  spoken(): readonly string[] {
+    return this.spokenTexts;
+  }
+  /** How many times the plugin called `stopSpeaking()`. */
+  stopCount(): number {
+    return this.stops;
+  }
   /** Forget everything recorded. Failure injections are kept. */
   clear(): void {
     this.triggers.length = 0;
@@ -187,10 +203,32 @@ export class RecordingHost implements Host {
     this.pushes.length = 0;
     this.themeCalls.length = 0;
     this.chats.length = 0;
+    this.spokenTexts.length = 0;
+    this.stops = 0;
   }
 
   /** Chunks the next `sendChatMessage` will stream back. */
   chatReply: ChatChunk[] = [{ text: "ok", done: false }, { done: true }];
+
+  /**
+   * What `speak()` answers: heard, until told otherwise. Stage a refusal to
+   * test the branch a rate-limited or voice-off plugin takes:
+   *
+   * ```ts
+   * host.speakResult = {
+   *   outcome: "NOT_SPOKEN",
+   *   error: { code: "PLUGIN_ERROR_RATE_LIMITED", message: "", hint: "",
+   *            configField: "", retryAfterMs: 2000, docUrl: "" },
+   * };
+   * ```
+   *
+   * A refusal by the daemon's gates (no `speak` grant) is
+   * `fail("speak", …)` — a rejection, not an outcome.
+   */
+  speakResult: SpeakResult = { outcome: "SPOKEN" };
+
+  /** What `getUserIdentity()` answers: nobody signed in, until told otherwise. */
+  userIdentity: UserIdentity = { installId: "", signedIn: false, authorized: false, accountId: "" };
 
   /** Push one event to every open `subscribeEvents` stream. */
   emitEvent(eventType: string, payload: Record<string, unknown> = {}): void {
@@ -230,6 +268,22 @@ export class RecordingHost implements Host {
   async getAiSettings(): Promise<AiSettings> {
     this.check("getAiSettings");
     return this.aiSettings;
+  }
+
+  async speak(text: string): Promise<SpeakResult> {
+    this.check("speak");
+    this.spokenTexts.push(text);
+    return this.speakResult;
+  }
+
+  async stopSpeaking(): Promise<void> {
+    this.check("stopSpeaking");
+    this.stops += 1;
+  }
+
+  async getUserIdentity(): Promise<UserIdentity> {
+    this.check("getUserIdentity");
+    return this.userIdentity;
   }
 
   async setVariable(name: string, value: string, scope = "session"): Promise<void> {

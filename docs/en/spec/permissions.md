@@ -21,7 +21,7 @@ how `dom_access` came to be a capability a plugin granted itself by declaring it
 
 ## 1. The vocabulary
 
-Eight ids, a closed set (`astra-plugin-manifest/src/permissions.rs`,
+Eleven ids, a closed set (`astra-plugin-manifest/src/permissions.rs`,
 `PERMISSION_NAMES`, pinned to the enum by test). The registry validates a
 listing's ids against this list and Astra's localised label table is keyed by it,
 so an id added in one place and not the others renders as a blank row.
@@ -37,12 +37,23 @@ so an id added in one place and not the others renders as a blank row.
 | `dom_access` | *no RPC* — a **surface** | run the plugin's own script inside the Astra window, with access to the user's conversations and to every other plugin's interface | ● |
 | `client` | *no RPC* — a **surface** | act as a client front-end: its own chat surface, its own session | ● |
 | `read_ai_settings` | `GetAiSettings` | read the chat's provider, model and endpoint — never a key, never another role, never the user's saved endpoints | |
+| `speak` | `Speak`, `StopSpeaking` | say the plugin's own words aloud in Astra's voice, and stop them; `Speak` also needs an account that opens Astra | ● |
+| `read_user_identity` | `GetUserIdentity` | read pseudonyms for this installation and the signed-in account, made for the calling plugin alone — never the account's own id, a name, an email or a hardware serial | |
 
-**The five marked ● are high risk** (`HIGH_RISK_PERMISSIONS`) and each gets its
+**The six marked ● are high risk** (`HIGH_RISK_PERMISSIONS`) and each gets its
 own consent checkbox. The plan's §4.3 spells four checkboxes and omits
 `push_to_ui`; §5.6 lists five. The implementation takes the **union**, because
 the disagreement is between a UI paragraph and the security section, and a
-checkbox too many costs a click while one too few costs the property.
+checkbox too many costs a click while one too few costs the property. `speak`
+joined them on 2026-11-12: the plugin's words are heard as Astra's. It is not
+refused to a Tier-2 import (§5) — an announcement is an ordinary thing for a
+plugin to want, and the checkbox is the decision.
+
+`speak` is the one id that gates two RPCs: stopping your own speech is part of
+speaking. `read_ai_settings` and `read_user_identity` are deliberately neither
+high risk nor refused at Tier 2 — each is the honest way to information a plugin
+would otherwise take from Astra's files or the machine itself, and pricing the
+honest path above the dishonest one pushes plugins the wrong way.
 
 **`dom_access` and `client` gate no RPC**, which is exactly why they need a
 second enforcement point: they are enforced where the *surface* is handed out
@@ -123,6 +134,9 @@ against, so an ungated new RPC is a test failure rather than a silent omission:
 | `SetThemeContribution` | `set_theme_contribution` |
 | `PushToUi` | `push_to_ui` |
 | `GetAiSettings` | `read_ai_settings` |
+| `Speak` | `speak` |
+| `StopSpeaking` | `speak` |
+| `GetUserIdentity` | `read_user_identity` |
 
 `GetDaemonInfo` is the one addition to the plan's list of three, and it is a
 decision rather than an omission: it returns `version`, `state`, `grpc_port` and
@@ -232,9 +246,11 @@ A permission is honoured only when **both** hold:
    record holds;
 2. the **ceiling** — a per-provenance rule no record can buy past.
 
-`require_permission` asks the first for the seven host RPCs that gate a
+`require_permission` asks the first for the ten host RPCs that gate a
 permission — `SubscribeEvents`, `SendChatMessage`, `FireTrigger`, `SetVariable`,
-`SetThemeContribution`, `PushToUi`, `GetAiSettings`. The remaining four (`Register`,
+`SetThemeContribution`, `PushToUi`, `GetAiSettings`, `Speak`, `StopSpeaking`,
+`GetUserIdentity` (`Speak` additionally needs an account that opens Astra,
+`require_authorized_plugin`). The remaining four (`Register`,
 `GetPluginSelfConfig`, `PluginLog`, `GetDaemonInfo`) carry `None` in
 `HOST_RPC_PERMISSIONS` and are always allowed; §2 has the table and the
 reasoning.
@@ -267,9 +283,9 @@ the index says about its digest. Do not tell an author that publishing will
 retroactively lift the ceiling on a file they mailed someone.
 
 The Tier-2 refusal list is `TIER2_REFUSED_PERMISSIONS` — deliberately **not** the
-same list as `HIGH_RISK_PERMISSIONS`: `push_to_ui` is worth a checkbox and is not
-worth refusing a file the user chose to import. The four are quoted from §5.5,
-not inferred.
+same list as `HIGH_RISK_PERMISSIONS`: `push_to_ui` and `speak` are worth a
+checkbox and are not worth refusing a file the user chose to import. The four
+are quoted from §5.5, not inferred.
 
 **Tier 3 is not Tier 2 with a nicer badge.** The split is by *intent*, not by
 verification status. A user who pointed a file dialog at a directory on their own

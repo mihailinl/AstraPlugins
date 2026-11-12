@@ -2,7 +2,7 @@
 
 # フックの対応表(Hook parity)
 
-プロトコル **1** · **36** 個のフック · 正典は [`spec/hooks.yaml`](../../spec/hooks.yaml)。
+プロトコル **1** · **45** 個のフック · 正典は [`spec/hooks.yaml`](../../spec/hooks.yaml)。
 
 *フック* とは、プラグイン向けの 2 つのサービスのどちらか一方にある 1 つの
 RPC のことです。`PluginCapabilityService` は **デーモン → プラグイン**方向
@@ -84,6 +84,9 @@ RPC のことです。`PluginCapabilityService` は **デーモン → プラグ
 | `SendChatMessage` | `client` | `send_chat_message` | required | live | server | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `PushToUi` | `ui_contributions` | `push_to_ui` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `GetAiSettings` | `core` | `read_ai_settings` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `Speak` | `core` | `speak` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `StopSpeaking` | `core` | `speak` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `GetUserIdentity` | `core` | `read_user_identity` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 
 ## ケーパビリティの実装可否
@@ -212,6 +215,9 @@ RPC のことです。`PluginCapabilityService` は **デーモン → プラグ
   結びつけられています。
 - **`PushToUi`** — このプラグイン自身の iframe にイベントを push します
 - **`GetAiSettings`** — ユーザーのチャットのプロバイダー、モデル、エンドポイント(キーは含まない)。プラグインが Astra のファイルを読まずに済む。 2026-11-10 より古い Astra は UNIMPLEMENTED を返す。保存されたエンドポイントは openai_compatible、Astra 自身のサービスは URL なしの astra として読める。
+- **`Speak`** — プラグイン自身の言葉を Astra の声で読み上げます。言い終えた、止められた、または拒否された時点で応答します。 speak は高リスク(専用の同意チェックボックス)。Astra を利用できるアカウントと、本人の応答音声がオンであることが必要。最大 300 文字で、超えれば拒否され、切り詰められることはない(spec/limits.yaml:speak_text_max_chars)。発話時間は一度に 450 文字、その後は毎秒 3 文字で、それを超えると NOT_SPOKEN が RATE_LIMITED と retry_after_ms を運ぶ。STOPPED はエラーではない。2026-11-12 より古い Astra は UNIMPLEMENTED を返す。
+- **`StopSpeaking`** — このプラグインが言わせようとしたもの — 鳴っているものもキューにあるものも — をすべて止め、Astra が話している他のものは何も止めません。 speak によってゲートされる。2 つのホスト rpc が共有する唯一のパーミッション。誰かがサインインしているかどうかに関係なく許可される。これが止めた各 Speak は STOPPED を返す。
+- **`GetUserIdentity`** — このインストールとサインイン中のアカウントの、このプラグイン専用に作られた仮名 ID。アカウント自身の id、名前、メールアドレス、ハードウェアのシリアル番号であることは決してありません。 account_id は authorized でなければ空で、本人がサインインするどのデバイスでも同じ。同じ値がこのプラグインの auth_changed イベントに account_id として届く。2026-11-12 より古い Astra は UNIMPLEMENTED を返す。
   — CallFromUi の戻り経路です。今では 3 つすべてに結びつけられています。
   Python は 3 リリースの間 CallFromUi はあるが PushToUi はない状態
   だったため、Python 製の UI プラグインは呼び出されても非同期に応答

@@ -282,6 +282,28 @@ export class MockDaemon {
     { text: "ok" },
     { done: true },
   ];
+  /**
+   * What `Speak` answers, in the WIRE shape (`PluginSpeakResponse`, enum names
+   * as the loader spells them): heard, until told otherwise. Stage a refusal
+   * to drive the plugin's `NOT_SPOKEN` branch over a real socket:
+   *
+   * ```ts
+   * daemon.speakResponse = {
+   *   outcome: "PLUGIN_SPEECH_OUTCOME_NOT_SPOKEN",
+   *   error: { code: "PLUGIN_ERROR_RATE_LIMITED", message: "…", retryAfterMs: 1500 },
+   * };
+   * ```
+   */
+  speakResponse: { outcome: string; error?: Record<string, unknown> } = {
+    outcome: "PLUGIN_SPEECH_OUTCOME_SPOKEN",
+  };
+  /** What `GetUserIdentity` answers: signed in, authorized, with pseudonyms. */
+  userIdentity: { installId: string; signedIn: boolean; authorized: boolean; accountId: string } = {
+    installId: "mock-install-pseudonym",
+    signedIn: true,
+    authorized: true,
+    accountId: "mock-account-pseudonym",
+  };
 
   private constructor(private readonly opts: MockDaemonOptions) {}
 
@@ -343,6 +365,12 @@ export class MockDaemon {
       value: String(c.request.value ?? ""),
       scope: String(c.request.scope ?? ""),
     }));
+  }
+  /** The text of every `Speak` that carried the session token, in order. */
+  spoken(): string[] {
+    return this.callsTo("Speak")
+      .filter((c) => c.sessionToken === this.sessionToken)
+      .map((c) => String(c.request.text ?? ""));
   }
 
   /** Push an event to every subscribed plugin. */
@@ -558,6 +586,9 @@ export class MockDaemon {
         apiBaseUrl: "http://127.0.0.1:11434",
         isLoopback: true,
       })),
+      Speak: this.unary("Speak", () => this.speakResponse),
+      StopSpeaking: this.unary("StopSpeaking", () => ({})),
+      GetUserIdentity: this.unary("GetUserIdentity", () => this.userIdentity),
       SetVariable: this.unary("SetVariable", () => ({ success: true, error: "" })),
       PushToUi: this.unary("PushToUi", () => ({ success: true, error: "" })),
       SetThemeContribution: this.unary("SetThemeContribution", () => ({ success: true, error: "" })),

@@ -24,7 +24,7 @@
 
 ## 1. 語彙
 
-8 つの id、閉じた集合です(`astra-plugin-manifest/src/permissions.rs`、
+11 個の id、閉じた集合です(`astra-plugin-manifest/src/permissions.rs`、
 `PERMISSION_NAMES`、テストによって enum に固定されています)。レジス
 トリは、リスト掲載の id をこのリストに対して検証し、Astra のローカライズ
 されたラベルテーブルもこれをキーとしているため、ある場所には追加され
@@ -41,14 +41,27 @@
 | `dom_access` | *RPC なし* — **サーフェス** | ユーザーの会話とすべての他プラグインのインターフェースへのアクセスを伴い、Astra ウィンドウ内でプラグイン自身のスクリプトを実行する | ● |
 | `client` | *RPC なし* — **サーフェス** | クライアントフロントエンドとして振る舞う: 独自のチャットサーフェス、独自のセッション | ● |
 | `read_ai_settings` | `GetAiSettings` | チャットのプロバイダー、モデル、エンドポイントを読む — キー、他のロール、ユーザーが保存した他のエンドポイントは決して含まない | |
+| `speak` | `Speak`, `StopSpeaking` | プラグイン自身の言葉を Astra の声で読み上げ、それを止める。`Speak` はさらに Astra を利用できるアカウントを必要とする | ● |
+| `read_user_identity` | `GetUserIdentity` | このインストールとサインイン中のアカウントの、呼び出したプラグイン専用に作られた仮名 ID を読む — アカウント自身の id、名前、メールアドレス、ハードウェアのシリアル番号であることは決してない | |
 
-**●が付いた 5 つは高リスク**(`HIGH_RISK_PERMISSIONS`)であり、それぞれ
+**●が付いた 6 つは高リスク**(`HIGH_RISK_PERMISSIONS`)であり、それぞれ
 が独自の同意チェックボックスを得ます。計画の §4.3 は 4 つのチェック
 ボックスを詳述し `push_to_ui` を省略していますが、§5.6 は 5 つを一覧
 します。実装は**和集合**を取ります。なぜなら、この不一致は UI の段落と
 セキュリティのセクションの間のものであり、チェックボックスが多すぎる
 ことのコストはクリック 1 回ですが、少なすぎることのコストはその性質
 そのものだからです。
+`speak` は 2026-11-12 にこれに加わりました: プラグインの言葉が Astra の
+言葉として聞こえるからです。ティア 2 のインポートに対しては拒否されません
+(§5)— アナウンスはプラグインが望むごく普通のことであり、チェックボックスが
+その判断です。
+
+`speak` は 2 つの RPC をゲートする唯一の id です: 自分の発話を止めることは
+話すことの一部だからです。`read_ai_settings` と `read_user_identity` は意図的に
+高リスクでもなく、ティア 2 で拒否されることもありません — どちらも、そうで
+なければプラグインが Astra のファイルやマシンそのものから取ってしまう情報への
+誠実な道であり、誠実な道を不誠実な道より高く値付けすれば、プラグインを誤った
+方向へ押しやります。
 
 **`dom_access` と `client` はどの RPC もゲートしません**。これがまさに
 これらに 2 つ目の強制ポイントが必要な理由です: これらは、呼び出しが
@@ -138,6 +151,9 @@ Astra が知らない何かを要求していることが伝えられます。
 | `SetThemeContribution` | `set_theme_contribution` |
 | `PushToUi` | `push_to_ui` |
 | `GetAiSettings` | `read_ai_settings` |
+| `Speak` | `speak` |
+| `StopSpeaking` | `speak` |
+| `GetUserIdentity` | `read_user_identity` |
 
 `GetDaemonInfo` は、計画の 3 つのリストへの 1 つの追加であり、見落とし
 ではなく意思決定です: これは `version`、`state`、`grpc_port`、
@@ -263,10 +279,12 @@ true` — プラグイン自身のディレクトリ内のファイルの 1 行 
    インストールごとの答え;
 2. **上限(ceiling)** — どんなレコードも買い越せない出所ごとのルール。
 
-`require_permission` は、パーミッションをゲートする 7 つのホスト RPC
+`require_permission` は、パーミッションをゲートする 10 個のホスト RPC
 — `SubscribeEvents`、`SendChatMessage`、`FireTrigger`、
-`SetVariable`、`SetThemeContribution`、`PushToUi`、`GetAiSettings` — に対して 1 つ目
-を尋ねます。残りの 4 つ(`Register`、`GetPluginSelfConfig`、
+`SetVariable`、`SetThemeContribution`、`PushToUi`、`GetAiSettings`、`Speak`、
+`StopSpeaking`、`GetUserIdentity` — に対して 1 つ目を尋ねます(`Speak` は
+さらに Astra を利用できるアカウントを必要とします。
+`require_authorized_plugin`)。残りの 4 つ(`Register`、`GetPluginSelfConfig`、
 `PluginLog`、`GetDaemonInfo`)は `HOST_RPC_PERMISSIONS` の中で `None`
 を運び、常に許可されます; §2 に表と理由があります。
 `ceiling_admits` は、*サーフェス*が渡されるあらゆる場所 —
@@ -303,7 +321,7 @@ directory」バッジを求めています; **そのバッジは今日 UI には
 
 ティア 2 の拒否リストは `TIER2_REFUSED_PERMISSIONS` です — 意図的に
 `HIGH_RISK_PERMISSIONS` と**同じリストではありません**: `push_to_ui`
-はチェックボックスに値するものの、ユーザーが選んでインポートしたファイル
+と `speak` はチェックボックスに値するものの、ユーザーが選んでインポートしたファイル
 を拒否するには値しません。この 4 つは §5.5 から引用されたものであり、
 推測されたものではありません。
 

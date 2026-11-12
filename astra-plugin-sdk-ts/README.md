@@ -146,7 +146,8 @@ and the `reason` is what the user reads on the install consent sheet. Declaring
 the matching **capability** is not what opens the call; this is.
 
 A plugin whose `isClient()` returns `true` also gets a `DaemonClient` — chat,
-voice, commands, settings. There is no `chat_message_sync` hook; a client plugin
+voice, commands, settings. **`@deprecated` since 0.7.4**, for the reason below:
+use `ctx.host` and the context helpers. There is no `chat_message_sync` hook; a client plugin
 uses `events.onConversation`.
 
 > **That client does not reach anything yet.** The daemon registers every plugin

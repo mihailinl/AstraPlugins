@@ -3,7 +3,7 @@
 
 # Hook parity
 
-Protocol **1** · **42** hooks · source of truth [`spec/hooks.yaml`](../../spec/hooks.yaml).
+Protocol **1** · **45** hooks · source of truth [`spec/hooks.yaml`](../../spec/hooks.yaml).
 
 A *hook* is one RPC on one of the two plugin-facing services. `PluginCapabilityService` runs **daemon → plugin**: your plugin serves it and the daemon calls in. `PluginHostService` runs **plugin → daemon**: the daemon serves it and your plugin calls out. `PluginService` is not here — the daemon serves it to the Astra UI and no plugin ever touches it.
 
@@ -69,6 +69,9 @@ Derived from the rows below, not written by hand. Each one is a way a plugin aut
 | `PluginLog` | `core` | `none` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `GetDaemonInfo` | `core` | `none` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `GetAiSettings` | `core` | `read_ai_settings` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `Speak` | `core` | `speak` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `StopSpeaking` | `core` | `speak` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `GetUserIdentity` | `core` | `read_user_identity` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `SetVariable` | `core` | `set_variable` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `SubscribeEvents` | `event_handlers` | `subscribe_events` | required | live | server | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `FireTrigger` | `triggers` | `fire_trigger` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
@@ -151,6 +154,9 @@ The 30 inbound hooks a conformance run must exercise — every `daemon → plugi
 - **`HealthCheck`** — Liveness probe, every 15 s. Required in the strongest sense: this hook is NOT routed through `optional_hook`, so any error — UNIMPLEMENTED included — marks the plugin dead (manager/health.rs:337).
 - **`Register`** — The handshake: prove the spawn token, receive the per-plugin session token. The only path exempt from the auth interceptor. Every later host rpc must carry the returned token as x-session-token.
 - **`GetAiSettings`** — The user's chat provider, model and endpoint (never a key), so a plugin never reads Astra's files for them. An Astra older than 2026-11-10 answers UNIMPLEMENTED; a saved endpoint reads as openai_compatible, Astra's own service as astra with no URL.
+- **`Speak`** — Say the plugin's own words aloud in Astra's voice; answers once they were said, stopped, or refused. speak is high-risk (its own consent checkbox). Needs an account that opens Astra; reply voice off, a locked Astra or a full speech queue answer NOT_SPOKEN with UNAVAILABLE. At most 300 characters, refused and never cut (spec/limits.yaml:speak_text_max_chars); 450 characters of airtime at once, then 3 a second, each call costing at least 20, past which NOT_SPOKEN carries RATE_LIMITED and retry_after_ms. STOPPED is not an error. An Astra older than 2026-11-12 answers UNIMPLEMENTED.
+- **`StopSpeaking`** — Stop everything this plugin asked to be said, sounding and queued, and nothing else Astra is saying. Gated by speak, the one permission two host rpcs share; allowed whether or not anybody is signed in. Each Speak it cuts answers STOPPED.
+- **`GetUserIdentity`** — Pseudonyms for this installation and the signed-in account, made for this plugin alone; never the account's own id, a name, an email or a hardware serial. account_id is empty unless authorized and is the same on every device the person signs in on; the same value arrives as account_id on this plugin's auth_changed events. An Astra older than 2026-11-12 answers UNIMPLEMENTED.
 - **`SendChatMessage`** — Send a chat message as this plugin and stream the assistant's reply back. The session token is scoped to PluginHostService, so the DaemonClient/ChatService route the SDKs used to point authors at is permission_denied — this rpc is the only working path. Bound in all three SDKs as of 5.4.
 - **`PushToUi`** — Push an event into this plugin's own iframes — the return path for CallFromUi. Bound in all three now. Python had CallFromUi and no PushToUi for three releases, so a Python UI plugin could be called and could not answer asynchronously.
 - **`SetThemeContribution`** — Contribute colours, wallpaper and shader to the active Astra theme. Phase 4 classes it high-risk and refuses it below Tier 1, so a binding without the granted permission is a permission_denied, not a repainted theme. Bound in all three SDKs as of 5.4.

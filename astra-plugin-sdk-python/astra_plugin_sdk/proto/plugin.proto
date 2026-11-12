@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 9db774712359b4ab0bd928634d041c589fcc21b7bccf806695ec7eb7b7675fe9
+// surface-sha256: 05b5a063feba39c75da5ea09faba41291467965b214720cbafc279b9ad6870c7
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -4823,6 +4823,24 @@ service PluginHostService {
 
     // Push a message to this plugin's UI iframes
     rpc PushToUi(PluginUiPushRequest) returns (Empty);
+
+    // Say `text` aloud in Astra's voice. Gated by the `speak` permission (high
+    // risk: the plugin's words in Astra's voice) and by an account that opens
+    // Astra. Queued behind this plugin's earlier speech on a lane of its own, so
+    // it never cuts Astra's replies; refused while reply voice is off or Astra
+    // is locked; stopped by the wake word. Answers when it has been said, or
+    // with why not — so the call lasts as long as the speech.
+    rpc Speak(PluginSpeakRequest) returns (PluginSpeakResponse);
+
+    // Stop everything this plugin asked to be said, sounding and queued. Gated
+    // by `speak`. Never touches anything else Astra is saying.
+    rpc StopSpeaking(Empty) returns (Empty);
+
+    // Who is using Astra, as THIS plugin may know it: pseudonyms for this
+    // installation and the signed-in account, made for this plugin alone.
+    // Gated by `read_user_identity`. Never the account's own id, the person's
+    // name or email, or a hardware serial.
+    rpc GetUserIdentity(Empty) returns (PluginUserIdentity);
 }
 
 // ============ Plugin Capability Service (plugin exposes, daemon calls) ============
@@ -6302,6 +6320,63 @@ message PluginAiSettings {
 
     // The endpoint is on THIS machine (127.0.0.0/8, ::1, localhost).
     bool is_loopback = 4;
+}
+
+message PluginSpeakRequest {
+    // What to say: at most 300 characters (`speak_text_max_chars` in
+    // AstraPlugins' spec/limits.yaml). A longer text is refused, never cut;
+    // characters a person cannot hear (controls, zero-width marks) are dropped.
+    // A plugin's speaking time is budgeted in characters: 450 at once, then 3
+    // a second (`RATE_LIMITED` with `retry_after_ms` past it).
+    string text = 1;
+}
+
+// What became of one `Speak`.
+enum PluginSpeechOutcome {
+    PLUGIN_SPEECH_OUTCOME_UNSPECIFIED = 0;
+
+    // It was heard.
+    PLUGIN_SPEECH_OUTCOME_SPOKEN = 1;
+
+    // Silence was asked for before it finished: the wake word, reply voice
+    // turned off, Stop, this plugin's own `StopSpeaking`, or its authority
+    // withdrawn. Not an error; do not say it again unasked.
+    PLUGIN_SPEECH_OUTCOME_STOPPED = 2;
+
+    // It was not said; `error` says why — `BAD_ARGUMENTS` (empty, too long),
+    // `RATE_LIMITED` with `retry_after_ms` (the speaking time is used up),
+    // `UNAVAILABLE` (voice off, locked, no voice, the speech queue could not
+    // take it). Nothing is queued.
+    PLUGIN_SPEECH_OUTCOME_NOT_SPOKEN = 3;
+}
+
+message PluginSpeakResponse {
+    PluginSpeechOutcome outcome = 1;
+
+    // Set with `PLUGIN_SPEECH_OUTCOME_NOT_SPOKEN`, empty otherwise.
+    PluginError error = 2;
+}
+
+// Who is using Astra, as ONE plugin may know it. Both ids are pseudonyms made
+// for the asking plugin alone: another plugin reads different ids for the same
+// person and the same machine, so two plugins cannot join their records on
+// them. Neither is a secret.
+message PluginUserIdentity {
+    // This installation of Astra: the same across restarts and updates of
+    // Astra and of the plugin, different on another installation. Empty while
+    // Astra has no installation key yet.
+    string install_id = 1;
+
+    // A person is signed in to Astra.
+    bool signed_in = 2;
+
+    // ...and their account opens Astra.
+    bool authorized = 3;
+
+    // The signed-in account: the same on every device the person signs in on.
+    // Empty unless `authorized`. The same value arrives on this plugin's
+    // `auth_changed` events as `account_id`.
+    string account_id = 4;
 }
 
 message PluginSetVariableRequest {

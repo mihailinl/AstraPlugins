@@ -219,6 +219,8 @@ reconocida discreparía con las otras dos sobre qué se firmó.
 | `dom_access` | — | **sí** | **sí** | Ejecuta el propio código del plugin dentro de la ventana de Astra, con acceso a las conversaciones del usuario y a la interfaz de cualquier otro plugin. |
 | `client` | — | **sí** | **sí** | Actúa como frontend cliente (su propia superficie de chat, su propia sesión). |
 | `read_ai_settings` | `GetAiSettings` | no | no | Lee el proveedor, el modelo y el endpoint del chat del usuario (nunca una clave). |
+| `speak` | `Speak`, `StopSpeaking` | **sí** | no | Dice en voz alta las propias palabras del plugin con la voz de Astra. |
+| `read_user_identity` | `GetUserIdentity` | no | no | Seudónimos de esta instalación y de la cuenta con sesión iniciada, creados solo para este plugin (nunca el id propio de la cuenta, un nombre ni un número de serie del hardware). |
 
 *Bloquea* es el RPC del host que el daemon rechaza sin el permiso, de
 [`spec/hooks.yaml`](../../../spec/hooks.yaml); la regla de paridad R6
@@ -295,6 +297,10 @@ interfaz de cualquier otro plugin. **Alto riesgo, y el único al que el
 chat, su propia sesión). **Alto riesgo.**
 
 **`read_ai_settings`.** `PluginHostService.GetAiSettings` — lee el proveedor, el modelo y el endpoint del chat del usuario (nunca una clave). No es de alto riesgo y no se rechaza en el Tier 2: permite que un plugin que llama al modelo del usuario sepa dónde está SIN leer los archivos de Astra; ponerle un precio alto empujaría a un plugin honesto de vuelta a `settings.json`.
+
+**`speak`.** `PluginHostService.Speak` / `StopSpeaking` — dice en voz alta las propias palabras del plugin con la voz de Astra. **Alto riesgo:** se oyen como si fueran de Astra. No se rechaza en el Tier 2: un aviso es algo corriente que un plugin puede querer, y la casilla es la decisión.
+
+**`read_user_identity`.** `PluginHostService.GetUserIdentity` — seudónimos de esta instalación y de la cuenta con sesión iniciada, creados solo para este plugin (nunca el id propio de la cuenta, un nombre ni un número de serie del hardware). No es de alto riesgo y no se rechaza en el Tier 2: es la alternativa honesta a un número de serie de la máquina, y ponerle un precio alto empujaría de vuelta a uno a un plugin que limita el uso por persona.
 
 ## `[config]`
 

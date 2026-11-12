@@ -16,8 +16,8 @@ are removable in.
 
 ## [0.7.5] — unreleased
 
-Proto re-synced to Astra main `17587566b`. Between `sdk-v0.7.4` and this release the protocol gained 66 fields on
-31 messages that already existed, 27 new messages and 6 new rpcs (`tools/check-protocol-counts.py --count sdk-v0.7.4`);
+Proto re-synced to Astra main `d6fc58808`. Between `sdk-v0.7.4` and this release the protocol gained 66 fields on
+31 messages that already existed, 30 new messages and 9 new rpcs (`tools/check-protocol-counts.py --count sdk-v0.7.4`);
 nothing was removed, retyped or changed in place.
 
 ### Added
@@ -53,6 +53,60 @@ nothing was removed, retyped or changed in place.
   `AiComplete`; with the default, the plugin would refuse the very request its
   own hint asked for, as `RESOURCE_EXHAUSTED`. Both numbers are new rows of
   `spec/limits.yaml`.
+- **A plugin can speak in Astra's voice** (Astra `d6fc58808`):
+  `Host::speak(text)` / `HostClient::speak(text)` → `proto::PluginSpeakResponse`,
+  whose `outcome()` is `PluginSpeechOutcome::Spoken`, `Stopped` (silence was
+  asked for — **not an error**) or `NotSpoken` with `error: Some(PluginError)`
+  saying why: `PluginErrorBadArguments` (empty, or longer than
+  `limits::SPEAK_TEXT_MAX_CHARS` = 300 characters — refused, never cut),
+  `PluginErrorRateLimited` with `retry_after_ms` (450 characters of airtime at
+  once, then 3 a second, each call costing at least 20), `PluginErrorUnavailable` (voice off, Astra locked, no
+  voice). The call lasts as long as the speech. `Host::stop_speaking()` stops
+  everything this plugin queued. Both need the new **`speak`** permission —
+  **high-risk**, its own consent checkbox, not refused to a local import — and
+  `Speak` also an account that opens Astra and the person's reply voice on. The
+  SDK checks no limit itself; the daemon is the authority.
+- **`Host::get_user_identity()` / `HostClient::get_user_identity()`** →
+  `proto::PluginUserIdentity` (`install_id`, `signed_in`, `authorized`,
+  `account_id`): pseudonyms for this installation and the signed-in account,
+  made for this plugin alone — never the account's own id, a name, an email or a
+  hardware serial. Needs the new `read_user_identity` permission (not
+  high-risk, not refused to a local import).
+- All three are **DEFAULT** `Host` methods, like `get_ai_settings`, so a `Host`
+  written before them compiles unchanged and answers "this Host does not
+  implement …". The scoping wrapper a handler's `ctx.host()` is, `HostClient`
+  and both testing hosts override them; `tests::the_scoping_wrapper_forwards_speech_and_identity`
+  and `…every_in_repo_host_answers_speech_and_identity_without_the_default` fail
+  for one that forgets. An Astra older than the calls answers `UNIMPLEMENTED`.
+- Testing: `RecordingHost::set_speak_response(..)` (heard by default),
+  `set_user_identity(..)` and `spoken()`; `Recorded::spoken()`;
+  `MockDaemon::set_speak_response(..)`, `set_user_identity(..)` (signed in, with
+  pseudonyms, by default) and `spoken()`, and revoking `speak` on it refuses
+  `StopSpeaking` too, as the daemon does. `HOST_RPCS` gained `speak`,
+  `stop_speaking` and `get_user_identity`.
+
+### Changed (Astra `d6fc58808`, no SDK change needed)
+
+- **`auth_changed` is narrowed.** A plugin granted the event used to receive the
+  account's own id, the person's display name and their plan. It now gets
+  `authenticated`, `authorized`, `timestamp` and `account_id` — this plugin's
+  pseudonym for the account, the value `get_user_identity()` answers, and `""`
+  unless the plugin holds `read_user_identity` and the account opens Astra.
+  `user_id` and `user_name` arrive as `null` and `subscription_tier` as `""`,
+  so a parser written for the old shape keeps parsing; none carries a value.
+
+### Deprecated
+
+- **`DaemonClient`** (`#[deprecated(since = "0.7.5")]`), removable in **0.9.0**
+  at the earliest. It has done nothing since SDK 0.5.0: Astra accepts a plugin's
+  session token on `PluginHostService` only, so every call it makes is refused.
+  Use `ctx.host()` — `send_chat_message`, `speak`, `get_user_identity`, and
+  `subscribed_events()` for the event stream. Nothing is removed; the runner
+  still builds it for a `client` plugin, so `ctx.daemon()` is unchanged.
+- **`Host::speak` / `Host::stop_speaking` share their names with `Daemon`'s.**
+  Calls through `ctx.host()` and `ctx.daemon()` are unaffected; a type of your
+  own that implements BOTH traits and calls `x.speak(..)` on the concrete type
+  is now ambiguous (E0034) — write `Host::speak(&x, ..)`.
 
 ### Changed (BREAKING for a struct literal — a pre-1.0 minor break)
 

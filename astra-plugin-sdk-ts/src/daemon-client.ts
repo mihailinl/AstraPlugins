@@ -59,6 +59,17 @@ const REQUIRED_METHODS: Record<string, readonly string[]> = {
 
 type Stub = grpc.Client & Record<string, Function>;
 
+/**
+ * Client for the daemon's main services (chat, voice, commands, config, media,
+ * monitor).
+ *
+ * @deprecated Dead since SDK 0.5.0: Astra no longer accepts a plugin's session
+ * token on its main services, so every call this client makes is refused. Use
+ * `ctx.host` / the context helpers instead — everything a plugin may do lives
+ * on `PluginHostService`: `ctx.sendChatMessage()`, `ctx.speak()`,
+ * `host.subscribeEvents()`, `ctx.getUserIdentity()`. Kept so code that names
+ * it still compiles; nothing is removed.
+ */
 export class DaemonClient {
   private metadata: grpc.Metadata;
   private coreClient!: Stub;

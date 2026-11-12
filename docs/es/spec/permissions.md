@@ -25,7 +25,7 @@ plugin se concedía a sí mismo con solo declararla.
 
 ## 1. El vocabulario
 
-Ocho ids, un conjunto cerrado (`astra-plugin-manifest/src/permissions.rs`,
+Once ids, un conjunto cerrado (`astra-plugin-manifest/src/permissions.rs`,
 `PERMISSION_NAMES`, anclado al enum mediante una prueba). El registro
 valida los ids de un listado contra esta lista, y la tabla de etiquetas
 localizadas de Astra está indexada por ella, así que un id añadido en
@@ -42,13 +42,26 @@ un sitio y no en los otros se renderiza como una fila en blanco.
 | `dom_access` | *sin RPC* — una **superficie** | ejecutar el propio script del plugin dentro de la ventana de Astra, con acceso a las conversaciones del usuario y a la interfaz de cualquier otro plugin | ● |
 | `client` | *sin RPC* — una **superficie** | actuar como frontend cliente: su propia superficie de chat, su propia sesión | ● |
 | `read_ai_settings` | `GetAiSettings` | leer el proveedor, el modelo y el endpoint del chat — nunca una clave, nunca otro rol, nunca los endpoints guardados del usuario | |
+| `speak` | `Speak`, `StopSpeaking` | decir en voz alta las propias palabras del plugin con la voz de Astra, y detenerlas; `Speak` además necesita una cuenta que dé acceso a Astra | ● |
+| `read_user_identity` | `GetUserIdentity` | leer seudónimos de esta instalación y de la cuenta con sesión iniciada, creados solo para el plugin que llama — nunca el id propio de la cuenta, un nombre, un correo electrónico ni un número de serie del hardware | |
 
-**Los cinco marcados con ● son de alto riesgo** (`HIGH_RISK_PERMISSIONS`)
+**Los seis marcados con ● son de alto riesgo** (`HIGH_RISK_PERMISSIONS`)
 y cada uno recibe su propia casilla de consentimiento. El §4.3 del plan
 detalla cuatro casillas y omite `push_to_ui`; el §5.6 lista cinco. La
 implementación toma la **unión**, porque el desacuerdo es entre un
 párrafo de UI y la sección de seguridad, y una casilla de más cuesta un
 clic mientras que una de menos cuesta la propiedad.
+`speak` se unió a ellos el 2026-11-12: las palabras del plugin se oyen como
+si fueran de Astra. No se rechaza a una importación de nivel 2 (§5) — un
+aviso es algo corriente que un plugin puede querer, y la casilla es la
+decisión.
+
+`speak` es el único id que bloquea dos RPC: detener tu propia voz forma
+parte de hablar. `read_ai_settings` y `read_user_identity` no son, a
+propósito, ni de alto riesgo ni rechazados en el nivel 2 — cada uno es el
+camino honesto a una información que un plugin, si no, tomaría de los
+archivos de Astra o de la propia máquina, y poner el camino honesto más caro
+que el deshonesto empuja a los plugins en la dirección equivocada.
 
 **`dom_access` y `client` no bloquean ningún RPC**, precisamente por
 eso necesitan un segundo punto de aplicación: se aplican donde se
@@ -135,6 +148,9 @@ condicionar es un fallo de prueba en lugar de una omisión silenciosa:
 | `SetThemeContribution` | `set_theme_contribution` |
 | `PushToUi` | `push_to_ui` |
 | `GetAiSettings` | `read_ai_settings` |
+| `Speak` | `speak` |
+| `StopSpeaking` | `speak` |
+| `GetUserIdentity` | `read_user_identity` |
 
 `GetDaemonInfo` es la única adición a la lista de tres del plan, y es
 una decisión y no una omisión: devuelve `version`, `state`,
@@ -257,9 +273,11 @@ Un permiso se honra solo cuando se cumplen **ambas**:
 2. el **techo** — una regla por procedencia que ningún registro puede
    comprar de más.
 
-`require_permission` pregunta la primera para las siete RPC del host
+`require_permission` pregunta la primera para las diez RPC del host
 que bloquea un permiso — `SubscribeEvents`, `SendChatMessage`,
-`FireTrigger`, `SetVariable`, `SetThemeContribution`, `PushToUi`, `GetAiSettings`. Las
+`FireTrigger`, `SetVariable`, `SetThemeContribution`, `PushToUi`, `GetAiSettings`,
+`Speak`, `StopSpeaking`, `GetUserIdentity` (`Speak` además necesita una cuenta
+que dé acceso a Astra, `require_authorized_plugin`). Las
 cuatro restantes (`Register`, `GetPluginSelfConfig`, `PluginLog`,
 `GetDaemonInfo`) llevan `None` en `HOST_RPC_PERMISSIONS` y siempre
 están permitidas; el §2 tiene la tabla y el razonamiento.
@@ -297,8 +315,8 @@ archivo que le envió a alguien por correo.
 
 La lista de rechazo del nivel 2 es `TIER2_REFUSED_PERMISSIONS` —
 deliberadamente **no** la misma lista que `HIGH_RISK_PERMISSIONS`:
-`push_to_ui` vale una casilla y no vale la pena rechazar un archivo que
-el usuario eligió importar. Los cuatro están citados del §5.5, no
+`push_to_ui` y `speak` valen una casilla y no vale la pena rechazar un
+archivo que el usuario eligió importar. Los cuatro están citados del §5.5, no
 inferidos.
 
 **El nivel 3 no es el nivel 2 con una insignia más bonita.** La

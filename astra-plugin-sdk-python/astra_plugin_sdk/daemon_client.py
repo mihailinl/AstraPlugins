@@ -6,6 +6,14 @@
 
 """DaemonClient — full daemon API access for client-capable plugins.
 
+.. deprecated:: 0.6.5
+   Dead since SDK 0.5.0: Astra no longer accepts a plugin's session token on
+   its main services (``ChatService``, ``VoiceService``, …), so every call this
+   client makes is refused. Everything a plugin may do lives on
+   ``PluginHostService``, through ``self.host``: ``send_chat_message``,
+   ``speak``, ``subscribe_events``, ``get_user_identity``, … Constructing one
+   emits a :class:`DeprecationWarning`; nothing is removed.
+
 Only available to plugins that override ``is_client()`` to return ``True``.
 The daemon issues a session token during registration, and this client
 injects it as ``x-session-token`` metadata on every gRPC request.
@@ -21,20 +29,38 @@ Example::
             print(f"Daemon state: {state.state}")
 """
 
+import warnings
+
 import grpc
 
 from astra_plugin_sdk.proto import plugin_pb2, plugin_pb2_grpc
 from astra_plugin_sdk.wire import SESSION_TOKEN_HEADER
 
+#: The sentence every construction warns with. A module constant so the SDK's
+#: own construction (the runner, for a ``client`` plugin) can silence exactly
+#: this warning and no other.
+DEPRECATION_MESSAGE = (
+    "DaemonClient is deprecated: it has been dead since SDK 0.5.0 — Astra no "
+    "longer accepts a plugin's session token on its main services, so every "
+    "call it makes is refused. Use self.host (PluginHostService) instead: "
+    "send_chat_message, speak, subscribe_events, get_user_identity."
+)
+
 
 class DaemonClient:
     """Client for accessing daemon APIs (Chat, Voice, Commands, etc.).
+
+    .. deprecated:: 0.6.5
+       Astra refuses a plugin's session token on these services, so every call
+       is refused (dead since SDK 0.5.0). Use ``self.host`` — see the module
+       docstring. Constructing one emits a :class:`DeprecationWarning`.
 
     Only available to plugins with the ``client`` capability.
     The session token is injected as gRPC metadata on every call.
     """
 
     def __init__(self, daemon_addr: str, session_token: str):
+        warnings.warn(DEPRECATION_MESSAGE, DeprecationWarning, stacklevel=2)
         self._daemon_addr = daemon_addr
         self._token = session_token
         self._metadata = ((SESSION_TOKEN_HEADER, session_token),)

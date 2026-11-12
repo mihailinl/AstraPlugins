@@ -132,6 +132,9 @@ async fn roll(&self, ctx: &PluginContext, args: Roll) -> Result<String, ToolErro
 > daemon services answer `permission_denied` — `client = true` plugins included.
 > `Host::send_chat_message` is the only working way to drive an AI turn. The
 > daemon-side half of this is unbuilt; the SDK surface is here first.
+> `DaemonClient` is `#[deprecated]` since 0.7.5 for this reason; `Host::speak`
+> (permission `speak`) is how a plugin talks in Astra's voice, and
+> `Host::get_user_identity` (permission `read_user_identity`) is who is using it.
 
 **Every one of those calls is default-deny.** A manifest with no `[permissions]`
 section may call `Register`, `PluginLog`, `GetPluginSelfConfig` and

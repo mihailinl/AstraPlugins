@@ -105,6 +105,19 @@ class MockDaemon(plugin_pb2_grpc.PluginHostServiceServicer):
         #: by rpc method (`"FireTrigger"`), which is how `HOST_RPC_PERMISSIONS`
         #: is keyed.
         self.denied = set(denied_permissions)
+        #: What `Speak` answers once it has passed the gates, as keyword
+        #: arguments of `PluginSpeakResponse`. Heard until told otherwise.
+        self.speak_response: dict[str, Any] = {
+            "outcome": plugin_pb2.PLUGIN_SPEECH_OUTCOME_SPOKEN
+        }
+        #: What `GetUserIdentity` answers, as keyword arguments of
+        #: `PluginUserIdentity`: signed in, authorized, with pseudonyms.
+        self.user_identity: dict[str, Any] = {
+            "install_id": "mock-install-pseudonym",
+            "signed_in": True,
+            "authorized": True,
+            "account_id": "mock-account-pseudonym",
+        }
 
         self.registrations: list[plugin_pb2.PluginRegisterRequest] = []
         self._logs: list[LogLine] = []
@@ -113,6 +126,8 @@ class MockDaemon(plugin_pb2_grpc.PluginHostServiceServicer):
         self._ui_pushes: list[UiPush] = []
         self._chat: list[ChatMessage] = []
         self._themes: list[Any] = []
+        self._spoken: list[str] = []
+        self._stops: int = 0
         self.unauthenticated_calls: list[str] = []
 
         self._server: grpc.aio.Server | None = None
@@ -185,6 +200,32 @@ class MockDaemon(plugin_pb2_grpc.PluginHostServiceServicer):
             is_loopback=True,
         )
 
+    async def Speak(self, request, context):
+        if not self._authenticate(context, "Speak"):
+            return plugin_pb2.PluginSpeakResponse()
+        self._spoken.append(request.text)
+        return plugin_pb2.PluginSpeakResponse(**self.speak_response)
+
+    async def StopSpeaking(self, request, context):
+        if not self._authenticate(context, "StopSpeaking"):
+            return plugin_pb2.Empty()
+        # The daemon gates StopSpeaking by the `speak` permission — stopping
+        # your own speech is part of speaking — so denying `Speak` here refuses
+        # both, as it does there.
+        if "Speak" in self.denied:
+            context.set_code(grpc.StatusCode.PERMISSION_DENIED)
+            context.set_details(
+                "StopSpeaking: this plugin's manifest does not declare `speak`"
+            )
+            return plugin_pb2.Empty()
+        self._stops += 1
+        return plugin_pb2.Empty()
+
+    async def GetUserIdentity(self, request, context):
+        if not self._authenticate(context, "GetUserIdentity"):
+            return plugin_pb2.PluginUserIdentity()
+        return plugin_pb2.PluginUserIdentity(**self.user_identity)
+
     async def FireTrigger(self, request, context):
         if not self._authenticate(context, "FireTrigger"):
             return plugin_pb2.Empty()
@@ -250,6 +291,14 @@ class MockDaemon(plugin_pb2_grpc.PluginHostServiceServicer):
 
     def theme_contributions(self) -> list[Any]:
         return list(self._themes)
+
+    def spoken(self) -> list[str]:
+        """The text of every `Speak` that passed the gates, in order."""
+        return list(self._spoken)
+
+    def stop_count(self) -> int:
+        """How many `StopSpeaking` calls passed the gates."""
+        return self._stops
 
     # ── lifecycle ──
 

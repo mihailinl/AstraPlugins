@@ -14,6 +14,19 @@
 //! Handlers reach it as [`PluginContext::daemon`](crate::PluginContext::daemon),
 //! typed as `Arc<dyn Daemon>` — so a test can substitute a fake, and so nobody
 //! has to keep an `Arc<Mutex<Option<DaemonClient>>>` on their struct any more.
+//!
+//! # Deprecated
+//!
+//! [`DaemonClient`] has been dead since SDK 0.5.0: Astra no longer accepts a
+//! plugin's session token on its main services (`ChatService`,
+//! `VoiceService`, …), so every call it makes is refused. Everything a plugin
+//! may do lives on `PluginHostService`, through `ctx.host()`
+//! ([`Host`](crate::Host)): `send_chat_message`, `speak`, `subscribed_events()`,
+//! `get_user_identity`, … The type stays, deprecated, so nothing that names it
+//! stops compiling.
+
+// The module that defines the deprecated type still has to name it.
+#![allow(deprecated)]
 
 use std::collections::HashMap;
 use std::time::Duration;
@@ -33,6 +46,18 @@ use crate::proto;
 /// Chat, voice, commands, config, media and monitor. Every method takes `&self`
 /// and clones the underlying tonic client for the call, so this is `Clone`, has
 /// no interior lock, and can be shared across tasks freely.
+///
+/// **Deprecated:** Astra refuses a plugin's session token on these services,
+/// so every call it makes is refused (dead since SDK 0.5.0). Use `ctx.host()`
+/// — [`Host`](crate::Host), `PluginHostService` — instead: `send_chat_message`
+/// for the conversation, `speak` for Astra's voice, `subscribed_events()` for the
+/// event stream. Kept, deprecated, so code that names it still compiles.
+#[deprecated(
+    since = "0.7.5",
+    note = "dead since SDK 0.5.0: Astra no longer accepts a plugin's session token on its \
+            main services, so every DaemonClient call is refused. Use `ctx.host()` \
+            (PluginHostService): send_chat_message, speak, get_user_identity, …; subscribed_events() for events"
+)]
 #[derive(Clone)]
 pub struct DaemonClient {
     core: proto::core_service_client::CoreServiceClient<AuthChannel>,

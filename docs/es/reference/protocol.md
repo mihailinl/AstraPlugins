@@ -2,21 +2,21 @@
 
 # Referencia del protocolo
 
-Generación de protocolo **1**. 10 servicios, 192 RPC. Fuente:
+Generación de protocolo **1**. 10 servicios, 197 RPC. Fuente:
 [`proto/plugin.proto`](../../../proto/plugin.proto), un recorte
 generado del `astra.proto` de Astra
-(`surface-sha256: 9db774712359b4ab…`, el digest del cuerpo orientado a
+(`surface-sha256: 05b5a063feba39c7…`, el digest del cuerpo orientado a
 plugins del que trata esta página), fijado por
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) en
-`sha256:5beecd4b94806b5b…`. Cada copia vendorizada en los tres SDK tiene
+`sha256:eda1054aab8e9985…`. Cada copia vendorizada en los tres SDK tiene
 ese mismo hash; `tools/check-proto.sh` es lo que lo confirma.
 
 ## Los tres servicios de plugin
 
 | Servicio | Dirección | RPC | Quién lo sirve |
 |---|---|---|---|
-| [`PluginCapabilityService`](#plugincapabilityservice) | daemon → plugin | 26 | tu plugin |
-| [`PluginHostService`](#pluginhostservice) | plugin → daemon | 10 | el daemon |
+| [`PluginCapabilityService`](#plugincapabilityservice) | daemon → plugin | 31 | tu plugin |
+| [`PluginHostService`](#pluginhostservice) | plugin → daemon | 14 | el daemon |
 | [`PluginService`](#pluginservice) | UI → daemon | 23 | el daemon |
 
 La generación de protocolo es el contrato. Un plugin la envía en
@@ -87,6 +87,9 @@ capabilities que declaraste.
 | `SetVariable` | `set_variable` | `PluginSetVariableRequest` | `Empty` | unary | live | Publica una variable que comandos y otros plugins pueden leer. |
 | `SetThemeContribution` | `set_theme_contribution` | `PluginThemeContribution` | `Empty` | unary | live | Aporta colores, fondo de pantalla y shader al tema activo de Astra. |
 | `PushToUi` | `push_to_ui` | `PluginUiPushRequest` | `Empty` | unary | live | Envía un evento a los propios iframes de este plugin — la ruta de retorno para CallFromUi. |
+| `Speak` | `speak` | `PluginSpeakRequest` | `PluginSpeakResponse` | unary | live | Say the plugin's own words aloud in Astra's voice; answers once they were said, stopped, or refused. |
+| `StopSpeaking` | `speak` | `Empty` | `Empty` | unary | live | Stop everything this plugin asked to be said, sounding and queued, and nothing else Astra is saying. |
+| `GetUserIdentity` | `read_user_identity` | `Empty` | `PluginUserIdentity` | unary | live | Pseudonyms for this installation and the signed-in account, made for this plugin alone; never the account's own id, a name, an email or a hardware serial. |
 | `GetAiSettings` | `read_ai_settings` | `GetAiSettingsRequest` | `PluginAiSettings` | unary | live | The user's chat provider, model and endpoint (never a key), so a plugin never reads Astra's files for them. |
 
 `none` significa que cualquier plugin puede llamarla siempre — el

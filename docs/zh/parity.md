@@ -2,7 +2,7 @@
 
 # 钩子对照表(Hook parity)
 
-协议 **1** · **36** 个钩子 · 权威来源 [`spec/hooks.yaml`](../../spec/hooks.yaml)。
+协议 **1** · **45** 个钩子 · 权威来源 [`spec/hooks.yaml`](../../spec/hooks.yaml)。
 
 *钩子(hook)* 指的是插件面向的两个服务之一上的一个 RPC。`PluginCapabilityService`
 是**守护进程 → 插件**方向的：你的插件提供服务，守护进程发起调用。
@@ -81,6 +81,9 @@
 | `SendChatMessage` | `client` | `send_chat_message` | required | live | server | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `PushToUi` | `ui_contributions` | `push_to_ui` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `GetAiSettings` | `core` | `read_ai_settings` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `Speak` | `core` | `speak` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `StopSpeaking` | `core` | `speak` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `GetUserIdentity` | `core` | `read_user_identity` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 
 ## 各语言的能力就绪情况
@@ -194,6 +197,9 @@ capabilities 隐含的每一个钩子，并断言 `required` 的那些不会返�
   三个 SDK 都已绑定。
 - **`PushToUi`** —— 把一个事件推送进这个插件自己的 iframe 里 ——
 - **`GetAiSettings`** — 用户聊天所用的提供方、模型和端点（绝不包含密钥），让插件无需读取 Astra 的文件。 早于 2026-11-10 的 Astra 会返回 UNIMPLEMENTED；已保存的端点读作 openai_compatible，Astra 自己的服务读作 astra 且没有 URL。
+- **`Speak`** — 用 Astra 的声音把插件自己的话说出来；在话说完、被停止或被拒绝时返回。 speak 属于高风险（有自己独立的同意勾选框）。需要一个有权使用 Astra 的账号，并且本人开启了回复语音。最多 300 个字符，超出即被拒绝，绝不截断（spec/limits.yaml:speak_text_max_chars）；一次最多 450 个字符的播报时长，之后每秒 3 个，超出后 NOT_SPOKEN 携带 RATE_LIMITED 和 retry_after_ms。STOPPED 不是错误。早于 2026-11-12 的 Astra 会返回 UNIMPLEMENTED。
+- **`StopSpeaking`** — 停止这个插件要求说出的一切，包括正在播放的和排队中的，而不停止 Astra 正在说的其他任何内容。 由 speak 限制，这是唯一一个由两个 host rpc 共用的权限；无论是否有人登录都允许调用。被它打断的每一个 Speak 都会返回 STOPPED。
+- **`GetUserIdentity`** — 这次安装和已登录账号的假名 id，专为本插件生成；绝不是账号本身的 id、姓名、电子邮件或硬件序列号。 除非 authorized，否则 account_id 为空，并且在本人登录的每台设备上都相同；同一个值会作为 account_id 出现在本插件的 auth_changed 事件中。早于 2026-11-12 的 Astra 会返回 UNIMPLEMENTED。
   这是 CallFromUi 的回程路径。现在三个 SDK 都已绑定。Python 曾经有
   三个发布版本只有 CallFromUi 而没有 PushToUi，导致一个 Python 编写的
   UI 插件能被调用，却无法异步作答。

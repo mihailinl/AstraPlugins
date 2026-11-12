@@ -459,8 +459,21 @@ class Plugin:
         # Matches runner.rs (`plugin.is_client() && !token.is_empty()`) and
         # plugin.ts (`if (this.isClient())`).
         if self.is_client() and response.client_session_token:
-            from astra_plugin_sdk.daemon_client import DaemonClient
-            self.daemon = DaemonClient(daemon_addr, response.client_session_token)
+            import re
+            import warnings
+
+            from astra_plugin_sdk.daemon_client import DEPRECATION_MESSAGE, DaemonClient
+
+            # `DaemonClient` is deprecated for AUTHORS; the SDK still builds it
+            # so a plugin reading `self.daemon` behaves as before, and silences
+            # exactly its own construction's warning — not the author's.
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message=re.escape(DEPRECATION_MESSAGE),
+                    category=DeprecationWarning,
+                )
+                self.daemon = DaemonClient(daemon_addr, response.client_session_token)
             await self.daemon.connect()
             await self.on_daemon_client_ready(self.daemon)
             asyncio.create_task(self._chat_firehose_loop(self.daemon))

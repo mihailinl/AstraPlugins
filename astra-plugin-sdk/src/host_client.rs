@@ -276,6 +276,57 @@ impl HostClient {
         Ok(resp.into_inner())
     }
 
+    /// Say `text` aloud in Astra's voice and wait until it has been said.
+    /// Permission: `speak` (high-risk).
+    ///
+    /// See [`Host::speak`] for the three outcomes and what the `error` of a
+    /// `NotSpoken` answer means. The daemon is the authority on the limits: at
+    /// most [`limits::SPEAK_TEXT_MAX_CHARS`](crate::limits::SPEAK_TEXT_MAX_CHARS)
+    /// characters, refused (never cut), and a speaking-time budget whose
+    /// refusal carries `retry_after_ms`. This client checks neither, so it can
+    /// never disagree with the Astra it talks to.
+    ///
+    /// An `Err` is the gates, not the speech: no `speak` grant, an account
+    /// that does not open Astra, or an Astra older than this RPC
+    /// (`UNIMPLEMENTED`).
+    pub async fn speak(&self, text: &str) -> Result<proto::PluginSpeakResponse> {
+        let resp = self
+            .client
+            .clone()
+            .speak(proto::PluginSpeakRequest {
+                text: text.to_string(),
+            })
+            .await
+            .map_err(|s| rpc_failed("Speak", s))?;
+        Ok(resp.into_inner())
+    }
+
+    /// Stop everything this plugin asked to be said, sounding and queued.
+    /// Permission: `speak`. Never touches anything else Astra is saying.
+    pub async fn stop_speaking(&self) -> Result<()> {
+        self.client
+            .clone()
+            .stop_speaking(proto::Empty {})
+            .await
+            .map_err(|s| rpc_failed("StopSpeaking", s))?;
+        Ok(())
+    }
+
+    /// Pseudonyms for this installation and the signed-in account, made for
+    /// this plugin alone. Permission: `read_user_identity`.
+    ///
+    /// See [`Host::get_user_identity`]. An Astra older than this RPC answers
+    /// `UNIMPLEMENTED`.
+    pub async fn get_user_identity(&self) -> Result<proto::PluginUserIdentity> {
+        let resp = self
+            .client
+            .clone()
+            .get_user_identity(proto::Empty {})
+            .await
+            .map_err(|s| rpc_failed("GetUserIdentity", s))?;
+        Ok(resp.into_inner())
+    }
+
     /// Subscribe to daemon events. Permission: `subscribe_events`.
     ///
     /// `exclude_source_id` — if non-empty, ChatMessageSync events from this
@@ -456,6 +507,18 @@ impl Host for HostClient {
         HostClient::get_ai_settings(self).await
     }
 
+    async fn speak(&self, text: &str) -> Result<proto::PluginSpeakResponse> {
+        HostClient::speak(self, text).await
+    }
+
+    async fn stop_speaking(&self) -> Result<()> {
+        HostClient::stop_speaking(self).await
+    }
+
+    async fn get_user_identity(&self) -> Result<proto::PluginUserIdentity> {
+        HostClient::get_user_identity(self).await
+    }
+
     async fn set_variable(&self, name: &str, value: &str, scope: &str) -> Result<()> {
         HostClient::set_variable(self, name, value, scope).await
     }
@@ -504,6 +567,10 @@ mod tests {
         /// The Register request as it arrived, so a test can assert what the
         /// SDK actually put on the wire.
         registered: Arc<Mutex<Option<proto::PluginRegisterRequest>>>,
+        /// Every `Speak` text as it arrived.
+        spoken: Arc<Mutex<Vec<String>>>,
+        /// What `Speak` answers; `None` = it was heard.
+        speak_answer: Option<proto::PluginSpeakResponse>,
     }
 
     impl FakeDaemon {
@@ -637,6 +704,41 @@ mod tests {
             Ok(tonic::Response::new(proto::PluginAiSettings::default()))
         }
 
+        async fn speak(
+            &self,
+            req: tonic::Request<proto::PluginSpeakRequest>,
+        ) -> Result<tonic::Response<proto::PluginSpeakResponse>, tonic::Status> {
+            require_token(&req, &self.seen)?;
+            self.spoken.lock().unwrap().push(req.into_inner().text);
+            Ok(tonic::Response::new(self.speak_answer.clone().unwrap_or(
+                proto::PluginSpeakResponse {
+                    outcome: proto::PluginSpeechOutcome::Spoken as i32,
+                    error: None,
+                },
+            )))
+        }
+
+        async fn stop_speaking(
+            &self,
+            req: tonic::Request<proto::Empty>,
+        ) -> Result<tonic::Response<proto::Empty>, tonic::Status> {
+            require_token(&req, &self.seen)?;
+            Ok(tonic::Response::new(proto::Empty {}))
+        }
+
+        async fn get_user_identity(
+            &self,
+            req: tonic::Request<proto::Empty>,
+        ) -> Result<tonic::Response<proto::PluginUserIdentity>, tonic::Status> {
+            require_token(&req, &self.seen)?;
+            Ok(tonic::Response::new(proto::PluginUserIdentity {
+                install_id: "install-pseudonym".into(),
+                signed_in: true,
+                authorized: true,
+                account_id: "account-pseudonym".into(),
+            }))
+        }
+
         async fn set_variable(
             &self,
             req: tonic::Request<proto::PluginSetVariableRequest>,
@@ -724,6 +826,73 @@ mod tests {
             .get_ai_settings()
             .await
             .expect("Host::get_ai_settings must reach GetAiSettings, not the default");
+
+        // The same for the three defaulted speech and identity methods: each
+        // must reach its RPC, carrying the token, through the trait.
+        *seen.lock().unwrap() = None;
+        let said = as_host
+            .speak("hello")
+            .await
+            .expect("Host::speak must reach Speak, not the default");
+        assert_eq!(said.outcome(), proto::PluginSpeechOutcome::Spoken);
+        assert_eq!(seen.lock().unwrap().as_deref(), Some(TOKEN));
+        *seen.lock().unwrap() = None;
+        as_host
+            .stop_speaking()
+            .await
+            .expect("Host::stop_speaking must reach StopSpeaking, not the default");
+        assert_eq!(seen.lock().unwrap().as_deref(), Some(TOKEN));
+        *seen.lock().unwrap() = None;
+        let who = as_host
+            .get_user_identity()
+            .await
+            .expect("Host::get_user_identity must reach GetUserIdentity, not the default");
+        assert_eq!(seen.lock().unwrap().as_deref(), Some(TOKEN));
+        assert_eq!(who.install_id, "install-pseudonym");
+        assert!(who.signed_in && who.authorized);
+        assert_eq!(who.account_id, "account-pseudonym");
+
+        handle.abort();
+    }
+
+    /// A `NotSpoken` answer is an `Ok` that carries the daemon's `PluginError`
+    /// whole — code, message and `retry_after_ms` — not a transport error, and
+    /// not an error with the code flattened into a sentence: a plugin that
+    /// was rate-limited needs the number to wait.
+    #[tokio::test]
+    async fn a_not_spoken_answer_carries_the_plugin_error() {
+        let spoken = Arc::new(Mutex::new(Vec::new()));
+        let server = FakeDaemon {
+            spoken: spoken.clone(),
+            speak_answer: Some(proto::PluginSpeakResponse {
+                outcome: proto::PluginSpeechOutcome::NotSpoken as i32,
+                error: Some(proto::PluginError {
+                    code: proto::PluginErrorCode::PluginErrorRateLimited as i32,
+                    message: "this plugin has used its speaking time".into(),
+                    hint: "wait `retry_after_ms`; what was refused is not queued".into(),
+                    retry_after_ms: 1500,
+                    ..Default::default()
+                }),
+            }),
+            ..Default::default()
+        };
+        let (addr, handle, _) = server.serve().await;
+
+        let bootstrap = super::HostClient::connect_bootstrap(&addr, "test".into())
+            .await
+            .expect("bootstrap connect");
+        let (host, _) = bootstrap
+            .register(1234, vec!["tools".into()], "spawn-token".into())
+            .await
+            .expect("register");
+
+        let said = host.speak("The kettle has boiled.").await.expect("an answer, not an Err");
+        assert_eq!(said.outcome(), proto::PluginSpeechOutcome::NotSpoken);
+        let why = said.error.expect("NotSpoken carries the reason");
+        assert_eq!(why.code(), proto::PluginErrorCode::PluginErrorRateLimited);
+        assert_eq!(why.retry_after_ms, 1500);
+        assert_eq!(why.message, "this plugin has used its speaking time");
+        assert_eq!(spoken.lock().unwrap().as_slice(), ["The kettle has boiled."]);
 
         handle.abort();
     }

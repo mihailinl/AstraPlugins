@@ -23,7 +23,7 @@
 
 ## 1. 词汇表
 
-八个 id，一个封闭的集合（`astra-plugin-manifest/src/permissions.rs`，
+十一个 id，一个封闭的集合（`astra-plugin-manifest/src/permissions.rs`，
 `PERMISSION_NAMES`，由测试固定到枚举上）。注册表会根据这份列表校验
 上架条目的 id，Astra 本地化的标签表也以此为键，所以一个只在某处添加、
 没有在其他地方同步添加的 id，渲染出来会是空白的一行。
@@ -39,12 +39,23 @@
 | `dom_access` | *没有 RPC*——一个**界面层(surface)** | 在 Astra 窗口内运行插件自己的脚本，能访问用户的对话以及每一个其他插件的界面 | ● |
 | `client` | *没有 RPC*——一个**界面层(surface)** | 作为一个客户端前端：有自己的聊天界面，有自己的会话 | ● |
 | `read_ai_settings` | `GetAiSettings` | 读取聊天的提供方、模型和端点——绝不包含密钥、其他角色或用户保存的其他端点 | |
+| `speak` | `Speak`, `StopSpeaking` | 用 Astra 的声音把插件自己的话说出来，并能让它停下；`Speak` 还需要一个有权使用 Astra 的账号 | ● |
+| `read_user_identity` | `GetUserIdentity` | 读取这次安装和已登录账号的假名 id，专为发起调用的插件生成——绝不是账号本身的 id、姓名、电子邮件或硬件序列号 | |
 
-**带 ● 标记的五项是高风险的**（`HIGH_RISK_PERMISSIONS`），每一项都会
+**带 ● 标记的六项是高风险的**（`HIGH_RISK_PERMISSIONS`），每一项都会
 得到自己的同意勾选框。计划文档 §4.3 详细列出了四个勾选框，遗漏了
 `push_to_ui`；§5.6 列出了五个。实现采用的是**并集**，因为这个分歧出
 现在 UI 段落和安全章节之间，多一个勾选框的代价只是多一次点击，少一
 个的代价却是丢掉那个属性本身。
+`speak` 于 2026-11-12 加入其中：插件的话会被当作 Astra 的话听到。它不会
+在第 2 层级导入时被拒绝（§5）——播报是插件很常见的需求，勾选框就是那个
+决定。
+
+`speak` 是唯一一个限制两个 RPC 的 id：停下自己的语音本就是说话的一部分。
+`read_ai_settings` 和 `read_user_identity` 刻意既不是高风险，也不会在第 2
+层级被拒绝——它们各自都是获取某类信息的诚实途径，否则插件就会从 Astra 的文
+件或机器本身去拿这些信息；把诚实的途径定价得比不诚实的更高，只会把插件推向
+错误的方向。
 
 **`dom_access` 和 `client` 不限制任何 RPC**，这恰恰是为什么它们需要
 第二个强制执行点：它们是在*界面层*被分发出去的地方（§4.2）被强制执
@@ -128,6 +139,9 @@ set_variable     = { scopes = ["plugin"] }
 | `SetThemeContribution` | `set_theme_contribution` |
 | `PushToUi` | `push_to_ui` |
 | `GetAiSettings` | `read_ai_settings` |
+| `Speak` | `speak` |
+| `StopSpeaking` | `speak` |
+| `GetUserIdentity` | `read_user_identity` |
 
 `GetDaemonInfo` 是在计划文档三项清单之外新增的一项，这是一个决定，
 而不是遗漏：它返回的 `version`、`state`、`grpc_port` 和 `language`，
@@ -237,9 +251,11 @@ id。在这个拆分出现之前编写的每一个插件，都在旧的位置说
 2. **上限(ceiling)**——一条任何记录都无法买通突破的、按来源而定的
    规则。
 
-`require_permission` 会针对限制某项权限的七个 host RPC——
+`require_permission` 会针对限制某项权限的十个 host RPC——
 `SubscribeEvents`、`SendChatMessage`、`FireTrigger`、`SetVariable`、
-`SetThemeContribution`、`PushToUi`、`GetAiSettings`——去询问第一道关卡。剩下的四个
+`SetThemeContribution`、`PushToUi`、`GetAiSettings`、`Speak`、`StopSpeaking`、
+`GetUserIdentity`——去询问第一道关卡（`Speak` 还需要一个有权使用 Astra 的
+账号，`require_authorized_plugin`）。剩下的四个
 （`Register`、`GetPluginSelfConfig`、`PluginLog`、`GetDaemonInfo`）
 在 `HOST_RPC_PERMISSIONS` 中携带的是 `None`，永远被允许；§2 中有对
 应的表格和推理过程。`ceiling_admits` 会在任何一个*界面层*被分发出去
@@ -270,8 +286,8 @@ id。在这个拆分出现之前编写的每一个插件，都在旧的位置说
 他们邮件发给别人的那个文件的上限。
 
 第 2 层级的拒绝清单是 `TIER2_REFUSED_PERMISSIONS`——它刻意**不是**
-和 `HIGH_RISK_PERMISSIONS` 相同的清单：`push_to_ui` 值得拥有一个勾
-选框，但不值得因为它就拒绝一个用户选择导入的文件。这四项是从 §5.5
+和 `HIGH_RISK_PERMISSIONS` 相同的清单：`push_to_ui` 和 `speak` 值得
+拥有一个勾选框，但不值得因为它们就拒绝一个用户选择导入的文件。这四项是从 §5.5
 直接引用的，不是推断出来的。
 
 **第 3 层级不是套了个更好看徽章的第 2 层级。** 这个划分是按*意图*，

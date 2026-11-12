@@ -2,7 +2,7 @@
 
 # Hook-Parität
 
-Protokoll **1** · **36** Hooks · Source of Truth [`spec/hooks.yaml`](../../spec/hooks.yaml).
+Protokoll **1** · **45** Hooks · Source of Truth [`spec/hooks.yaml`](../../spec/hooks.yaml).
 
 Ein *Hook* ist ein RPC auf einem der beiden Plugin-seitigen Dienste.
 `PluginCapabilityService` läuft **Daemon → Plugin**: dein Plugin bedient
@@ -82,6 +82,9 @@ ein Weg, auf dem der Code eines Plugin-Autors heute scheitert.
 | `SendChatMessage` | `client` | `send_chat_message` | required | live | server | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `PushToUi` | `ui_contributions` | `push_to_ui` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `GetAiSettings` | `core` | `read_ai_settings` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `Speak` | `core` | `speak` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `StopSpeaking` | `core` | `speak` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `GetUserIdentity` | `core` | `read_user_identity` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 
 ## Capability-Bereitschaft
@@ -167,5 +170,8 @@ Plugin zu unterscheiden wäre. Maschinenlesbare Kopie:
 - **`SendChatMessage`** — Sendet eine Chat-Nachricht als dieses Plugin und streamt die Antwort des Assistenten zurück. Das Session-Token ist auf PluginHostService begrenzt, der DaemonClient-/ChatService-Weg, auf den die SDKs Autoren früher verwiesen, ist also permission_denied — dieses RPC ist der einzige funktionierende Pfad. Seit 5.4 in allen drei SDKs gebunden.
 - **`PushToUi`** — Pusht ein Event in die eigenen iframes dieses Plugins — der Rückweg für CallFromUi. Jetzt in allen drei gebunden. Python hatte drei Releases lang CallFromUi und kein PushToUi, ein Python-UI-Plugin konnte also aufgerufen werden und nicht asynchron antworten.
 - **`GetAiSettings`** — Chat-Provider, Modell und Endpunkt des Nutzers (nie ein Schlüssel), damit ein Plugin dafür nie Astras Dateien lesen muss. Ein Astra älter als 2026-11-10 antwortet UNIMPLEMENTED; ein gespeicherter Endpunkt liest sich als openai_compatible, Astras eigener Dienst als astra ohne URL.
+- **`Speak`** — Die eigenen Worte des Plugins mit Astras Stimme laut aussprechen; antwortet, sobald sie gesagt, angehalten oder abgelehnt wurden. speak ist hochriskant (eigene Zustimmungs-Checkbox). Braucht ein Konto, das Astra freischaltet, und die eingeschaltete Antwortstimme der Person. Höchstens 300 Zeichen, abgelehnt und nie gekürzt (spec/limits.yaml:speak_text_max_chars); 450 Zeichen Sprechzeit auf einmal, danach 3 pro Sekunde, darüber hinaus trägt NOT_SPOKEN RATE_LIMITED und retry_after_ms. STOPPED ist kein Fehler. Ein Astra älter als 2026-11-12 antwortet UNIMPLEMENTED.
+- **`StopSpeaking`** — Alles anhalten, was dieses Plugin sagen lassen wollte — was gerade erklingt und was noch wartet —, und nichts anderes, was Astra sagt. Gesperrt durch speak, die eine Permission, die sich zwei Host-RPCs teilen; erlaubt, ob jemand angemeldet ist oder nicht. Jedes Speak, das es abbricht, antwortet STOPPED.
+- **`GetUserIdentity`** — Pseudonyme für diese Installation und das angemeldete Konto, nur für dieses Plugin erzeugt; nie die eigene ID des Kontos, ein Name, eine E-Mail-Adresse oder eine Hardware-Seriennummer. account_id ist leer, außer bei authorized, und auf jedem Gerät gleich, auf dem sich die Person anmeldet; derselbe Wert kommt als account_id in den auth_changed-Events dieses Plugins an. Ein Astra älter als 2026-11-12 antwortet UNIMPLEMENTED.
 - **`SetThemeContribution`** — Steuert Farben, Wallpaper und Shader zum aktiven Astra-Theme bei. Phase 4 klassifiziert es als hochriskant und verweigert es unterhalb von Stufe 1, sodass eine Bindung ohne die gewährte Permission ein permission_denied ist, kein neu gestrichenes Theme. Seit 5.4 in allen drei SDKs gebunden.
 </content>

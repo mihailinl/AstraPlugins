@@ -145,9 +145,9 @@ its own permissions by editing its own `plugin.toml` between restarts, up to the
 whole vocabulary. That is one more reason Developer Mode is a developer tool and
 not an install path.
 
-Five permissions are high-risk and each gets its own consent checkbox:
+Six permissions are high-risk and each gets its own consent checkbox:
 `send_chat_message`, `push_to_ui`, `set_theme_contribution`, `dom_access`,
-`client`. `dom_access` gets a second screen. Details, including how to write a
+`client`, `speak`. `dom_access` gets a second screen. Details, including how to write a
 `reason` that is worth reading: [permissions](../3-reference/permissions.md).
 
 ## Where a plugin came from decides its ceiling

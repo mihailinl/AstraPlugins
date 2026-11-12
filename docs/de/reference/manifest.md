@@ -224,6 +224,8 @@ was signiert wurde.
 | `dom_access` | — | **ja** | **ja** | Führt den eigenen Code des Plugins im Astra-Fenster aus, mit Zugriff auf die Unterhaltungen des Nutzers und die Oberfläche jedes anderen Plugins. |
 | `client` | — | **ja** | **ja** | Agiert als Client-Frontend (eigene Chat-Oberfläche, eigene Session). |
 | `read_ai_settings` | `GetAiSettings` | nein | nein | Liest Chat-Provider, Modell und Endpunkt des Nutzers (nie einen Schlüssel). |
+| `speak` | `Speak`, `StopSpeaking` | **ja** | nein | Spricht die eigenen Worte des Plugins mit Astras Stimme laut aus. |
+| `read_user_identity` | `GetUserIdentity` | nein | nein | Pseudonyme für diese Installation und das angemeldete Konto, nur für dieses Plugin erzeugt (nie die eigene ID des Kontos, ein Name oder eine Hardware-Seriennummer). |
 
 *Sperrt* ist das Host-RPC, das der Daemon ohne die Permission ablehnt,
 aus [`spec/hooks.yaml`](../../../spec/hooks.yaml); Paritätsregel R6
@@ -299,6 +301,10 @@ zweiten Bildschirm gibt.**
 eigene Session). **Hohes Risiko.**
 
 **`read_ai_settings`.** `PluginHostService.GetAiSettings` — liest Chat-Provider, Modell und Endpunkt des Nutzers (nie einen Schlüssel). Nicht hochriskant und auf Tier 2 nicht abgelehnt: Es lässt ein Plugin, das das Modell des Nutzers aufruft, erfahren, wo es liegt, OHNE Astras Dateien zu lesen; ein hoher Preis würde ein ehrliches Plugin zurück zu `settings.json` treiben.
+
+**`speak`.** `PluginHostService.Speak` / `StopSpeaking` — spricht die eigenen Worte des Plugins mit Astras Stimme laut aus. **Hohes Risiko:** Sie werden als Astras Worte gehört. Auf Tier 2 nicht abgelehnt: Eine Ansage ist etwas Gewöhnliches, das ein Plugin wollen kann, und die Checkbox ist die Entscheidung.
+
+**`read_user_identity`.** `PluginHostService.GetUserIdentity` — Pseudonyme für diese Installation und das angemeldete Konto, nur für dieses Plugin erzeugt (nie die eigene ID des Kontos, ein Name oder eine Hardware-Seriennummer). Nicht hochriskant und auf Tier 2 nicht abgelehnt: Es ist die ehrliche Alternative zu einer Seriennummer des Rechners, und ein hoher Preis würde ein Plugin, das die Nutzung pro Person begrenzt, zu einer solchen zurücktreiben.
 
 ## `[config]`
 

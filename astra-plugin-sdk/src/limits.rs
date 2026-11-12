@@ -16,7 +16,7 @@
 //! One rule beats a per-key type table that can drift on its own.
 
 /// SHA-256 of the `spec/limits.yaml` these constants were generated from.
-pub const SPEC_SHA256: &str = "b8e7f779f476ed942dc6dcbee15e4cccae0807326f7b967a10851f875e0dd31a";
+pub const SPEC_SHA256: &str = "40f2f3873139c095b37d80d6b1c63b86c7fcd4d00bcfbf334adaef0573eae35f";
 
 /// Capacity of the audio channel that carries streaming-STT chunks from the
 /// daemon's voice pipeline into the plugin process, in chunks.
@@ -137,3 +137,10 @@ pub const PLUGIN_MAX_MESSAGE_BYTES: u64 = 67_108_864;
 /// message text notes one that was left out
 /// (`plugins::capability_bridge::PLUGIN_IMAGE_REQUEST_MAX_BYTES`).
 pub const PLUGIN_IMAGE_REQUEST_MAX_BYTES: u64 = 20_971_520;
+
+/// The longest text one `host.speak()` may carry, in characters (Unicode scalar
+/// values, about twenty seconds spoken). A longer text is REFUSED with
+/// `BAD_ARGUMENTS`, never cut short (`plugins::speech::SPEAK_TEXT_MAX_CHARS`).
+/// A plugin's speaking time is budgeted in characters on top of this, so a
+/// backlog never holds the person's own reply past the speech queue's wait limit.
+pub const SPEAK_TEXT_MAX_CHARS: u64 = 300;

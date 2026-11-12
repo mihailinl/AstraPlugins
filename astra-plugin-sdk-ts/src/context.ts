@@ -23,7 +23,7 @@
  * during `onStart` still sees the config as it is now, not as it was then.
  */
 
-import type { AiSettings, Host } from "./host.js";
+import type { AiSettings, Host, SpeakResult, UserIdentity } from "./host.js";
 import type { I18n } from "./i18n.js";
 import type { ChatChunk, ThemeContribution } from "./types.js";
 import { currentInvocation, type Invocation } from "./invocation.js";
@@ -131,6 +131,34 @@ export interface PluginContext {
    * optional), so a plugin never writes `host?.getAiSettings?.()` itself.
    */
   getAiSettings(): Promise<AiSettings>;
+  /**
+   * Say `text` aloud in Astra's voice and resolve with what became of it:
+   * `"SPOKEN"`, `"STOPPED"` (silence was asked for — not an error) or
+   * `"NOT_SPOKEN"` with `error` saying why (`PLUGIN_ERROR_RATE_LIMITED` carries
+   * `retryAfterMs`). Needs the `speak` permission — high-risk, its own consent
+   * checkbox — an account that opens Astra, and the person's reply voice on.
+   * At most `limits.SPEAK_TEXT_MAX_CHARS` characters; the daemon refuses a
+   * longer text, it never cuts one.
+   *
+   * ```ts
+   * const said = await ctx.speak("The kettle has boiled.");
+   * if (said.outcome === "NOT_SPOKEN" && said.error?.code === "PLUGIN_ERROR_RATE_LIMITED") {
+   *   setTimeout(retry, said.error.retryAfterMs);
+   * }
+   * ```
+   *
+   * Rejects with a clear error when there is no host or the host predates the
+   * call, like `getAiSettings`.
+   */
+  speak(text: string): Promise<SpeakResult>;
+  /** Stop everything this plugin asked to be said, sounding and queued. Needs `speak`. */
+  stopSpeaking(): Promise<void>;
+  /**
+   * Pseudonyms for this installation and the signed-in account, made for this
+   * plugin alone (never a name, an email or the account's own id). Needs the
+   * `read_user_identity` permission.
+   */
+  getUserIdentity(): Promise<UserIdentity>;
 }
 
 /** The live state a context reads through to. Implemented by `Plugin`. */
@@ -153,6 +181,17 @@ export class NoHostError extends Error {
     );
     this.name = "NoHostError";
   }
+}
+
+/**
+ * The error for a host that has no method for a call added after it was
+ * written — the optional `Host` methods. Same sentence as `getAiSettings`'s.
+ */
+function predates(method: string, rpc: string): Error {
+  return new Error(
+    `this Host does not implement ${method} (${rpc}): ` +
+      "it predates the call. Update the host, or catch this and fall back."
+  );
 }
 
 /** The context implementation. One per plugin; it holds no state of its own. */
@@ -240,6 +279,26 @@ export class PluginContextImpl implements PluginContext {
       );
     }
     return host.getAiSettings();
+  }
+
+  async speak(text: string): Promise<SpeakResult> {
+    const host = this.need("speak");
+    if (typeof host.speak !== "function") throw predates("speak", "Speak");
+    return host.speak(text);
+  }
+
+  async stopSpeaking(): Promise<void> {
+    const host = this.need("stopSpeaking");
+    if (typeof host.stopSpeaking !== "function") throw predates("stopSpeaking", "StopSpeaking");
+    await host.stopSpeaking();
+  }
+
+  async getUserIdentity(): Promise<UserIdentity> {
+    const host = this.need("getUserIdentity");
+    if (typeof host.getUserIdentity !== "function") {
+      throw predates("getUserIdentity", "GetUserIdentity");
+    }
+    return host.getUserIdentity();
   }
 
   async setThemeContribution(theme: ThemeContribution): Promise<void> {

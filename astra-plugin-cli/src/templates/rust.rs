@@ -424,8 +424,9 @@ pub fn generate_main_rs(name: &str, capabilities: &[&str]) -> String {
     if capabilities.contains(&"client") {
         members.push(Member::new(
             Some("client"),
-            r#"    /// Ask the daemon for a client session, so `ctx.daemon()` is `Some` and
-    /// this plugin can drive chat, voice and commands.
+            r#"    /// Ask the daemon for a client session, so `ctx.daemon()` is `Some`. That
+    /// `DaemonClient` is deprecated (Astra refuses a plugin's token there):
+    /// drive chat and speech through `ctx.host()`.
     #[hook]
     fn is_client(&self) -> bool {
         true

@@ -13,7 +13,7 @@ Diese eine Tatsache bestimmt fast alles Weitere:
 
 - **Du kannst es in allem schreiben**, was gRPC spricht. Hier gibt es drei
   SDKs — Rust, Python, TypeScript — und sie sind in
-  [voller Parität](../reference/parity.md): alle 42 Hooks in allen drei.
+  [voller Parität](../reference/parity.md): alle 45 Hooks in allen drei.
 - **Es hat deine Rechte, nicht weniger.** Siehe [das Sicherheitsmodell](security.md).
 - **Es übersteht eigene Bugs schlecht und Astras Absturz gar nicht.** Ein
   Panic in einem Handler wird abgefangen und als Fehler zurückgegeben, statt

@@ -329,3 +329,145 @@ async fn an_empty_conversation_id_is_no_conversation_at_all() {
         "an empty invocation and an absent one are the same answer"
     );
 }
+
+// ── speech and identity, from inside a leased call ──────────────────────────
+//
+// `Speak`, `StopSpeaking` and `GetUserIdentity` are DEFAULTED `Host` methods,
+// and the host a handler holds is the scoped one (`CausalHost`) wrapping the
+// real client. A wrapper that forgot one would compile, and the handler would
+// get "this Host does not implement Speak" while the client underneath speaks
+// perfectly well — so these run the whole chain: leased `CallTool`, scoped
+// context, wrapper, client, session token, mock daemon.
+
+use astra_plugin_sdk::proto::{PluginErrorCode, PluginSpeechOutcome};
+
+/// `announce` says its argument string and reports what Astra answered and
+/// who is using it; `hush` stops its own speech.
+struct Announcer;
+
+#[async_trait::async_trait]
+impl PluginCapability for Announcer {
+    type Config = NoConfig;
+
+    async fn list_tools(&self) -> Vec<ToolDef> {
+        vec![
+            ToolDef::new("announce", "Say something aloud"),
+            ToolDef::new("hush", "Stop saying it"),
+        ]
+    }
+
+    async fn call_tool(
+        &self,
+        ctx: &PluginContext,
+        name: &str,
+        args: &str,
+    ) -> Result<String, ToolError> {
+        if name == "hush" {
+            ctx.host().stop_speaking().await?;
+            return Ok("hushed".into());
+        }
+        let said = ctx.host().speak(args).await?;
+        let who = ctx.host().get_user_identity().await?;
+        let outcome = match said.outcome() {
+            PluginSpeechOutcome::Spoken => "spoken",
+            PluginSpeechOutcome::Stopped => "stopped",
+            PluginSpeechOutcome::NotSpoken => "not_spoken",
+            _ => "unspecified",
+        };
+        let why = said.error.unwrap_or_default();
+        let rate_limited = why.code() == PluginErrorCode::PluginErrorRateLimited;
+        Ok(format!(
+            "{outcome}|rate_limited={rate_limited}|wait={}|{}|{}|{}",
+            why.retry_after_ms, who.install_id, who.authorized, who.account_id
+        ))
+    }
+}
+
+async fn announce(harness: &WireHarness, tool: &str, text: &str) -> astra_plugin_sdk::proto::PluginCallToolResponse {
+    let mut request = harness.request(astra_plugin_sdk::proto::PluginCallToolRequest {
+        tool_name: tool.into(),
+        arguments_json: text.into(),
+        invocation: None,
+    });
+    request
+        .metadata_mut()
+        .insert(X_ASTRA_CAUSE, "lease-speak".parse().unwrap());
+    harness
+        .client()
+        .call_tool(request)
+        .await
+        .expect("CallTool answered")
+        .into_inner()
+}
+
+/// The words reach the daemon through the scoped host, with the session
+/// token, and the identity round-trips field for field. Speaking is not a
+/// fire, so nothing about it spends or carries the lease.
+#[tokio::test]
+async fn speech_and_identity_from_a_leased_call_reach_the_daemon() {
+    let harness = WireHarness::start(Announcer).await.unwrap();
+
+    let resp = announce(&harness, "announce", "The kettle has boiled.").await;
+    assert!(resp.success, "{}", resp.error);
+    assert_eq!(
+        resp.result,
+        "spoken|rate_limited=false|wait=0|mock-install-pseudonym|true|mock-account-pseudonym"
+    );
+    assert_eq!(harness.daemon().spoken(), vec!["The kettle has boiled.".to_string()]);
+    assert!(
+        harness.daemon().unauthenticated_calls().is_empty(),
+        "a host call went out without the session token: {:?}",
+        harness.daemon().unauthenticated_calls()
+    );
+    assert!(harness.fired_triggers().is_empty());
+}
+
+/// `NotSpoken` is an ANSWER, not an error: the handler gets the outcome and
+/// the daemon's `PluginError` — the code and the wait — and decides.
+#[tokio::test]
+async fn a_not_spoken_answer_reaches_the_handler_with_its_code_and_wait() {
+    let harness = WireHarness::start(Announcer).await.unwrap();
+    harness
+        .daemon()
+        .set_speak_response(astra_plugin_sdk::proto::PluginSpeakResponse {
+            outcome: PluginSpeechOutcome::NotSpoken as i32,
+            error: Some(astra_plugin_sdk::proto::PluginError {
+                code: PluginErrorCode::PluginErrorRateLimited as i32,
+                message: "this plugin has used its speaking time".into(),
+                retry_after_ms: 1500,
+                ..Default::default()
+            }),
+        });
+    harness.daemon().set_user_identity(astra_plugin_sdk::proto::PluginUserIdentity {
+        install_id: "install-x".into(),
+        signed_in: true,
+        authorized: false,
+        account_id: String::new(),
+    });
+
+    let resp = announce(&harness, "announce", "Again.").await;
+    assert!(resp.success, "{}", resp.error);
+    assert_eq!(resp.result, "not_spoken|rate_limited=true|wait=1500|install-x|false|");
+    // What the plugin asked to say is still on the record.
+    assert_eq!(harness.daemon().spoken(), vec!["Again.".to_string()]);
+}
+
+/// `speak` gates both rpcs, as it does in the daemon: revoke it and Speak and
+/// StopSpeaking are both refused, as `Unauthorized`, which a handler's `?`
+/// passes on with its kind intact.
+#[tokio::test]
+async fn without_the_speak_grant_neither_speak_nor_stop_speaking_is_allowed() {
+    let harness = WireHarness::start(Announcer).await.unwrap();
+    harness.daemon().revoke("speak");
+
+    for tool in ["announce", "hush"] {
+        let resp = announce(&harness, tool, "x").await;
+        assert!(!resp.success, "{tool} must be refused without `speak`");
+        assert_eq!(
+            resp.error_detail.expect("a coded refusal").code(),
+            PluginErrorCode::PluginErrorUnauthorized,
+            "{tool}"
+        );
+    }
+    assert!(harness.daemon().spoken().is_empty());
+}

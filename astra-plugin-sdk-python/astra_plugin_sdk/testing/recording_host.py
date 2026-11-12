@@ -103,6 +103,23 @@ class RecordingHost:
     #: What `get_ai_settings()` answers, as keyword arguments of
     #: `PluginAiSettings` (`provider`, `model`, `api_base_url`, `is_loopback`).
     ai_settings: dict[str, Any] = field(default_factory=dict)
+    #: What `speak()` answers, as keyword arguments of `PluginSpeakResponse`
+    #: (`outcome`, `error`). Heard (`PLUGIN_SPEECH_OUTCOME_SPOKEN`) until told
+    #: otherwise; stage a refusal to test the branch a rate-limited plugin
+    #: takes — `error` may be a `PluginError` or a dict of its fields::
+    #:
+    #:     host.speak_response = {
+    #:         "outcome": plugin_pb2.PLUGIN_SPEECH_OUTCOME_NOT_SPOKEN,
+    #:         "error": {"code": plugin_pb2.PLUGIN_ERROR_RATE_LIMITED,
+    #:                   "retry_after_ms": 2000},
+    #:     }
+    speak_response: dict[str, Any] = field(
+        default_factory=lambda: {"outcome": plugin_pb2.PLUGIN_SPEECH_OUTCOME_SPOKEN}
+    )
+    #: What `get_user_identity()` answers, as keyword arguments of
+    #: `PluginUserIdentity` (`install_id`, `signed_in`, `authorized`,
+    #: `account_id`). Empty — nobody signed in — until told otherwise.
+    user_identity: dict[str, Any] = field(default_factory=dict)
 
     _logs: list[LogLine] = field(default_factory=list)
     _triggers: list[FiredTrigger] = field(default_factory=list)
@@ -111,6 +128,8 @@ class RecordingHost:
     _chat: list[ChatMessage] = field(default_factory=list)
     _themes: list[Any] = field(default_factory=list)
     _subscriptions: list[list[str]] = field(default_factory=list)
+    _spoken: list[str] = field(default_factory=list)
+    _stops: int = 0
 
     _fail_next: dict[str, BaseException] = field(default_factory=dict)
     _fail_always: dict[str, BaseException] = field(default_factory=dict)
@@ -183,6 +202,21 @@ class RecordingHost:
         self._maybe_fail("get_ai_settings")
         return plugin_pb2.PluginAiSettings(**self.ai_settings)
 
+    async def speak(self, text: str):
+        self._maybe_fail("speak")
+        # Recorded before the answer is chosen: what the plugin ASKED to say is
+        # the assertion, whether or not the staged answer then refuses it.
+        self._spoken.append(text)
+        return plugin_pb2.PluginSpeakResponse(**self.speak_response)
+
+    async def stop_speaking(self) -> None:
+        self._maybe_fail("stop_speaking")
+        self._stops += 1
+
+    async def get_user_identity(self):
+        self._maybe_fail("get_user_identity")
+        return plugin_pb2.PluginUserIdentity(**self.user_identity)
+
     async def subscribe_events(self, event_types: list[str] | None = None, exclude_source_id: str = ""):
         self._maybe_fail("subscribe_events")
         self._subscriptions.append(list(event_types or []))
@@ -239,6 +273,14 @@ class RecordingHost:
     def subscriptions(self) -> list[list[str]]:
         return list(self._subscriptions)
 
+    def spoken(self) -> list[str]:
+        """The text of every `speak()`, in order."""
+        return list(self._spoken)
+
+    def stop_count(self) -> int:
+        """How many times the plugin called `stop_speaking()`."""
+        return self._stops
+
 
 class _EmptyStream:
     """A stream that ends immediately. `async for` over it does nothing."""
@@ -258,6 +300,9 @@ _HOST_METHODS = frozenset(
         "get_config",
         "get_daemon_info",
         "get_ai_settings",
+        "speak",
+        "stop_speaking",
+        "get_user_identity",
         "subscribe_events",
         "push_to_ui",
         "send_chat_message",

@@ -174,6 +174,8 @@
 | `dom_access` | — | **是** | **是** | 在 Astra 窗口内运行插件自己的代码，能访问用户的对话以及每一个其他插件的界面。 |
 | `client` | — | **是** | **是** | 作为一个客户端前端存在（有自己的聊天界面、自己的会话）。 |
 | `read_ai_settings` | `GetAiSettings` | 否 | 否 | 读取用户聊天所用的提供方、模型和端点（绝不包含密钥）。 |
+| `speak` | `Speak`, `StopSpeaking` | **是** | 否 | 用 Astra 的声音把插件自己的话说出来。 |
+| `read_user_identity` | `GetUserIdentity` | 否 | 否 | 这次安装和已登录账号的假名 id，专为本插件生成（绝不是账号本身的 id、姓名或硬件序列号）。 |
 
 *Gates（限制的调用）*是指没有这项权限时守护进程会拒绝的那个 host
 RPC，来自 [`spec/hooks.yaml`](../../../spec/hooks.yaml)；一致性规则
@@ -243,6 +245,10 @@ author says:"前缀）。它永远不是标签本身 —— 措辞的修正随 A
 会话）。**高风险。**
 
 **`read_ai_settings`。** `PluginHostService.GetAiSettings`——读取用户聊天所用的提供方、模型和端点（绝不包含密钥）。不属于高风险，在 Tier 2 也不会被拒绝：它让调用用户模型的插件无需读取 Astra 的文件就能知道模型在哪里，把它定为高风险只会把诚实的插件推回 `settings.json`。
+
+**`speak`。** `PluginHostService.Speak` / `StopSpeaking`——用 Astra 的声音把插件自己的话说出来。**高风险：**这些话会被当作 Astra 的话听到。在 Tier 2 也不会被拒绝：播报是插件很常见的需求，勾选框就是那个决定。
+
+**`read_user_identity`。** `PluginHostService.GetUserIdentity`——这次安装和已登录账号的假名 id，专为本插件生成（绝不是账号本身的 id、姓名或硬件序列号）。不属于高风险，在 Tier 2 也不会被拒绝：它是机器序列号的诚实替代方案，把它定为高风险只会把按人限制使用的插件推回序列号。
 
 ## `[config]`
 

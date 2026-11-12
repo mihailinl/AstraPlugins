@@ -113,6 +113,81 @@ test("the concrete HostClient implements getAiSettings and ctx reaches it over t
   assert.ok(d.calls().some((c) => c.method === "GetAiSettings" && c.sessionToken === d.sessionToken));
 });
 
+/** Speaks from inside a tool call, then reports what Astra answered and who it is. */
+function announcer() {
+  return plugin({
+    tools: {
+      announce: tool({
+        description: "Say something aloud.",
+        input: s.object({ text: s.string() }),
+        run: async ({ text }, ctx) => {
+          const said = await ctx.speak(text);
+          const who = await ctx.getUserIdentity();
+          await ctx.stopSpeaking();
+          return JSON.stringify({ said, who });
+        },
+      }),
+    },
+  });
+}
+
+test("speak, stopSpeaking and getUserIdentity from a leased call reach the daemon with the token", async () => {
+  const d = await daemon();
+  const wire = await d.launch(announcer());
+  const res = await wire.callTool("announce", { text: "The kettle has boiled." }, { causedBy: "lease-speak" });
+  assert.equal(res.success, true, res.error);
+  const { said, who } = JSON.parse(res.result);
+  assert.deepEqual(said, { outcome: "SPOKEN" });
+  assert.deepEqual(who, {
+    installId: "mock-install-pseudonym",
+    signedIn: true,
+    authorized: true,
+    accountId: "mock-account-pseudonym",
+  });
+  for (const method of ["Speak", "GetUserIdentity", "StopSpeaking"]) {
+    const calls = d.callsTo(method);
+    assert.equal(calls.length, 1, `${method} reached the daemon once`);
+    assert.equal(calls[0].sessionToken, d.sessionToken, `${method} went out without x-session-token`);
+  }
+  assert.deepEqual(d.spoken(), ["The kettle has boiled."]);
+  // Speaking is not a fire: nothing here spends the lease.
+  assert.deepEqual(d.firedTriggers(), []);
+});
+
+test("a NOT_SPOKEN answer crosses the wire with its PluginError whole", async () => {
+  const d = await daemon();
+  d.speakResponse = {
+    outcome: "PLUGIN_SPEECH_OUTCOME_NOT_SPOKEN",
+    error: {
+      code: "PLUGIN_ERROR_RATE_LIMITED",
+      message: "this plugin has used its speaking time",
+      hint: "wait `retry_after_ms`; what was refused is not queued",
+      retryAfterMs: 1500,
+    },
+  };
+  const wire = await d.launch(announcer());
+  const said = await wire.plugin.ctx().speak("Again.");
+  assert.deepEqual(said, {
+    outcome: "NOT_SPOKEN",
+    error: {
+      code: "PLUGIN_ERROR_RATE_LIMITED",
+      message: "this plugin has used its speaking time",
+      hint: "wait `retry_after_ms`; what was refused is not queued",
+      configField: "",
+      retryAfterMs: 1500,
+      docUrl: "",
+    },
+  });
+});
+
+test("an outcome this SDK does not know reads as UNSPECIFIED, never as one it does", () => {
+  const { speakResultFromWire } = require("../dist/host-client.js");
+  assert.deepEqual(speakResultFromWire({ outcome: 3, error: null }), { outcome: "NOT_SPOKEN" });
+  assert.deepEqual(speakResultFromWire({ outcome: "PLUGIN_SPEECH_OUTCOME_STOPPED" }), { outcome: "STOPPED" });
+  assert.deepEqual(speakResultFromWire({ outcome: 7 }), { outcome: "UNSPECIFIED" });
+  assert.deepEqual(speakResultFromWire({}), { outcome: "UNSPECIFIED" });
+});
+
 test("a daemon that demands the token refuses a plugin that does not send one", async () => {
   // The mirror of the check above: prove the daemon side is not vacuous.
   const d = await daemon();

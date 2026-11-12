@@ -8319,6 +8319,18 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "PushToUi": {
               "requestType": "PluginUiPushRequest",
               "responseType": "Empty"
+            },
+            "Speak": {
+              "requestType": "PluginSpeakRequest",
+              "responseType": "PluginSpeakResponse"
+            },
+            "StopSpeaking": {
+              "requestType": "Empty",
+              "responseType": "Empty"
+            },
+            "GetUserIdentity": {
+              "requestType": "Empty",
+              "responseType": "PluginUserIdentity"
             }
           }
         },
@@ -9703,6 +9715,54 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             },
             "isLoopback": {
               "type": "bool",
+              "id": 4
+            }
+          }
+        },
+        "PluginSpeakRequest": {
+          "fields": {
+            "text": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "PluginSpeechOutcome": {
+          "values": {
+            "PLUGIN_SPEECH_OUTCOME_UNSPECIFIED": 0,
+            "PLUGIN_SPEECH_OUTCOME_SPOKEN": 1,
+            "PLUGIN_SPEECH_OUTCOME_STOPPED": 2,
+            "PLUGIN_SPEECH_OUTCOME_NOT_SPOKEN": 3
+          }
+        },
+        "PluginSpeakResponse": {
+          "fields": {
+            "outcome": {
+              "type": "PluginSpeechOutcome",
+              "id": 1
+            },
+            "error": {
+              "type": "PluginError",
+              "id": 2
+            }
+          }
+        },
+        "PluginUserIdentity": {
+          "fields": {
+            "installId": {
+              "type": "string",
+              "id": 1
+            },
+            "signedIn": {
+              "type": "bool",
+              "id": 2
+            },
+            "authorized": {
+              "type": "bool",
+              "id": 3
+            },
+            "accountId": {
+              "type": "string",
               "id": 4
             }
           }

@@ -98,6 +98,9 @@ pub use context::{
     ActiveTriggers, ChatStream, Daemon, EventStream, FirehoseStream, Host, Invocation,
     PluginContext, ctx, install_context, try_ctx,
 };
+// Deprecated since 0.7.5 (dead since 0.5.0); re-exported so code naming it
+// still compiles, and the author sees the deprecation at their own use site.
+#[allow(deprecated)]
 pub use daemon_client::DaemonClient;
 pub use error::{ActionError, HookUnimplemented, ToolError, ToolErrorCode, unimplemented};
 pub use host_client::HostClient;
@@ -306,6 +309,7 @@ pub mod prelude {
     pub use crate::context::{
         ActiveTriggers, Daemon, Host, Invocation, PluginContext, ctx, try_ctx,
     };
+    #[allow(deprecated)]
     pub use crate::daemon_client::DaemonClient;
     pub use crate::error::{ActionError, ToolError, ToolErrorCode};
     pub use crate::events::{CommandCompletedEvent, CommandTriggeredEvent, StateChangedEvent};
