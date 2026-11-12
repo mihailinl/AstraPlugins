@@ -170,6 +170,7 @@ check` друкував «No capabilities enabled».
 | `wakeword` | немає |
 | `ai_provider` | `AiComplete` |
 | `web_search` | `WebSearch` |
+| `image_provider` | `ImageGenerate` |
 | `music_provider` | `MusicSubscribe`, `MusicControl` |
 | `client` | `SendChatMessage` |
 | `actions` | `ExecuteAction`, `GetPluginActionTypes` |

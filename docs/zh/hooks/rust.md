@@ -28,6 +28,8 @@
 | `AiComplete` | `ai_provider` | required | server | stable | 流式返回一次模型补全；这是插件能成为 AI 提供者的唯一方式。 |
 | `AiGetModels` | `ai_provider` | optional | unary | stable | 列出这个提供者能运行的模型，以及每个模型希望如何被驱动（它的提示），供 Astra 的模型选择器使用。 |
 | `WebSearch` | `web_search` | required | unary | stable | Answer one web search for the assistant's web_search tool, as a provider the user picks. |
+| `ImageGenerate` | `image_provider` | required | unary | stable | 为助手的 generate_image 工具绘制一张图片：作为用户选择的图片提供者，或在插件是聊天的 AI 提供者时优先被调用。 |
+| `ImageGetModels` | `image_provider` | optional | unary | stable | 列出这个提供者提供的图片模型供选择器使用，以及其中哪些接受要编辑的图片。 |
 | `MusicSubscribe` | `music_provider` | required | server | stable | Report what the music services the plugin reaches are playing, as a stream of WHOLE snapshots the media hub merges into the player widget, the island and the AI media tools. |
 | `MusicControl` | `music_provider` | required | unary | stable | Carry out one verb on one session: play, pause, next, previous, seek, like, unlike, shuffle, repeat, volume. |
 | `MusicGetQueue` | `music_provider` | optional | unary | stable | List a session's queue around the playing item, for the widget's queue panel and the AI's get_music_queue. |

@@ -49,6 +49,9 @@ pub const KNOWN_HOOKS: &[(&str, Option<&str>)] = &[
     ("ai_provider_hints", Some("ai_provider")),
     // Web search
     ("web_search", Some("web_search")),
+    // Image provider
+    ("image_generate", Some("image_provider")),
+    ("image_models", Some("image_provider")),
     // Music provider
     ("music_publisher", Some("music_provider")),
     ("music_control", Some("music_provider")),

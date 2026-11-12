@@ -40,6 +40,13 @@ pub struct Capabilities {
     /// that introduced it (`deny_unknown_fields`), so set `min_astra_version`.
     #[serde(default)]
     pub web_search: bool,
+    /// The plugin answers `PluginCapabilityService.ImageGenerate` (and, optionally,
+    /// `ImageGetModels`): it draws pictures for the `generate_image` AI tool —
+    /// chosen as the image provider, or preferred while the plugin is the chat's
+    /// AI provider — in an Astra built with the `plugin-provider-slots` feature.
+    /// Set `min_astra_version`, for the reason `web_search` gives.
+    #[serde(default)]
+    pub image_provider: bool,
     /// The plugin answers the `PluginCapabilityService.Music*` hooks: it reports
     /// what music services play and drives them, so the music widget, the
     /// island and the AI media tools reach those services through the media
@@ -73,6 +80,7 @@ pub const CAPABILITY_NAMES: &[&str] = &[
     "wakeword",
     "ai_provider",
     "web_search",
+    "image_provider",
     "music_provider",
     "client",
     "actions",
@@ -133,6 +141,9 @@ impl Capabilities {
         }
         if self.web_search {
             list.push("web_search".into());
+        }
+        if self.image_provider {
+            list.push("image_provider".into());
         }
         if self.music_provider {
             list.push("music_provider".into());

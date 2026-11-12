@@ -206,6 +206,11 @@ usable with no `conftest.py` at all.
   them yet: only a daemon built with `plugin-provider-slots` does, and only to
   a plugin granted the high-risk `receive_attachments` permission. Everywhere
   else the list is empty.
+- An image provider (`image_provider`) overrides `image_generate` — one
+  picture per call, `ImageResponse.drawn(data)` or
+  `ImageResponse.refuse(code, message)` — and optionally `image_get_models`;
+  no Astra release asks yet, only a daemon built with `plugin-provider-slots`
+  does. Guide: `docs/en/image-provider-plugins.md`.
 - There is no `chat_message_sync` / `on_chat_sync` hook. That event was retired;
   a client plugin uses `is_client()` plus `on_conversation_event`.
 

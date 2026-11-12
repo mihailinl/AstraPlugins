@@ -2,7 +2,7 @@
 
 # Паритет хуков
 
-Протокол **1** · **45** хуков · источник истины [`spec/hooks.yaml`](../../spec/hooks.yaml).
+Протокол **1** · **47** хуков · источник истины [`spec/hooks.yaml`](../../spec/hooks.yaml).
 
 *Хук* — это один RPC на одном из двух обращённых к плагину сервисов.
 `PluginCapabilityService` работает **демон → плагин**: ваш плагин его
@@ -52,6 +52,8 @@ Astra, и ни один плагин его никогда не трогает.
 | `AiComplete` | `ai_provider` | required | live | server | stable | stable | stable | `astra-daemon/src/plugins/capability_bridge.rs` |
 | `AiGetModels` | `ai_provider` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/lifecycle.rs` |
 | `WebSearch` | `web_search` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/capabilities.rs` |
+| `ImageGenerate` | `image_provider` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/capabilities.rs` |
+| `ImageGetModels` | `image_provider` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/capabilities.rs` |
 | `MusicSubscribe` | `music_provider` | required | live | server | stable | stable | stable | `astra-daemon/src/plugins/manager/music.rs` |
 | `MusicControl` | `music_provider` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/music.rs` |
 | `MusicGetQueue` | `music_provider` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/music.rs` |
@@ -99,6 +101,7 @@ Astra, и ни один плагин его никогда не трогает.
 | `stt` | да | да | да |
 | `ai_provider` | да | да | да |
 | `web_search` | да | да | да |
+| `image_provider` | да | да | да |
 | `music_provider` | yes | yes | yes |
 | `actions` | да | да | да |
 | `triggers` | да | да | да |
@@ -136,6 +139,8 @@ Astra, и ни один плагин его никогда не трогает.
 | `AiComplete` | `ai_provider` | required | server | probe |
 | `AiGetModels` | `ai_provider` | optional | unary | probe |
 | `WebSearch` | `web_search` | required | unary | probe |
+| `ImageGenerate` | `image_provider` | required | unary | probe |
+| `ImageGetModels` | `image_provider` | optional | unary | probe |
 | `MusicSubscribe` | `music_provider` | required | server | probe |
 | `MusicControl` | `music_provider` | required | unary | probe |
 | `MusicGetQueue` | `music_provider` | optional | unary | probe |

@@ -83,8 +83,9 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 
 use crate::capability::{
-    AiChunk, AiRequest, AudioChunk, AudioData, PluginCapability, SttEvent, SttLoadState,
-    SttOptions, ToolDef, TtsRequest, WebSearchRequest, WebSearchResponse,
+    AiChunk, AiRequest, AudioChunk, AudioData, ImageModelInfo, ImageRequest, ImageResponse,
+    PluginCapability, SttEvent, SttLoadState, SttOptions, ToolDef, TtsRequest, WebSearchRequest,
+    WebSearchResponse,
 };
 use crate::context::{Host, PluginContext};
 use crate::error::ToolError;
@@ -600,6 +601,21 @@ impl<P: PluginCapability> Running<P> {
         self.plugin.web_search(&self.ctx, req).await
     }
 
+    // ── Image provider ──
+
+    /// `image_generate(..)`, exactly as the hook answered. A refusal the
+    /// plugin meant is `Ok(ImageResponse::Refused { .. })`.
+    pub async fn image_generate(&self, req: ImageRequest) -> Result<ImageResponse> {
+        self.plugin.image_generate(&self.ctx, req).await
+    }
+
+    /// `image_models()` — the list and the default model. A plugin that does
+    /// not implement it answers an `Err` that downcasts to
+    /// [`crate::HookUnimplemented`].
+    pub async fn image_models(&self) -> Result<(Vec<ImageModelInfo>, String)> {
+        self.plugin.image_models(&self.ctx).await
+    }
+
     // ── music_provider ──
 
     /// What the plugin last published (`None` when it is not a music provider).
@@ -613,11 +629,17 @@ impl<P: PluginCapability> Running<P> {
         self.plugin.music_control(&self.ctx, req).await
     }
 
-    pub async fn music_get_queue(&self, req: crate::MusicQueueRequest) -> Result<crate::MusicQueue> {
+    pub async fn music_get_queue(
+        &self,
+        req: crate::MusicQueueRequest,
+    ) -> Result<crate::MusicQueue> {
         self.plugin.music_get_queue(&self.ctx, req).await
     }
 
-    pub async fn music_search(&self, req: crate::MusicSearchRequest) -> Result<Vec<crate::MusicItem>> {
+    pub async fn music_search(
+        &self,
+        req: crate::MusicSearchRequest,
+    ) -> Result<Vec<crate::MusicItem>> {
         self.plugin.music_search(&self.ctx, req).await
     }
 

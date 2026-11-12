@@ -28,6 +28,8 @@
 | `AiComplete` | `ai_provider` | обов'язковий | server | stable | Стрімити завершення моделі; єдиний спосіб для плагіна бути провайдером ШІ. |
 | `AiGetModels` | `ai_provider` | опціональний | unary | stable | Перелічує моделі, які може запускати цей провайдер, і як кожну з них слід вести (її підказки), для вибору моделі в Astra. |
 | `WebSearch` | `web_search` | обов'язковий | unary | stable | Answer one web search for the assistant's web_search tool, as a provider the user picks. |
+| `ImageGenerate` | `image_provider` | обов'язковий | unary | stable | Малює ОДНУ картинку для інструмента асистента generate_image — як провайдер зображень, якого обрав користувач, або першим, поки плагін є AI-провайдером чату. |
+| `ImageGetModels` | `image_provider` | опціональний | unary | stable | Перелічує моделі зображень, які пропонує цей провайдер, для вибору, і які з них приймають картинки для редагування. |
 | `MusicSubscribe` | `music_provider` | required | server | stable | Report what the music services the plugin reaches are playing, as a stream of WHOLE snapshots the media hub merges into the player widget, the island and the AI media tools. |
 | `MusicControl` | `music_provider` | required | unary | stable | Carry out one verb on one session: play, pause, next, previous, seek, like, unlike, shuffle, repeat, volume. |
 | `MusicGetQueue` | `music_provider` | optional | unary | stable | List a session's queue around the playing item, for the widget's queue panel and the AI's get_music_queue. |

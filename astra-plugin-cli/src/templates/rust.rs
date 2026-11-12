@@ -344,6 +344,46 @@ pub fn generate_main_rs(name: &str, capabilities: &[&str]) -> String {
         ));
     }
 
+    if capabilities.contains(&"image_provider") {
+        members.push(Member::new(
+            Some("image_provider"),
+            r#"    /// Draw ONE picture for the assistant's `generate_image` tool. A refusal
+    /// you mean (missing key, spent allowance, a declined prompt) is an answer,
+    /// as below: `Refused` ends the call, any other code lets Astra try the
+    /// person's own image provider. `Err` reports the plugin as broken. Keep
+    /// the API key in `[config]` — the user sets it on the Plugins page.
+    #[hook]
+    async fn image_generate(
+        &self,
+        _ctx: &PluginContext,
+        _req: ImageRequest,
+    ) -> anyhow::Result<ImageResponse> {
+        // Call your image API with `req.prompt` (and `req.aspect_ratio`,
+        // `req.model`) and return the PNG, JPEG or WEBP bytes:
+        //   Ok(ImageResponse::drawn(png_bytes))
+        Ok(ImageResponse::refuse(
+            ImageErrorCode::NotConfigured,
+            "this image provider is a scaffold: implement image_generate",
+        ))
+    }
+
+    /// The image models Astra's picker offers, and the default one. Optional,
+    /// but without it Astra never sends a picture to edit: only a model marked
+    /// `.accepts_input_images()` receives the ones the person attached, on
+    /// `req.input_images`.
+    #[hook]
+    async fn image_models(
+        &self,
+        _ctx: &PluginContext,
+    ) -> anyhow::Result<(Vec<ImageModelInfo>, String)> {
+        Ok((
+            vec![ImageModelInfo::new("demo-image", "Demo Image")],
+            "demo-image".into(),
+        ))
+    }"#,
+        ));
+    }
+
     if capabilities.contains(&"music_provider") {
         members.push(Member::new(
             Some("music_provider"),

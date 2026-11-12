@@ -395,9 +395,10 @@ mod tests {
                 assert_bridge_in_head(&dir);
                 if frontend == "react" {
                     assert!(dir.join("frontend/bun.lock").is_file());
-                    assert!(dir
-                        .join("frontend/vendor/astra-plugin-ui/index.d.ts")
-                        .is_file());
+                    assert!(
+                        dir.join("frontend/vendor/astra-plugin-ui/index.d.ts")
+                            .is_file()
+                    );
                 } else {
                     assert!(!dir.join("frontend/package.json").exists());
                 }
@@ -452,10 +453,12 @@ mod tests {
                 let caps = manifest["capabilities"].as_table().unwrap();
                 assert_eq!(caps.len(), 1);
                 assert_eq!(caps["ui_contributions"].as_bool(), Some(true));
-                assert!(!manifest["permissions"]
-                    .as_table()
-                    .unwrap()
-                    .contains_key("dom_access"));
+                assert!(
+                    !manifest["permissions"]
+                        .as_table()
+                        .unwrap()
+                        .contains_key("dom_access")
+                );
                 let source = fs::read_to_string(dir.join(match backend {
                     "rust" => "src/main.rs",
                     "python" => "src/plugin.py",
@@ -828,20 +831,55 @@ mod tests {
         assert!(!rs.contains("async fn hello"), "{rs}");
     }
 
+    /// `--capabilities image_provider` must scaffold its required hook in every
+    /// language — answering with an in-band `not_configured` refusal, which is
+    /// an answer, rather than UNIMPLEMENTED — and the optional model list,
+    /// without which Astra never sends a picture to edit.
+    #[test]
+    fn the_image_provider_capability_scaffolds_its_hooks() {
+        let caps: &[&str] = &["image_provider"];
+        let py = templates::python::generate_plugin_py("demo", caps);
+        assert!(
+            py.contains("async def image_generate(self, request)"),
+            "{py}"
+        );
+        assert!(py.contains("async def image_get_models(self)"), "{py}");
+        assert!(
+            py.contains("ImageErrorCode, ImageModelInfo, ImageModelList, ImageResponse"),
+            "{py}"
+        );
+        let ts = templates::typescript::generate_index_ts("demo", caps);
+        assert!(ts.contains("generate: (_req) =>"), "{ts}");
+        assert!(ts.contains("ImageGeneration }"), "{ts}");
+        let rs = templates::rust::generate_main_rs("demo", caps);
+        assert!(rs.contains("async fn image_generate("), "{rs}");
+        assert!(rs.contains("async fn image_models("), "{rs}");
+        // The macro infers `image_provider` from the hook, so the attribute
+        // stays bare and the scaffold carries no stand-in tool.
+        assert!(rs.contains("#[astra::plugin]\nimpl"), "{rs}");
+        assert!(!rs.contains("async fn hello"), "{rs}");
+    }
+
     /// `--capabilities music_provider` must scaffold its required hook in every
     /// language, answering with an in-band refusal rather than UNIMPLEMENTED.
     #[test]
     fn the_music_provider_capability_scaffolds_its_hook() {
         let caps: &[&str] = &["music_provider"];
         let py = templates::python::generate_plugin_py("demo", caps);
-        assert!(py.contains("async def music_control(self, request)"), "{py}");
+        assert!(
+            py.contains("async def music_control(self, request)"),
+            "{py}"
+        );
         assert!(py.contains("MusicErrorCode, MusicRefusal"), "{py}");
         let ts = templates::typescript::generate_index_ts("demo", caps);
         assert!(ts.contains("publisher: new MusicPublisher()"), "{ts}");
         assert!(ts.contains("MusicPublisher, MusicRefusal"), "{ts}");
         let rs = templates::rust::generate_main_rs("demo", caps);
         assert!(rs.contains("async fn music_control("), "{rs}");
-        assert!(rs.contains("fn music_publisher(&self) -> Option<MusicPublisher>"), "{rs}");
+        assert!(
+            rs.contains("fn music_publisher(&self) -> Option<MusicPublisher>"),
+            "{rs}"
+        );
     }
 
     /// `--template stt-streaming` must scaffold the STREAMING hook.

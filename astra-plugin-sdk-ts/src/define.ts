@@ -66,6 +66,9 @@ import type {
   WebSearchHit,
   WebSearchRequest,
   WebSearchResponse,
+  ImageModelList,
+  ImageRequest,
+  ImageResponse,
 } from "./types.js";
 import type {
   MusicControlRequest,
@@ -204,6 +207,30 @@ export interface MusicDefinition {
   ): MusicPlayed | MusicItem | null | Promise<MusicPlayed | MusicItem | null>;
 }
 
+/**
+ * The `image_provider` capability: draw ONE picture per call for the
+ * assistant's `generate_image` tool (in a daemon built with
+ * `plugin-provider-slots`). See `Plugin.imageGenerate`.
+ */
+export interface ImageDefinition {
+  /**
+   * Return `ImageGeneration.drawn(bytes)` (or the bytes), or
+   * `ImageGeneration.refuse(code, message)` for a refusal you mean; a throw
+   * reports the plugin as failing.
+   */
+  generate(
+    req: ImageRequest,
+    ctx: PluginContext
+  ): ImageResponse | Buffer | Uint8Array | Promise<ImageResponse | Buffer | Uint8Array>;
+  /**
+   * The image models Astra's picker offers — a list, or a function of the
+   * context that builds one. Optional: without it the hook answers
+   * UNIMPLEMENTED ("no list"), and the daemon never sends a picture to edit.
+   * A model marked `acceptsInputImages` is the only kind that receives one.
+   */
+  models?: ImageModelList | ((ctx: PluginContext) => ImageModelList | Promise<ImageModelList>);
+}
+
 export interface AiDefinition {
   complete(req: AiCompleteRequest, ctx: PluginContext): AsyncIterable<AiChunk | string>;
   /**
@@ -259,6 +286,11 @@ export interface PluginDefinition {
     req: WebSearchRequest,
     ctx: PluginContext
   ): WebSearchResponse | WebSearchHit[] | Promise<WebSearchResponse | WebSearchHit[]>;
+  /**
+   * The `image_provider` capability: `generate` draws one picture, `models`
+   * (optional) lists the image models and which of them edit pictures.
+   */
+  image?: ImageDefinition;
   /**
    * The `music_provider` capability. `publisher` is what you report through
    * (`publisher.publish(services, sessions)`); `control` is required, the
@@ -374,6 +406,17 @@ class DefinedPlugin extends Plugin {
     if (def.webSearch) {
       const fn = def.webSearch;
       (this as Plugin).webSearch = async (req) => await fn(req, ctx());
+    }
+    if (def.image) {
+      const image = def.image;
+      (this as Plugin).imageGenerate = async (req) => await image.generate(req, ctx());
+      // Only a definition that lists models answers the hook: without one it
+      // stays UNIMPLEMENTED, the daemon's "no list".
+      if (image.models !== undefined) {
+        const models = image.models;
+        (this as Plugin).imageGetModels = async () =>
+          await resolve(models, ctx(), { models: [], defaultModel: "" });
+      }
     }
     if (def.music) {
       const music = def.music;

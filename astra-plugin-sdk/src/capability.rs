@@ -525,12 +525,12 @@ pub use proto::PluginAiCompleteRequest as AiRequest;
 /// [`accepts_images`](AiModelHints::accepts_images), and only by a daemon built
 /// with `plugin-provider-slots`; for any other model the list is empty.
 pub use proto::PluginAiMessage as AiMessage;
+/// A tool call, in a request (as history) or in a response (as an answer).
+pub use proto::PluginAiToolCall as AiToolCall;
 /// One picture on an [`AiMessage`]: `mime_type` (`"image/png"`, `"image/jpeg"`,
 /// `"image/webp"`, `"image/gif"`), `data` (never re-encoded) and `filename`
 /// (the name it was attached under, or `""`).
 pub use proto::PluginImage as AiImage;
-/// A tool call, in a request (as history) or in a response (as an answer).
-pub use proto::PluginAiToolCall as AiToolCall;
 
 /// One piece of a streamed completion.
 #[derive(Debug, Clone)]
@@ -819,6 +819,303 @@ impl WebSearchResponse {
 impl From<Vec<WebSearchHit>> for WebSearchResponse {
     fn from(hits: Vec<WebSearchHit>) -> Self {
         Self::Hits(hits)
+    }
+}
+
+// ── Image provider ──
+
+/// One picture to draw, as the daemon asks an `image_provider` for it
+/// (`PluginImageGenerateRequest`).
+///
+/// The daemon asks for ONE picture per call; a person who asked for four
+/// costs four calls. Build one in a test with [`ImageRequest::new`].
+#[derive(Debug, Clone, Default, PartialEq)]
+#[non_exhaustive]
+pub struct ImageRequest {
+    /// What to draw, as the model wrote it.
+    pub prompt: String,
+    /// One of [`ASPECT_RATIOS`](Self::ASPECT_RATIOS) (`"16:9"`), or `None` for
+    /// the model's own default. Passed on as the daemon sent it: map it onto
+    /// your API, and draw at your default when you cannot.
+    pub aspect_ratio: Option<String>,
+    /// The model the person chose — an id from your
+    /// [`image_models`](PluginCapability::image_models) list, or typed — and
+    /// `""` for your default.
+    pub model: String,
+    /// The pictures the person attached to edit or draw from
+    /// (`generate_image`'s `edit`), bytes as they are. Sent only for a model
+    /// your [`image_models`](PluginCapability::image_models) list marks
+    /// [`accepts_input_images`](ImageModelInfo::accepts_input_images); empty
+    /// for any other, so a provider that lists no models never receives one.
+    pub input_images: Vec<AiImage>,
+}
+
+impl ImageRequest {
+    /// Every aspect ratio the daemon sends today.
+    pub const ASPECT_RATIOS: [&'static str; 5] = ["1:1", "16:9", "9:16", "4:3", "3:4"];
+
+    /// A request for `prompt`, at the default ratio, on the default model.
+    pub fn new(prompt: impl Into<String>) -> Self {
+        Self {
+            prompt: prompt.into(),
+            ..Self::default()
+        }
+    }
+
+    /// The same request at `ratio` (`"16:9"`); `""` is the model's default.
+    pub fn with_aspect_ratio(mut self, ratio: impl Into<String>) -> Self {
+        let ratio: String = ratio.into();
+        let ratio = ratio.trim().to_string();
+        self.aspect_ratio = (!ratio.is_empty()).then_some(ratio);
+        self
+    }
+
+    /// The same request on `model`.
+    pub fn with_model(mut self, model: impl Into<String>) -> Self {
+        self.model = model.into();
+        self
+    }
+
+    /// The same request with one more picture to edit.
+    pub fn with_input_image(mut self, image: AiImage) -> Self {
+        self.input_images.push(image);
+        self
+    }
+}
+
+impl From<proto::PluginImageGenerateRequest> for ImageRequest {
+    fn from(r: proto::PluginImageGenerateRequest) -> Self {
+        let ratio = r.aspect_ratio.trim().to_string();
+        Self {
+            prompt: r.prompt,
+            aspect_ratio: (!ratio.is_empty()).then_some(ratio),
+            model: r.model.trim().to_string(),
+            input_images: r.input_images,
+        }
+    }
+}
+
+/// Why a provider did not draw. Each code changes what the daemon does next,
+/// which is why they are a closed set rather than a message.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ImageErrorCode {
+    /// The account's allowance is spent. The daemon tries the person's own
+    /// image provider, when there is another.
+    Quota,
+    /// Too many pictures right now. Pair it with
+    /// [`ImageResponse::with_retry_after`] when the API says how long.
+    RateLimited,
+    /// Something the person has to set (usually the key) is missing.
+    NotConfigured,
+    /// Anything else: the service is down, the network failed, the answer was
+    /// unreadable. The daemon may try the person's own image provider.
+    Unavailable,
+    /// The prompt itself was declined (a safety filter, a soft refusal). The
+    /// daemon tries nothing else: another provider would be asked the same
+    /// prompt.
+    Refused,
+}
+
+impl ImageErrorCode {
+    /// The wire string the daemon reads.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Quota => "quota",
+            Self::RateLimited => "rate_limited",
+            Self::NotConfigured => "not_configured",
+            Self::Unavailable => "unavailable",
+            Self::Refused => "refused",
+        }
+    }
+}
+
+impl std::fmt::Display for ImageErrorCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// A provider's answer: the picture, or the refusal it means.
+///
+/// A refusal is an ANSWER, not an error. Returning
+/// `Ok(ImageResponse::refuse(ImageErrorCode::Quota, …))` is how the daemon
+/// learns to try another provider; returning `Err` tells it this plugin is
+/// broken.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ImageResponse {
+    /// The picture was drawn.
+    Drawn {
+        /// PNG, JPEG or WEBP bytes. The daemon checks them by their own
+        /// signature, so anything else is refused however it is labelled.
+        data: Vec<u8>,
+        /// `"image/png"`, `"image/jpeg"` or `"image/webp"`. Read from the
+        /// bytes by [`drawn`](Self::drawn); informational, the bytes decide.
+        mime_type: String,
+        /// Any text the model wrote beside the picture, or `""`.
+        caption: String,
+    },
+    /// The provider did not draw, and says why.
+    Refused {
+        code: ImageErrorCode,
+        /// Short, in English: the model reads it.
+        message: String,
+        /// With [`ImageErrorCode::RateLimited`]: seconds to wait, `0` when
+        /// unknown.
+        retry_after_secs: u32,
+    },
+}
+
+impl ImageResponse {
+    /// The picture was drawn. Its type is read from its bytes
+    /// ([`mime_type_of`](Self::mime_type_of));
+    /// [`with_mime_type`](Self::with_mime_type) names it yourself.
+    pub fn drawn(data: impl Into<Vec<u8>>) -> Self {
+        let data = data.into();
+        Self::Drawn {
+            mime_type: Self::mime_type_of(&data).unwrap_or_default().to_string(),
+            data,
+            caption: String::new(),
+        }
+    }
+
+    /// A picture's type, read from its own first bytes: `"image/png"`,
+    /// `"image/jpeg"` or `"image/webp"` — the three the daemon accepts — else
+    /// `None`.
+    ///
+    /// ```
+    /// # use astra_plugin_sdk::ImageResponse;
+    /// let png = [0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a];
+    /// assert_eq!(ImageResponse::mime_type_of(&png), Some("image/png"));
+    /// assert_eq!(ImageResponse::mime_type_of(b"GIF89a"), None);
+    /// ```
+    pub fn mime_type_of(data: &[u8]) -> Option<&'static str> {
+        if data.starts_with(&[0x89, b'P', b'N', b'G', 0x0d, 0x0a, 0x1a, 0x0a]) {
+            Some("image/png")
+        } else if data.starts_with(&[0xff, 0xd8, 0xff]) {
+            Some("image/jpeg")
+        } else if data.len() >= 12 && &data[..4] == b"RIFF" && &data[8..12] == b"WEBP" {
+            Some("image/webp")
+        } else {
+            None
+        }
+    }
+
+    /// The picture's type, as your API labelled it. A no-op on a refusal.
+    pub fn with_mime_type(mut self, mime: impl Into<String>) -> Self {
+        if let Self::Drawn { mime_type, .. } = &mut self {
+            *mime_type = mime.into();
+        }
+        self
+    }
+
+    /// Text the model wrote beside the picture. A no-op on a refusal.
+    pub fn with_caption(mut self, text: impl Into<String>) -> Self {
+        if let Self::Drawn { caption, .. } = &mut self {
+            *caption = text.into();
+        }
+        self
+    }
+
+    /// No picture, for `code`'s reason. `message` is short English the model
+    /// reads.
+    pub fn refuse(code: ImageErrorCode, message: impl Into<String>) -> Self {
+        Self::Refused {
+            code,
+            message: message.into(),
+            retry_after_secs: 0,
+        }
+    }
+
+    /// How long to wait before asking again. Meaningful with
+    /// [`ImageErrorCode::RateLimited`]; a no-op on [`Drawn`](Self::Drawn).
+    pub fn with_retry_after(mut self, secs: u32) -> Self {
+        if let Self::Refused {
+            retry_after_secs, ..
+        } = &mut self
+        {
+            *retry_after_secs = secs;
+        }
+        self
+    }
+
+    /// The wire message: one picture, or the refusal.
+    pub(crate) fn into_proto(self) -> proto::PluginImageGenerateResponse {
+        match self {
+            Self::Drawn {
+                data,
+                mime_type,
+                caption,
+            } => proto::PluginImageGenerateResponse {
+                images: vec![proto::PluginImage {
+                    mime_type,
+                    data,
+                    filename: String::new(),
+                }],
+                caption,
+                ..Default::default()
+            },
+            Self::Refused {
+                code,
+                message,
+                retry_after_secs,
+            } => proto::PluginImageGenerateResponse {
+                images: Vec::new(),
+                caption: String::new(),
+                error_code: code.as_str().to_string(),
+                error_message: message,
+                retry_after_secs,
+            },
+        }
+    }
+}
+
+/// An image model the plugin offers, as Astra's image-model picker lists it
+/// (`PluginImageModelInfo`).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct ImageModelInfo {
+    pub id: String,
+    pub name: String,
+    /// The model takes pictures to edit or draw from: only then does the
+    /// daemon send [`ImageRequest::input_images`]. Set it with
+    /// [`accepts_input_images`](Self::accepts_input_images).
+    pub accepts_input_images: bool,
+}
+
+impl ImageModelInfo {
+    pub fn new(id: impl Into<String>, name: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            name: name.into(),
+            accepts_input_images: false,
+        }
+    }
+
+    /// The same model, saying whether it takes pictures to edit.
+    pub fn with_input_images(mut self, accepts: bool) -> Self {
+        self.accepts_input_images = accepts;
+        self
+    }
+
+    /// Shorthand for `with_input_images(true)`.
+    ///
+    /// ```
+    /// # use astra_plugin_sdk::ImageModelInfo;
+    /// let editor = ImageModelInfo::new("edit-1", "Edit 1").accepts_input_images();
+    /// assert!(editor.accepts_input_images);
+    /// ```
+    pub fn accepts_input_images(self) -> Self {
+        self.with_input_images(true)
+    }
+}
+
+impl From<ImageModelInfo> for proto::PluginImageModelInfo {
+    fn from(m: ImageModelInfo) -> Self {
+        Self {
+            id: m.id,
+            name: m.name,
+            accepts_input_images: m.accepts_input_images,
+        }
     }
 }
 
@@ -1541,6 +1838,46 @@ pub trait PluginCapability: Send + Sync + 'static {
         _req: WebSearchRequest,
     ) -> anyhow::Result<WebSearchResponse> {
         Err(unimplemented("web_search"))
+    }
+
+    // ── Image provider ──
+
+    /// Draw ONE picture. The whole of the `image_provider` capability.
+    ///
+    /// Astra asks when the person chose this plugin as the image provider for
+    /// the assistant's `generate_image` tool, and first — before the person's
+    /// own image provider — while this plugin is the chat's AI provider; only
+    /// in a daemon built with the `plugin-provider-slots` feature. The daemon
+    /// saves and shows the picture, and checks it by its bytes: PNG, JPEG or
+    /// WEBP.
+    ///
+    /// A refusal you mean is an answer:
+    /// `Ok(ImageResponse::refuse(ImageErrorCode::NotConfigured, "no API key set"))`.
+    /// [`ImageErrorCode::Refused`] (the prompt was declined) ends the call; the
+    /// other codes let the daemon try the person's own image provider. `Err`
+    /// reports the plugin as failing.
+    async fn image_generate(
+        &self,
+        _ctx: &PluginContext,
+        _req: ImageRequest,
+    ) -> anyhow::Result<ImageResponse> {
+        Err(unimplemented("image_generate"))
+    }
+
+    /// The image models this provider offers, and the default one (`""` = the
+    /// first), for Astra's image-model picker. Optional.
+    ///
+    /// The model the person picks arrives on [`ImageRequest::model`]. A model
+    /// marked [`accepts_input_images`](ImageModelInfo::accepts_input_images)
+    /// is the only kind the daemon sends pictures to edit; a provider that
+    /// does not implement this hook (the default answers `UNIMPLEMENTED`, "no
+    /// list") is never sent one, and the person types a model id or leaves it
+    /// to your default.
+    async fn image_models(
+        &self,
+        _ctx: &PluginContext,
+    ) -> anyhow::Result<(Vec<ImageModelInfo>, String)> {
+        Err(unimplemented("image_models"))
     }
 
     // ── Music provider ──
@@ -2899,7 +3236,10 @@ mod tests {
         let field = FieldDef::number("ttl", "Cache lifetime").with_advanced();
         let decoded = FieldDef::decode(field.encode_to_vec().as_slice()).unwrap();
         assert!(decoded.advanced);
-        assert!(!FieldDef::number("ttl", "Cache lifetime").advanced, "ordinary unless marked");
+        assert!(
+            !FieldDef::number("ttl", "Cache lifetime").advanced,
+            "ordinary unless marked"
+        );
     }
 
     #[test]
@@ -3050,7 +3390,10 @@ mod tests {
         ] {
             assert_eq!(WebSearchFreshness::from_wire(f.as_str()), f);
         }
-        assert_eq!(WebSearchFreshness::from_wire("hour"), WebSearchFreshness::Any);
+        assert_eq!(
+            WebSearchFreshness::from_wire("hour"),
+            WebSearchFreshness::Any
+        );
 
         let codes = [
             (WebSearchErrorCode::Quota, "quota"),

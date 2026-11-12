@@ -114,6 +114,16 @@ capability server receives messages up to `limits.PLUGIN_MAX_MESSAGE_BYTES`
 (64 MiB) since 0.7.4, where gRPC's default is 4 MiB. A class-based plugin
 overrides `aiGetModels()` instead.
 
+**An image provider** (`image_provider`, since 0.7.4) is `image: { generate,
+models? }`: `generate` draws one picture per call and answers
+`ImageGeneration.drawn(bytes)` or a refusal, `ImageGeneration.refuse(code,
+message)` — an answer, never a throw; `models` is optional, and only a model
+it marks `acceptsInputImages` is sent the pictures to edit, on
+`req.inputImages`. A class-based plugin overrides `imageGenerate()` and
+`imageGetModels()`. **No Astra release asks yet** — only a daemon built with
+`plugin-provider-slots`. The contract, the refusal codes and a worked plugin:
+[Image provider plugins](../image-provider-plugins.md).
+
 **A tool that reads the person's pictures** says `wantsAttachments: true` in
 `tool({...})` (or on a class-based plugin's `ToolDef`), and its handler reads
 `ctx.attachments` — the pictures attached to the message being answered, as

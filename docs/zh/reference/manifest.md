@@ -135,6 +135,7 @@
 | `wakeword` | 无 |
 | `ai_provider` | `AiComplete` |
 | `web_search` | `WebSearch` |
+| `image_provider` | `ImageGenerate` |
 | `music_provider` | `MusicSubscribe`, `MusicControl` |
 | `client` | `SendChatMessage` |
 | `actions` | `ExecuteAction`、`GetPluginActionTypes` |

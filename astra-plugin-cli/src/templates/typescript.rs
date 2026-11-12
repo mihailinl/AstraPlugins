@@ -246,6 +246,27 @@ pub fn generate_index_ts(name: &str, capabilities: &[&str]) -> String {
         );
     }
 
+    if capabilities.contains(&"image_provider") {
+        sections.push_str(
+            r#"
+  // The whole of the `image_provider` capability: draw ONE picture for the
+  // assistant's `generate_image` tool. Call your image API with `req.prompt`
+  // (and `req.aspectRatio`, `req.model`) and return the PNG, JPEG or WEBP
+  // bytes, e.g. `return ImageGeneration.drawn(png);`. A refusal you mean
+  // (missing key, spent allowance, a declined prompt) is an answer, as below:
+  // `refused` ends the call, any other code lets Astra try the person's own
+  // image provider; throwing reports the plugin as broken. `models` is
+  // optional, but without it Astra never sends a picture to edit: only a model
+  // with `acceptsInputImages: true` receives the ones the person attached.
+  image: {
+    generate: (_req) =>
+      ImageGeneration.refuse("not_configured", "this image provider is a scaffold: implement image.generate"),
+    models: { models: [{ id: "demo-image", name: "Demo Image" }], defaultModel: "demo-image" },
+  },
+"#,
+        );
+    }
+
     if capabilities.contains(&"music_provider") {
         sections.push_str(
             r#"
@@ -305,6 +326,9 @@ pub fn generate_index_ts(name: &str, capabilities: &[&str]) -> String {
     }
     if capabilities.contains(&"web_search") {
         imports.push("WebSearch");
+    }
+    if capabilities.contains(&"image_provider") {
+        imports.push("ImageGeneration");
     }
     if capabilities.contains(&"music_provider") {
         imports.extend(["MusicPublisher", "MusicRefusal"]);

@@ -115,7 +115,7 @@ at all, where `Harness` sends one naming `""`).
 Everything else is an override on `Plugin`: `tts_synthesize`, `tts_list_voices`,
 `tts_config_fields`, `stt_transcribe`, `stt_transcribe_stream`,
 `stt_get_languages`, `stt_load` / `stt_unload` / `stt_load_state`,
-`ai_complete`, `web_search`, `get_action_types`, `execute_action`, `get_trigger_types`,
+`ai_complete`, `web_search`, `image_generate`, `image_get_models`, `get_action_types`, `execute_action`, `get_trigger_types`,
 `get_ui_contributions`, `handle_ui_call`, `on_config_changed`,
 `on_language_changed`, `on_active_triggers`, `on_shutdown`, `health_check`.
 
@@ -234,6 +234,16 @@ model, and only in a daemon built with the `plugin-provider-slots` feature.** A
 request to a model that reads pictures carries up to 20 MiB of them, so the
 SDK's capability server receives messages up to `limits.PLUGIN_MAX_MESSAGE_BYTES`
 (64 MiB) since 0.6.5, where gRPC's default is 4 MiB.
+
+**An image provider** (`image_provider`, since 0.6.5) overrides
+`image_generate`: one picture per call, `ImageResponse.drawn(data)` or a
+refusal, `ImageResponse.refuse(code, message)` — an answer, never a raise.
+`image_get_models` is optional and answers an `ImageModelList` of
+`ImageModelInfo(id, name, accepts_input_images=…)`; only a model marked
+`accepts_input_images` is sent the pictures to edit, on
+`ImageRequest.input_images`. **No Astra release asks yet** — only a daemon
+built with `plugin-provider-slots`. The contract, the refusal codes and a
+worked plugin: [Image provider plugins](../image-provider-plugins.md).
 
 Returning a raw `dict` where a dataclass is expected still works and emits a
 `DeprecationWarning`: deprecated in 0.5.0, removable from 0.7.0. Gate it in CI

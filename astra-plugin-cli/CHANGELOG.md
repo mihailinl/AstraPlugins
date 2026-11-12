@@ -32,6 +32,27 @@ reads to find out how to get the tool.
 
 ### Added
 
+- **A new `[capabilities]` key, `image_provider`**, from the vendored
+  `astra-plugin-manifest` re-synced with Astra `21790d761` (branch
+  `feat/plugin-api-gaps`): the plugin draws pictures for the assistant's
+  `generate_image` tool. **In no Astra release yet:** the daemon side is behind
+  the `plugin-provider-slots` build feature. `--capabilities image_provider`
+  scaffolds `ImageGenerate` (answering `not_configured` in band until you
+  implement it) and the optional `ImageGetModels` (one model) in all three
+  languages; the scaffold needs the SDKs that bind them (Rust 0.7.5, Python
+  0.6.5, TypeScript 0.7.4). `astra-plugin test` probes both for a plugin that
+  declares the key: `ImageGenerate` with a real prompt, allowed 60 seconds,
+  failing on what the daemon would misread or refuse — an `error_code` outside
+  `quota`, `rate_limited`, `not_configured`, `unavailable` and `refused`, an
+  answer with neither a picture nor a code, more than one picture, or a picture
+  that is not PNG, JPEG or WEBP by its bytes; `ImageGetModels` the way the
+  daemon admits the list (the model-id rule `AiGetModels` has, and a
+  `default_model` in the list). `UNIMPLEMENTED` there is "no list", which is
+  allowed. The plugin protocol follows Astra `21790d761`:
+  `PluginCapabilityService.ImageGenerate` / `ImageGetModels`,
+  `PluginImageGenerateRequest`, `PluginImageGenerateResponse`,
+  `PluginImageModelInfo` and `PluginImageModelsResponse`.
+
 - **A new `[permissions]` id, `receive_attachments`**, from the vendored
   `astra-plugin-manifest` re-synced with Astra `4b5d3081f`: a plugin's tools
   that declare `wants_attachments` are handed the pictures the person attached

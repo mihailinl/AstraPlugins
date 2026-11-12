@@ -2,7 +2,7 @@
 
 # Hook-Parität
 
-Protokoll **1** · **45** Hooks · Source of Truth [`spec/hooks.yaml`](../../spec/hooks.yaml).
+Protokoll **1** · **47** Hooks · Source of Truth [`spec/hooks.yaml`](../../spec/hooks.yaml).
 
 Ein *Hook* ist ein RPC auf einem der beiden Plugin-seitigen Dienste.
 `PluginCapabilityService` läuft **Daemon → Plugin**: dein Plugin bedient
@@ -52,6 +52,8 @@ ein Weg, auf dem der Code eines Plugin-Autors heute scheitert.
 | `AiComplete` | `ai_provider` | required | live | server | stable | stable | stable | `astra-daemon/src/plugins/capability_bridge.rs` |
 | `AiGetModels` | `ai_provider` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/lifecycle.rs` |
 | `WebSearch` | `web_search` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/capabilities.rs` |
+| `ImageGenerate` | `image_provider` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/capabilities.rs` |
+| `ImageGetModels` | `image_provider` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/capabilities.rs` |
 | `MusicSubscribe` | `music_provider` | required | live | server | stable | stable | stable | `astra-daemon/src/plugins/manager/music.rs` |
 | `MusicControl` | `music_provider` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/music.rs` |
 | `MusicGetQueue` | `music_provider` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/music.rs` |
@@ -99,6 +101,7 @@ Kann ein in dieser Sprache geschriebenes Plugin diese Capability heute
 | `stt` | ja | ja | ja |
 | `ai_provider` | ja | ja | ja |
 | `web_search` | ja | ja | ja |
+| `image_provider` | ja | ja | ja |
 | `music_provider` | yes | yes | yes |
 | `actions` | ja | ja | ja |
 | `triggers` | ja | ja | ja |
@@ -136,6 +139,8 @@ Plugin zu unterscheiden wäre. Maschinenlesbare Kopie:
 | `AiComplete` | `ai_provider` | required | server | probe |
 | `AiGetModels` | `ai_provider` | optional | unary | probe |
 | `WebSearch` | `web_search` | required | unary | probe |
+| `ImageGenerate` | `image_provider` | required | unary | probe |
+| `ImageGetModels` | `image_provider` | optional | unary | probe |
 | `MusicSubscribe` | `music_provider` | required | server | probe |
 | `MusicControl` | `music_provider` | required | unary | probe |
 | `MusicGetQueue` | `music_provider` | optional | unary | probe |

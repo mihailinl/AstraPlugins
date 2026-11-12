@@ -480,6 +480,144 @@ export const WebSearch = {
   },
 };
 
+// ── image provider ───────────────────────────────────────────────────────────
+
+/**
+ * One picture to draw, as the daemon asks an `image_provider` for it. The
+ * daemon asks for ONE picture per call; a person who asked for four costs four
+ * calls.
+ */
+export interface ImageRequest {
+  /** What to draw, as the model wrote it. */
+  prompt: string;
+  /**
+   * One of `ImageGeneration.ASPECT_RATIOS` (`"16:9"`), or `""` for the model's
+   * own default. Passed on as the daemon sent it: map it onto your API, and
+   * draw at your default when you cannot.
+   */
+  aspectRatio: string;
+  /** The model the person chose — an id from `imageGetModels`, or typed — and `""` for your default. */
+  model: string;
+  /**
+   * The pictures the person attached to edit or draw from (`generate_image`'s
+   * `edit`), bytes as they are. Sent only for a model your `imageGetModels`
+   * list marks `acceptsInputImages`; empty for any other, so a provider that
+   * lists no models never receives one.
+   */
+  inputImages: AiImage[];
+}
+
+/**
+ * Why a provider did not draw. Each code changes what the daemon does next:
+ * `refused` (the prompt itself was declined) ends the call; `quota`,
+ * `rate_limited` (may carry `retryAfterSecs`), `not_configured` and
+ * `unavailable` let the daemon try the person's own image provider.
+ */
+export type ImageErrorCode =
+  | "quota"
+  | "rate_limited"
+  | "not_configured"
+  | "unavailable"
+  | "refused";
+
+/**
+ * A provider's answer: the picture, or the refusal it means. A refusal is an
+ * ANSWER, not a throw — throwing tells the daemon this plugin is broken. Build
+ * one with `ImageGeneration.drawn(...)` / `ImageGeneration.refuse(...)`, or
+ * return the picture's bytes.
+ */
+export interface ImageResponse {
+  /**
+   * PNG, JPEG or WEBP bytes. The daemon checks them by their own signature, so
+   * anything else is refused however it is labelled. Absent on a refusal.
+   */
+  data?: Buffer | Uint8Array;
+  /** `"image/png"`, `"image/jpeg"` or `"image/webp"`. Read from the bytes when absent; informational. */
+  mimeType?: string;
+  /** Any text the model wrote beside the picture. */
+  caption?: string;
+  /** Absent when a picture was drawn. */
+  errorCode?: ImageErrorCode;
+  /** Short and in English: the model reads it. */
+  errorMessage?: string;
+  /** With `rate_limited`: seconds to wait, 0 when unknown. */
+  retryAfterSecs?: number;
+}
+
+/** One image model an `image_provider` plugin offers in Astra's picker. */
+export interface ImageModelInfo {
+  id: string;
+  name: string;
+  /** The model takes pictures to edit or draw from: only then does the daemon send `inputImages`. */
+  acceptsInputImages?: boolean;
+}
+
+/**
+ * What `imageGetModels` answers: the image models Astra's picker offers. The
+ * model the person picks arrives on `ImageRequest.model`; an empty `model`
+ * there means `defaultModel`.
+ */
+export interface ImageModelList {
+  models: ImageModelInfo[];
+  /** The model used when the person picked none. `""` or absent = the first in `models`. */
+  defaultModel?: string;
+}
+
+const IMAGE_ERROR_CODES: readonly ImageErrorCode[] = [
+  "quota",
+  "rate_limited",
+  "not_configured",
+  "unavailable",
+  "refused",
+];
+
+const IMAGE_ASPECT_RATIOS: readonly string[] = ["1:1", "16:9", "9:16", "4:3", "3:4"];
+
+/**
+ * A picture's type, read from its own first bytes: `"image/png"`,
+ * `"image/jpeg"` or `"image/webp"` — the three the daemon accepts — else `""`.
+ */
+function imageMimeTypeOf(data: Uint8Array): string {
+  const starts = (bytes: number[]) => bytes.every((b, i) => data[i] === b);
+  if (starts([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) return "image/png";
+  if (starts([0xff, 0xd8, 0xff])) return "image/jpeg";
+  const ascii = (from: number, to: number) => Buffer.from(data.subarray(from, to)).toString("latin1");
+  if (data.length >= 12 && ascii(0, 4) === "RIFF" && ascii(8, 12) === "WEBP") return "image/webp";
+  return "";
+}
+
+/** Builders for an `image_provider`'s answer. */
+export const ImageGeneration = {
+  /** Every aspect ratio the daemon sends today. `""` is the model's own default. */
+  ASPECT_RATIOS: IMAGE_ASPECT_RATIOS,
+  /** Every refusal code the daemon reads. */
+  ERROR_CODES: IMAGE_ERROR_CODES,
+  /** A picture's type, read from its bytes; `""` when it is none of PNG, JPEG, WEBP. */
+  mimeTypeOf: imageMimeTypeOf,
+  /** The picture was drawn. `mimeType` is read from the bytes when not given. */
+  drawn: (
+    data: Buffer | Uint8Array,
+    opts: { mimeType?: string; caption?: string } = {}
+  ): ImageResponse => ({
+    data,
+    mimeType: opts.mimeType || imageMimeTypeOf(data),
+    caption: opts.caption ?? "",
+  }),
+  /**
+   * No picture, for `code`'s reason. `code` is checked here, so a typo fails in
+   * the plugin's own test rather than reaching the daemon as an unknown code it
+   * reads as `unavailable`.
+   */
+  refuse: (code: ImageErrorCode, message: string, retryAfterSecs = 0): ImageResponse => {
+    if (!IMAGE_ERROR_CODES.includes(code)) {
+      throw new TypeError(
+        `"${code}" is not an image error code; use one of ${IMAGE_ERROR_CODES.join(", ")}`
+      );
+    }
+    return { errorCode: code, errorMessage: message, retryAfterSecs: Math.max(0, retryAfterSecs) };
+  },
+};
+
 /** One chunk of the assistant's reply to `host.sendChatMessage`. */
 export interface ChatChunk {
   /** A text delta, when this chunk carries one. */

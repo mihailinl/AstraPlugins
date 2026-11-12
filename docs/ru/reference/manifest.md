@@ -171,6 +171,7 @@ string such as "plugin", not &lt;type&gt;.
 | `wakeword` | нет |
 | `ai_provider` | `AiComplete` |
 | `web_search` | `WebSearch` |
+| `image_provider` | `ImageGenerate` |
 | `music_provider` | `MusicSubscribe`, `MusicControl` |
 | `client` | `SendChatMessage` |
 | `actions` | `ExecuteAction`, `GetPluginActionTypes` |

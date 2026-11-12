@@ -2,20 +2,20 @@
 
 # Protokoll-Referenz
 
-Protokoll-Generation **1**. 10 Dienste, 197 RPCs. Quelle:
+Protokoll-Generation **1**. 10 Dienste, 199 RPCs. Quelle:
 [`proto/plugin.proto`](../../../proto/plugin.proto), ein generierter
 Ausschnitt von Astras `astra.proto`
-(`surface-sha256: 0644d8cc4f45d776…`, der Digest des Plugin-zugewandten
+(`surface-sha256: c9af21fc3c3fbfbd…`, der Digest des Plugin-zugewandten
 Rumpfes, um den es hier geht), gepinnt von
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) auf
-`sha256:17ff2efb094c381f…`. Jede gevendorte Kopie in den drei SDKs hat
+`sha256:6e1c8055e3959650…`. Jede gevendorte Kopie in den drei SDKs hat
 denselben Hash; `tools/check-proto.sh` ist das, was das bestätigt.
 
 ## Die drei Plugin-Dienste
 
 | Dienst | Richtung | RPCs | Wer ihn bedient |
 |---|---|---|---|
-| [`PluginCapabilityService`](#plugincapabilityservice) | Daemon → Plugin | 31 | dein Plugin |
+| [`PluginCapabilityService`](#plugincapabilityservice) | Daemon → Plugin | 33 | dein Plugin |
 | [`PluginHostService`](#pluginhostservice) | Plugin → Daemon | 14 | der Daemon |
 | [`PluginService`](#pluginservice) | UI → Daemon | 23 | der Daemon |
 
@@ -51,6 +51,8 @@ diesen Hook nicht* — nicht für einen Fehler.
 | `AiComplete` | `ai_provider` | `PluginAiCompleteRequest` | `PluginAiStreamChunk` | server | live | Streamt eine Model-Completion; der einzige Weg, wie ein Plugin ein AI-Provider sein kann. |
 | `AiGetModels` | `ai_provider` | `Empty` | `PluginAiModelsResponse` | unary | live | Listet die Modelle, die dieser Provider ausführen kann, und wie jedes gefahren werden will (seine Hints), für Astras Modellauswahl. |
 | `WebSearch` | `web_search` | `PluginWebSearchRequest` | `PluginWebSearchResponse` | unary | live | Answer one web search for the assistant's web_search tool, as a provider the user picks. |
+| `ImageGenerate` | `image_provider` | `PluginImageGenerateRequest` | `PluginImageGenerateResponse` | unary | live | Zeichnet EIN Bild für das Werkzeug generate_image des Assistenten, als vom Nutzer gewählter Bild-Provider oder, zuerst, solange das Plugin der KI-Provider des Chats ist. |
+| `ImageGetModels` | `image_provider` | `Empty` | `PluginImageModelsResponse` | unary | live | Listet die Bildmodelle, die dieser Provider anbietet, für die Auswahl, und welche davon Bilder zum Bearbeiten annehmen. |
 | `MusicSubscribe` | `music_provider` | `Empty` | `PluginMusicSnapshot` | server | live | Report what the music services the plugin reaches are playing, as a stream of WHOLE snapshots the media hub merges into the player widget, the island and the AI media tools. |
 | `MusicControl` | `music_provider` | `PluginMusicControlRequest` | `PluginMusicResult` | unary | live | Carry out one verb on one session: play, pause, next, previous, seek, like, unlike, shuffle, repeat, volume. |
 | `MusicGetQueue` | `music_provider` | `PluginMusicQueueRequest` | `PluginMusicQueueResponse` | unary | live | List a session's queue around the playing item, for the widget's queue panel and the AI's get_music_queue. |

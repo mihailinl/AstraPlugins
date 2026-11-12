@@ -89,6 +89,30 @@ are removable in.
   `_conversation_id` / `_attachments` parameters) and `WireHarness.call_tool`
   with the same two. Additive: every existing `@tool` and `ToolDef` is
   unchanged.
+- **A plugin can draw pictures: the `image_provider` capability** (Astra
+  `21790d761`, branch `feat/plugin-api-gaps`; **in no Astra release yet** — the
+  daemon asks only when built with the `plugin-provider-slots` build feature).
+  Override `image_generate(self, request)` (`ImageGenerate`, the required hook)
+  and, optionally, `image_get_models(self)` (`ImageGetModels`; un-overridden it
+  answers `UNIMPLEMENTED`, "no list"). New: `ImageRequest` (`prompt`,
+  `aspect_ratio`, `model`, `input_images: list[AiImage]`), `ImageResponse`
+  (`ImageResponse.drawn(data, mime_type="", caption="")` — the type read from
+  the bytes by `image_mime_type` when omitted — and
+  `ImageResponse.refuse(code, message, retry_after_secs=0)`, which checks the
+  code), `ImageErrorCode` (`QUOTA`, `RATE_LIMITED`, `NOT_CONFIGURED`,
+  `UNAVAILABLE`, `REFUSED`), `ImageModelInfo(id, name,
+  accepts_input_images=False)`, `ImageModelList(models, default_model)` and
+  `IMAGE_ASPECT_RATIOS`. `image_generate` may also return the picture's bytes;
+  `image_get_models` may return the `(models, default_model)` tuple. A refusal
+  is an answer in `error_code`, as `web_search`'s is: `REFUSED` (the prompt was
+  declined) ends the call, the other four let Astra try the person's own image
+  provider; raising is a status, which Astra reads as a broken plugin. Astra
+  asks for ONE picture per call, checks it by its bytes (PNG, JPEG or WEBP),
+  and sends `input_images` only to a model the list marks
+  `accepts_input_images`. A plugin that overrides `image_generate` registers
+  `image_provider` when no manifest list is passed. Testing:
+  `Harness.image_generate(prompt, aspect_ratio=…, model=…, input_images=…)` and
+  `Harness.image_models()`. Additive. Guide: `docs/en/image-provider-plugins.md`.
 
 ### Changed (Astra `d6fc58808`, no SDK change needed)
 

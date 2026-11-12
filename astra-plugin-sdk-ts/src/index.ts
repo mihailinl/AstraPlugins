@@ -62,6 +62,7 @@ export type {
   TtsDefinition,
   SttDefinition,
   AiDefinition,
+  ImageDefinition,
   UiDefinition,
   EventsDefinition,
   ToolOutcome,
@@ -138,7 +139,7 @@ export {
 export type { LogLevel } from "./logging.js";
 export { DaemonClient } from "./daemon-client.js";
 export { I18n, key, PLUGIN_DIR_ENV } from "./i18n.js";
-export { Field, UiContrib, WebSearch } from "./types.js";
+export { Field, ImageGeneration, UiContrib, WebSearch } from "./types.js";
 export { MUSIC_CONTROLS, MusicPublisher, MusicRefusal } from "./music.js";
 export type {
   MusicControlRequest,
@@ -185,6 +186,11 @@ export type {
   WebSearchHit,
   WebSearchErrorCode,
   WebSearchResponse,
+  ImageErrorCode,
+  ImageModelInfo,
+  ImageModelList,
+  ImageRequest,
+  ImageResponse,
   ChatChunk,
   StateChangedEvent,
   CommandTriggeredEvent,

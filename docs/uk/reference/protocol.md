@@ -2,19 +2,19 @@
 
 # Довідник протоколу
 
-Покоління протоколу **1**. 10 сервісів, 197 RPC. Джерело:
+Покоління протоколу **1**. 10 сервісів, 199 RPC. Джерело:
 [`proto/plugin.proto`](../../../proto/plugin.proto), згенерований зріз
-`astra.proto` Astra (`surface-sha256: 0644d8cc4f45d776…` — дайджест
+`astra.proto` Astra (`surface-sha256: c9af21fc3c3fbfbd…` — дайджест
 оберненого до плагінів тіла, про яке тут і йдеться), закріплений
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) на
-`sha256:17ff2efb094c381f…`. У кожної завендореної копії в трьох SDK той
+`sha256:6e1c8055e3959650…`. У кожної завендореної копії в трьох SDK той
 самий хеш; `tools/check-proto.sh` — те, що це підтверджує.
 
 ## Три сервіси плагіна
 
 | Сервіс | Напрямок | RPC | Хто обслуговує |
 |---|---|---|---|
-| [`PluginCapabilityService`](#plugincapabilityservice) | демон → плагін | 31 | ваш плагін |
+| [`PluginCapabilityService`](#plugincapabilityservice) | демон → плагін | 33 | ваш плагін |
 | [`PluginHostService`](#pluginhostservice) | плагін → демон | 14 | демон |
 | [`PluginService`](#pluginservice) | UI → демон | 23 | демон |
 
@@ -49,6 +49,8 @@ RPC тут — хук, який ви реалізуєте, і `UNIMPLEMENTED` �
 | `AiComplete` | `ai_provider` | `PluginAiCompleteRequest` | `PluginAiStreamChunk` | server | live | Stream a model completion; the only way a plugin can be an AI provider. |
 | `AiGetModels` | `ai_provider` | `Empty` | `PluginAiModelsResponse` | unary | live | Перелічує моделі, які може запускати цей провайдер, і як кожну з них слід вести (її підказки), для вибору моделі в Astra. |
 | `WebSearch` | `web_search` | `PluginWebSearchRequest` | `PluginWebSearchResponse` | unary | live | Answer one web search for the assistant's web_search tool, as a provider the user picks. |
+| `ImageGenerate` | `image_provider` | `PluginImageGenerateRequest` | `PluginImageGenerateResponse` | unary | live | Малює ОДНУ картинку для інструмента асистента generate_image — як провайдер зображень, якого обрав користувач, або першим, поки плагін є AI-провайдером чату. |
+| `ImageGetModels` | `image_provider` | `Empty` | `PluginImageModelsResponse` | unary | live | Перелічує моделі зображень, які пропонує цей провайдер, для вибору, і які з них приймають картинки для редагування. |
 | `MusicSubscribe` | `music_provider` | `Empty` | `PluginMusicSnapshot` | server | live | Report what the music services the plugin reaches are playing, as a stream of WHOLE snapshots the media hub merges into the player widget, the island and the AI media tools. |
 | `MusicControl` | `music_provider` | `PluginMusicControlRequest` | `PluginMusicResult` | unary | live | Carry out one verb on one session: play, pause, next, previous, seek, like, unlike, shuffle, repeat, volume. |
 | `MusicGetQueue` | `music_provider` | `PluginMusicQueueRequest` | `PluginMusicQueueResponse` | unary | live | List a session's queue around the playing item, for the widget's queue panel and the AI's get_music_queue. |

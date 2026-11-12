@@ -2,7 +2,7 @@
 
 # 钩子对照表(Hook parity)
 
-协议 **1** · **45** 个钩子 · 权威来源 [`spec/hooks.yaml`](../../spec/hooks.yaml)。
+协议 **1** · **47** 个钩子 · 权威来源 [`spec/hooks.yaml`](../../spec/hooks.yaml)。
 
 *钩子(hook)* 指的是插件面向的两个服务之一上的一个 RPC。`PluginCapabilityService`
 是**守护进程 → 插件**方向的：你的插件提供服务，守护进程发起调用。
@@ -51,6 +51,8 @@
 | `AiComplete` | `ai_provider` | required | live | server | stable | stable | stable | `astra-daemon/src/plugins/capability_bridge.rs` |
 | `AiGetModels` | `ai_provider` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/lifecycle.rs` |
 | `WebSearch` | `web_search` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/capabilities.rs` |
+| `ImageGenerate` | `image_provider` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/capabilities.rs` |
+| `ImageGetModels` | `image_provider` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/capabilities.rs` |
 | `MusicSubscribe` | `music_provider` | required | live | server | stable | stable | stable | `astra-daemon/src/plugins/manager/music.rs` |
 | `MusicControl` | `music_provider` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/music.rs` |
 | `MusicGetQueue` | `music_provider` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/music.rs` |
@@ -97,6 +99,7 @@
 | `stt` | yes | yes | yes |
 | `ai_provider` | yes | yes | yes |
 | `web_search` | yes | yes | yes |
+| `image_provider` | yes | yes | yes |
 | `music_provider` | yes | yes | yes |
 | `actions` | yes | yes | yes |
 | `triggers` | yes | yes | yes |
@@ -132,6 +135,8 @@ capabilities 隐含的每一个钩子，并断言 `required` 的那些不会返�
 | `AiComplete` | `ai_provider` | required | server | probe |
 | `AiGetModels` | `ai_provider` | optional | unary | probe |
 | `WebSearch` | `web_search` | required | unary | probe |
+| `ImageGenerate` | `image_provider` | required | unary | probe |
+| `ImageGetModels` | `image_provider` | optional | unary | probe |
 | `MusicSubscribe` | `music_provider` | required | server | probe |
 | `MusicControl` | `music_provider` | required | unary | probe |
 | `MusicGetQueue` | `music_provider` | optional | unary | probe |

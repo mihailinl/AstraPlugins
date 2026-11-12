@@ -13,7 +13,7 @@ Ese único hecho determina casi todo lo demás:
 
 - **Puedes escribirlo en cualquier cosa** que hable gRPC. Aquí se ofrecen tres
   SDK — Rust, Python, TypeScript — y están en
-  [paridad total](../reference/parity.md): los 45 hooks en los tres.
+  [paridad total](../reference/parity.md): los 47 hooks en los tres.
 - **Tiene tus mismos privilegios, no menos.** Consulta [el modelo de seguridad](security.md).
 - **Sobrevive mal a sus propios errores, y nada al de Astra.** Un panic en un
   handler se captura y se devuelve como error en lugar de matar el proceso
@@ -42,7 +42,7 @@ sección, un plugin puede llamar a `Register`, `PluginLog`,
 `GetPluginSelfConfig` y `GetDaemonInfo`, y nada más
 ([`spec/permissions.md` §2](../spec/permissions.md)).
 
-## Las trece capabilities
+## Las catorce capabilities
 
 Cada clave es un booleano, `false` por defecto, y te obliga a servir ciertos
 hooks. La columna de la derecha muestra los *obligatorios*; los opcionales
@@ -56,6 +56,7 @@ están en [la tabla de paridad](../reference/parity.md).
 | `wakeword` | un detector de palabra de activación en los ajustes de voz | métodos de audio de `CallFromUi` ([contrato](../wakeword-plugins.md)) |
 | `ai_provider` | un backend de modelo | `AiComplete` |
 | `web_search` | a web search provider the user can pick for the assistant's searches | `WebSearch` ([guide](../../en/web-search-plugins.md)) |
+| `image_provider` | un proveedor de imágenes que dibuja las imágenes del asistente con tu servicio | `ImageGenerate` ([guía](../image-provider-plugins.md)) |
 | `music_provider` | music services Astra's player and the assistant can drive: like, queue, search and play | `MusicSubscribe`, `MusicControl` ([guide](../../en/music-provider-plugins.md)) |
 | `actions` | pasos en el editor de comandos | `ExecuteAction`, `GetPluginActionTypes` |
 | `triggers` | tipos de disparador que los comandos pueden escuchar | `GetPluginTriggerTypes`, `FireTrigger` |

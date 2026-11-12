@@ -11,13 +11,13 @@
 
 # Protocol reference
 
-Protocol generation **1**. 10 services, 197 RPCs. Source: [`proto/plugin.proto`](../../../proto/plugin.proto), a generated slice of Astra's `astra.proto` (`surface-sha256: 0644d8cc4f45d776…`, the digest of the plugin-facing body you are reading about), pinned by [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) at `sha256:17ff2efb094c381f…`. Every vendored copy in the three SDKs has that same hash; `tools/check-proto.sh` is what says so.
+Protocol generation **1**. 10 services, 199 RPCs. Source: [`proto/plugin.proto`](../../../proto/plugin.proto), a generated slice of Astra's `astra.proto` (`surface-sha256: c9af21fc3c3fbfbd…`, the digest of the plugin-facing body you are reading about), pinned by [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) at `sha256:6e1c8055e3959650…`. Every vendored copy in the three SDKs has that same hash; `tools/check-proto.sh` is what says so.
 
 ## The three plugin services
 
 | Service | Direction | RPCs | Who serves it |
 |---|---|---|---|
-| [`PluginCapabilityService`](#plugincapabilityservice) | daemon → plugin | 31 | your plugin |
+| [`PluginCapabilityService`](#plugincapabilityservice) | daemon → plugin | 33 | your plugin |
 | [`PluginHostService`](#pluginhostservice) | plugin → daemon | 14 | the daemon |
 | [`PluginService`](#pluginservice) | UI → daemon | 23 | the daemon |
 
@@ -45,6 +45,8 @@ The protocol generation is the contract. A plugin sends it in `PluginRegisterReq
 | `AiComplete` | `ai_provider` | `PluginAiCompleteRequest` | `PluginAiStreamChunk` | server | live | Stream a model completion; the only way a plugin can be an AI provider. |
 | `AiGetModels` | `ai_provider` | `Empty` | `PluginAiModelsResponse` | unary | live | List the models this provider can run, and how each wants to be driven (its hints), for Astra's model picker. |
 | `WebSearch` | `web_search` | `PluginWebSearchRequest` | `PluginWebSearchResponse` | unary | live | Answer one web search for the assistant's web_search tool, as a provider the user picks. |
+| `ImageGenerate` | `image_provider` | `PluginImageGenerateRequest` | `PluginImageGenerateResponse` | unary | live | Draw ONE picture for the assistant's generate_image tool, as the image provider the user picks or, first, while the plugin is the chat's AI provider. |
+| `ImageGetModels` | `image_provider` | `Empty` | `PluginImageModelsResponse` | unary | live | List the image models this provider offers, for the picker, and which of them take pictures to edit. |
 | `MusicSubscribe` | `music_provider` | `Empty` | `PluginMusicSnapshot` | server | live | Report what the music services the plugin reaches are playing, as a stream of WHOLE snapshots the media hub merges into the player widget, the island and the AI media tools. |
 | `MusicControl` | `music_provider` | `PluginMusicControlRequest` | `PluginMusicResult` | unary | live | Carry out one verb on one session: play, pause, next, previous, seek, like, unlike, shuffle, repeat, volume. |
 | `MusicGetQueue` | `music_provider` | `PluginMusicQueueRequest` | `PluginMusicQueueResponse` | unary | live | List a session's queue around the playing item, for the widget's queue panel and the AI's get_music_queue. |

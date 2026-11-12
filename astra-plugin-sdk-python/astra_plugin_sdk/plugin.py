@@ -29,6 +29,7 @@ from astra_plugin_sdk.capability_types import (
     ActionTypeDef,
     AiModelList,
     FieldDef,
+    ImageModelList,
     ToolDef,
     TriggerTypeDef,
     UiContribution,
@@ -56,6 +57,8 @@ from astra_plugin_sdk.proto import plugin_pb2, plugin_pb2_grpc
 from astra_plugin_sdk.types import (
     AiCompleteRequest,
     AudioChunk,
+    ImageRequest,
+    ImageResponse,
     SttLoadState,
     SttLoadStatus,
     SttOptions,
@@ -64,6 +67,7 @@ from astra_plugin_sdk.types import (
     WebSearchResponse,
     coerce_ai_chunk,
     coerce_audio_chunk,
+    coerce_image_response,
     coerce_web_search_response,
 )
 
@@ -597,6 +601,8 @@ class Plugin:
             caps.append("ai_provider")
         if _overrides(self, "web_search"):
             caps.append("web_search")
+        if _overrides(self, "image_generate"):
+            caps.append("image_provider")
         if _overrides(self, "music_control"):
             caps.append("music_provider")
         action_types = await self.get_action_types()
@@ -861,6 +867,52 @@ class Plugin:
         ``WebSearchResponse.refuse(code, message)``, an answer the daemon acts
         on; raising reports the plugin as failing. Keep any API key in the
         plugin's own ``[config]``, where the user sets it on the Plugins page.
+        """
+        raise NotImplementedError
+
+    # ── image_provider ──
+
+    async def image_generate(self, request: ImageRequest) -> "ImageResponse | bytes":
+        """Draw ONE picture. The whole of the ``image_provider`` capability.
+
+        Astra asks when the person chose this plugin as the image provider for
+        the assistant's ``generate_image`` tool, and first — before the
+        person's own image provider — while this plugin is the chat's AI
+        provider; only in a daemon built with ``plugin-provider-slots``. The
+        daemon saves and shows the picture, and checks it by its bytes: PNG,
+        JPEG or WEBP.
+
+            async def image_generate(self, request):
+                if not self.config.get("api_key"):
+                    return ImageResponse.refuse(
+                        ImageErrorCode.NOT_CONFIGURED, "no API key is set")
+                png = await self.client.draw(request.prompt, request.aspect_ratio)
+                return ImageResponse.drawn(png, caption="")
+
+        Return an :class:`~astra_plugin_sdk.types.ImageResponse`, or the
+        picture's bytes. A refusal you mean is ``ImageResponse.refuse(code,
+        message)``, an answer the daemon acts on: ``REFUSED`` (the prompt was
+        declined) ends the call, the other codes let the daemon try the
+        person's own image provider. Raising reports the plugin as failing.
+        """
+        raise NotImplementedError
+
+    async def image_get_models(self) -> "ImageModelList | tuple":
+        """The image models this provider offers — what Astra's image-model
+        picker lists. Optional.
+
+        Return an `ImageModelList`, or a ``(models, default_model)`` tuple
+        (``""`` = the first model). The model the person picks arrives on
+        ``ImageRequest.model``. A model with ``accepts_input_images=True`` is
+        the only kind the daemon sends pictures to edit; a provider that does
+        not override this (UNIMPLEMENTED, "no list") is never sent one::
+
+            async def image_get_models(self):
+                return ImageModelList(
+                    models=[ImageModelInfo("draw-1", "Draw 1"),
+                            ImageModelInfo("edit-1", "Edit 1", accepts_input_images=True)],
+                    default_model="draw-1",
+                )
         """
         raise NotImplementedError
 
@@ -1693,6 +1745,38 @@ class _CapabilityServicer(plugin_pb2_grpc.PluginCapabilityServiceServicer):
         except BaseException as e:  # noqa: BLE001
             adopt(e, "web_search").abort(context)
             return plugin_pb2.PluginWebSearchResponse()
+
+    # ── image provider ──
+
+    async def ImageGenerate(self, request, context):
+        # The shape of `WebSearch`: a refusal the plugin MEANT travels in the
+        # body (`error_code`), so the daemon can tell "my allowance is spent,
+        # try the person's own provider" from "this plugin is broken". Only a
+        # raise becomes a status; an un-overridden hook answers UNIMPLEMENTED.
+        req = ImageRequest.from_proto(request)
+        try:
+            result = await self.plugin.image_generate(req)
+            return coerce_image_response(result).to_proto()
+        except NotImplementedError as e:
+            context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+            context.set_details(str(e) or "this plugin is not an image provider")
+            return plugin_pb2.PluginImageGenerateResponse()
+        except BaseException as e:  # noqa: BLE001
+            adopt(e, "image_generate").abort(context)
+            return plugin_pb2.PluginImageGenerateResponse()
+
+    async def ImageGetModels(self, request, context):
+        # Optional: UNIMPLEMENTED is "no list", after which the daemon never
+        # sends this provider a picture to edit.
+        try:
+            return ImageModelList.of(await self.plugin.image_get_models()).to_proto()
+        except NotImplementedError as e:
+            context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+            context.set_details(str(e) or "this plugin lists no image models")
+            return plugin_pb2.PluginImageModelsResponse()
+        except BaseException as e:  # noqa: BLE001
+            adopt(e, "image_get_models").abort(context)
+            return plugin_pb2.PluginImageModelsResponse()
 
     # ── music_provider ──
     #

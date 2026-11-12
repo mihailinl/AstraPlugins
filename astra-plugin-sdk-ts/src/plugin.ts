@@ -45,8 +45,11 @@ import type {
   WebSearchHit,
   WebSearchRequest,
   WebSearchResponse,
+  ImageModelList,
+  ImageRequest,
+  ImageResponse,
 } from "./types.js";
-import { WebSearch } from "./types.js";
+import { ImageGeneration, WebSearch } from "./types.js";
 import {
   MusicPublisher,
   musicControlFromWire,
@@ -113,6 +116,65 @@ function webSearchResponseToWire(
     errorCode: "",
     errorMessage: "",
     retryAfterSecs: 0,
+  };
+}
+
+/** The wire request (camelCase, as protobufjs loads it) as the SDK's type. */
+function imageRequestFromWire(wire: Record<string, any>): ImageRequest {
+  const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+  return {
+    prompt: typeof wire.prompt === "string" ? wire.prompt : "",
+    aspectRatio: str(wire.aspectRatio),
+    model: str(wire.model),
+    inputImages: (wire.inputImages ?? []).map((i: any) => ({
+      mimeType: i.mimeType ?? "",
+      data: Buffer.isBuffer(i.data) ? i.data : Buffer.from(i.data ?? []),
+      filename: i.filename ?? "",
+    })),
+  };
+}
+
+/**
+ * A hook's answer as the wire response: exactly one picture, or the refusal
+ * and none. An answer that is neither — `undefined`, an empty picture — is a
+ * plugin bug and throws, which the daemon reads as a failing plugin rather than
+ * as a deliberate refusal.
+ */
+function imageResponseToWire(answer: ImageResponse | Buffer | Uint8Array): Record<string, unknown> {
+  const response: ImageResponse =
+    answer instanceof Uint8Array ? ImageGeneration.drawn(answer) : (answer ?? {});
+  if (response.errorCode) {
+    return {
+      images: [],
+      caption: "",
+      errorCode: response.errorCode,
+      errorMessage: response.errorMessage ?? "",
+      retryAfterSecs: Math.max(0, Math.trunc(response.retryAfterSecs ?? 0)),
+    };
+  }
+  if (!response.data || response.data.length === 0) {
+    throw new TypeError(
+      "imageGenerate answered neither a picture nor a refusal; return ImageGeneration.drawn(bytes) or ImageGeneration.refuse(code, message)"
+    );
+  }
+  const data = Buffer.from(response.data);
+  return {
+    images: [{ mimeType: response.mimeType || ImageGeneration.mimeTypeOf(data), data, filename: "" }],
+    caption: response.caption ?? "",
+    errorCode: "",
+    errorMessage: "",
+    retryAfterSecs: 0,
+  };
+}
+
+function imageModelListWire(list: ImageModelList) {
+  return {
+    models: (list?.models ?? []).map((m) => ({
+      id: m.id,
+      name: m.name ?? "",
+      acceptsInputImages: m.acceptsInputImages === true,
+    })),
+    defaultModel: list?.defaultModel ?? "",
   };
 }
 
@@ -748,6 +810,46 @@ export abstract class Plugin {
     throw new HookUnimplemented("this plugin is not a web search provider");
   }
 
+  /**
+   * Draw ONE picture. The whole of the `image_provider` capability.
+   *
+   * Astra asks when the person chose this plugin as the image provider for the
+   * assistant's `generate_image` tool, and first — before the person's own
+   * image provider — while this plugin is the chat's AI provider; only in a
+   * daemon built with `plugin-provider-slots`. The daemon saves and shows the
+   * picture, and checks it by its bytes: PNG, JPEG or WEBP.
+   *
+   * ```typescript
+   * async imageGenerate(req: ImageRequest) {
+   *   if (!this.apiKey) return ImageGeneration.refuse("not_configured", "no API key is set");
+   *   const png = await this.client.draw(req.prompt, req.aspectRatio);
+   *   return ImageGeneration.drawn(png);
+   * }
+   * ```
+   *
+   * Return an `ImageResponse`, or the picture's bytes. A refusal you mean is
+   * `ImageGeneration.refuse(code, message)`, an answer the daemon acts on:
+   * `refused` (the prompt was declined) ends the call, the other codes let the
+   * daemon try the person's own image provider. Throwing reports the plugin as
+   * failing.
+   */
+  async imageGenerate(_request: ImageRequest): Promise<ImageResponse | Buffer | Uint8Array> {
+    throw new HookUnimplemented("this plugin is not an image provider");
+  }
+
+  /**
+   * The image models this provider offers — what Astra's image-model picker
+   * lists. Optional.
+   *
+   * The model the person picks arrives on `ImageRequest.model`. A model marked
+   * `acceptsInputImages` is the only kind the daemon sends pictures to edit; a
+   * provider that does not override this (UNIMPLEMENTED, "no list") is never
+   * sent one.
+   */
+  async imageGetModels(): Promise<ImageModelList> {
+    throw new HookUnimplemented("this plugin lists no image models");
+  }
+
   // ── music_provider ──
   //
   // Reporting is `this.music.publish(...)`; these four answer. `throw new
@@ -938,6 +1040,7 @@ export abstract class Plugin {
     // arrived yet, and a list that fails must never stop the plugin starting.
     if (this.overrides("aiComplete") || (await this.listsModels())) caps.push("ai_provider");
     if (this.overrides("webSearch")) caps.push("web_search");
+    if (this.overrides("imageGenerate")) caps.push("image_provider");
     if (this.overrides("musicControl")) caps.push("music_provider");
     if ((await this.getActionTypes()).length > 0) caps.push("actions");
     if ((await this.getTriggerTypes()).length > 0) caps.push("triggers");
@@ -983,6 +1086,8 @@ export abstract class Plugin {
       SttUnload: this.wrapHandler(this.handleSttUnload.bind(this)),
       SttGetLoadState: this.wrapHandler(this.handleSttGetLoadState.bind(this)),
       WebSearch: this.wrapHandler(this.handleWebSearch.bind(this)),
+      ImageGenerate: this.wrapHandler(this.handleImageGenerate.bind(this)),
+      ImageGetModels: this.wrapHandler(this.handleImageGetModels.bind(this)),
       MusicControl: this.wrapHandler(this.handleMusicControl.bind(this)),
       MusicGetQueue: this.wrapHandler(this.handleMusicGetQueue.bind(this)),
       MusicSearch: this.wrapHandler(this.handleMusicSearch.bind(this)),
@@ -1329,6 +1434,22 @@ export abstract class Plugin {
     const req = webSearchRequestFromWire(call.request ?? {});
     const answer = await this.webSearch(req);
     return webSearchResponseToWire(answer, req.count);
+  }
+
+  /**
+   * The shape of `handleWebSearch`: a refusal the plugin MEANT travels in the
+   * body (`errorCode`), so the daemon can tell "my allowance is spent, try the
+   * person's own provider" from "this plugin is broken". Only a throw becomes a
+   * status; an un-overridden hook answers UNIMPLEMENTED.
+   */
+  private async handleImageGenerate(call: any) {
+    const req = imageRequestFromWire(call.request ?? {});
+    return imageResponseToWire(await this.imageGenerate(req));
+  }
+
+  /** Optional: an un-overridden hook answers UNIMPLEMENTED, the daemon's "no list". */
+  private async handleImageGetModels(_call: any) {
+    return imageModelListWire(await this.imageGetModels());
   }
 
   // A refusal the plugin MEANT (`MusicRefusal`) travels in the body; any other

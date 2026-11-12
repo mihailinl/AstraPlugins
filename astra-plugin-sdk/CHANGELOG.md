@@ -16,8 +16,8 @@ are removable in.
 
 ## [0.7.5] — unreleased
 
-Proto re-synced to Astra `4b5d3081f` (branch `feat/plugin-api-gaps`, not on Astra's `main` yet). Between `sdk-v0.7.4` and this release the protocol gained 68 fields on
-33 messages that already existed, 30 new messages and 9 new rpcs (`tools/check-protocol-counts.py --count sdk-v0.7.4`);
+Proto re-synced to Astra `21790d761` (branch `feat/plugin-api-gaps`, not on Astra's `main` yet). Between `sdk-v0.7.4` and this release the protocol gained 68 fields on
+33 messages that already existed, 34 new messages and 11 new rpcs (`tools/check-protocol-counts.py --count sdk-v0.7.4`);
 nothing was removed, retyped or changed in place.
 
 ### Added
@@ -106,6 +106,33 @@ nothing was removed, retyped or changed in place.
   and `WireHarness::call_tool_with_attachments(name, args_json, conversation,
   attachments)`. `astra-plugin-macros` changed with this (the
   `wants_attachments` key on `#[tool]`), so it ships at this version.
+- **A plugin can draw pictures: the `image_provider` capability** (Astra
+  `21790d761`, branch `feat/plugin-api-gaps`; **in no Astra release yet** — the
+  daemon asks only when built with the `plugin-provider-slots` build feature).
+  Two new `PluginCapability` hooks, both default methods, so an existing plugin
+  compiles unchanged: `image_generate(ctx, ImageRequest)` →
+  `anyhow::Result<ImageResponse>` (`ImageGenerate`, the required one) and
+  `image_models(ctx)` → `anyhow::Result<(Vec<ImageModelInfo>, String)>`
+  (`ImageGetModels`, optional: the default answers `UNIMPLEMENTED`, "no list").
+  New types: `ImageRequest` (`prompt`, `aspect_ratio: Option<String>`, `model`,
+  `input_images: Vec<AiImage>`; `#[non_exhaustive]`, built in a test with
+  `ImageRequest::new(..)` and `.with_aspect_ratio` / `.with_model` /
+  `.with_input_image`), `ImageResponse` (`drawn(bytes)`, its type read from the
+  bytes by `ImageResponse::mime_type_of`, then `.with_caption(..)` /
+  `.with_mime_type(..)`; `refuse(ImageErrorCode::…, message)` and
+  `.with_retry_after(secs)`), `ImageErrorCode` (`Quota`, `RateLimited`,
+  `NotConfigured`, `Unavailable`, `Refused`) and `ImageModelInfo`
+  (`#[non_exhaustive]`; `new(id, name)`, `.accepts_input_images()`). A refusal
+  is an answer in `error_code`, as `web_search`'s is: `Refused` (the prompt was
+  declined) ends the call, the other four let Astra try the person's own image
+  provider; an `Err` is a status, which Astra reads as a broken plugin. Astra
+  asks for ONE picture per call, checks it by its bytes (PNG, JPEG or WEBP), and
+  sends `input_images` only to a model the list marks `accepts_input_images`.
+  It asks a plugin that is the chat's AI provider first, and one the person
+  chose as the image provider (`plugin__<id>`). `#[hook] image_generate` /
+  `image_models` declare `image_provider` (`astra-plugin-macros`). Testing:
+  `image_generate(..)` and `image_models()` on a started `Harness`. Guide:
+  `docs/en/image-provider-plugins.md`.
 
 ### Changed (Astra `d6fc58808`, no SDK change needed)
 

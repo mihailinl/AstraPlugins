@@ -97,6 +97,32 @@ are removable in.
   take `{ attachments }` beside `{ conversationId }`. Additive: every existing
   tool and `ToolDef` is unchanged; `PluginContext` gained a member, as it did
   for `speak`.
+- **A plugin can draw pictures: the `image_provider` capability** (Astra
+  `21790d761`, branch `feat/plugin-api-gaps`; **in no Astra release yet** — the
+  daemon asks only when built with the `plugin-provider-slots` build feature).
+  `plugin({ image: { generate(req, ctx), models? } })`, or override
+  `imageGenerate(req)` and `imageGetModels()` on a `Plugin` subclass:
+  `ImageGenerate` is the required hook, `ImageGetModels` the optional one (no
+  `models`, or no override, answers `UNIMPLEMENTED`, "no list"). New:
+  `ImageRequest` (`prompt`, `aspectRatio`, `model`, `inputImages: AiImage[]`),
+  `ImageResponse`, `ImageErrorCode`, `ImageModelInfo` (`id`, `name`,
+  `acceptsInputImages`), `ImageModelList`, `ImageDefinition`, and the builders
+  `ImageGeneration.drawn(bytes, { mimeType?, caption? })` (the type read from
+  the bytes by `ImageGeneration.mimeTypeOf` when omitted) and
+  `ImageGeneration.refuse(code, message, retryAfterSecs)`, which checks the
+  code; `ImageGeneration.ASPECT_RATIOS` and `ERROR_CODES`. `generate` may also
+  return the picture's bytes; an answer that is neither a picture nor a refusal
+  throws. A refusal is an answer in `errorCode`, as `webSearch`'s is: `refused`
+  (the prompt was declined) ends the call, the other four let Astra try the
+  person's own image provider; a throw is a status, which Astra reads as a
+  broken plugin. Astra asks for ONE picture per call, checks it by its bytes
+  (PNG, JPEG or WEBP), and sends `inputImages` only to a model the list marks
+  `acceptsInputImages`. Defining `image` (or overriding `imageGenerate`)
+  registers `image_provider` when no manifest list is passed. Testing:
+  `Harness.imageGenerate(prompt, { aspectRatio, model, inputImages })` and
+  `Harness.imageGetModels()`; over a socket, `MockDaemon`'s
+  `wire.unary("ImageGenerate", …)`. Additive. Guide:
+  `docs/en/image-provider-plugins.md`.
 
 ### Changed (Astra `d6fc58808`, no SDK change needed)
 

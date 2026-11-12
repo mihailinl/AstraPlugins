@@ -115,6 +115,7 @@ Every key is a boolean and defaults to `false`. The right-hand column is the joi
 | `wakeword` | none |
 | `ai_provider` | `AiComplete` |
 | `web_search` | `WebSearch` |
+| `image_provider` | `ImageGenerate` |
 | `music_provider` | `MusicSubscribe`, `MusicControl` |
 | `client` | `SendChatMessage` |
 | `actions` | `ExecuteAction`, `GetPluginActionTypes` |

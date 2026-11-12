@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 0644d8cc4f45d7760960b6a5841639ec8a6b7d8bc9d6c31ad01fa2802b1f8596
+// surface-sha256: c9af21fc3c3fbfbd1b9b4106d1fcfe57fd46f0dd8cf125ceae638cc85d25902e
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -3777,7 +3777,10 @@ message GetImageModelsResponse {
     string provider = 1;
 
     // Whether this provider can draw at all. False for Claude, Ollama, LM Studio
-    // and plugin backends — the picker then says so instead of listing nothing.
+    // and a plugin that does not declare `image_provider` — the picker then says
+    // so instead of listing nothing. True for a running image-provider plugin
+    // (under the `plugin-provider-slots` build feature), whose list is its own
+    // `ImageGetModels` answer.
     bool supported = 2;
 
     // `astra` only: whether this account's plan includes image generation.
@@ -4912,6 +4915,21 @@ service PluginCapabilityService {
     // (`error_code`), not a gRPC error, so the daemon can tell "my allowance is
     // spent, use the fallback" from "this plugin is broken".
     rpc WebSearch(PluginWebSearchRequest) returns (PluginWebSearchResponse);
+
+    // ── Image generation ──
+    // A plugin that declares `capabilities.image_provider` draws pictures for the
+    // `generate_image` AI tool, in an Astra built with the `plugin-provider-slots`
+    // feature: when the user chooses it as the image provider
+    // (`plugin__<plugin id>`), and first, while the plugin is the chat's AI
+    // provider, with the user's own image provider as the fallback. The daemon
+    // asks for ONE picture per call, saves it and shows it; a refusal is an
+    // ANSWER (`error_code`), like `WebSearch`.
+    rpc ImageGenerate(PluginImageGenerateRequest) returns (PluginImageGenerateResponse);
+
+    // The image models this provider offers, for the picker. Optional: an
+    // UNIMPLEMENTED answer is "no list", and the model the user typed (or "")
+    // is passed on `PluginImageGenerateRequest.model`.
+    rpc ImageGetModels(Empty) returns (PluginImageModelsResponse);
 
     // ── Music provider ──
     // A plugin that declares `capabilities.music_provider` reports what music
@@ -6638,6 +6656,50 @@ message PluginWebSearchResponse {
 
     // With "rate_limited": how long to wait, 0 when unknown.
     uint32 retry_after_secs = 4;
+}
+
+// One picture to draw. `aspect_ratio` is one of "1:1", "16:9", "9:16", "4:3",
+// "3:4", or "" for the model's own default. `model` is the user's choice, ""
+// for the provider's default. `input_images` are the pictures the person
+// attached to edit or draw from (`generate_image`'s `edit`); sent only to a
+// model this provider's `ImageGetModels` marks `accepts_input_images`.
+message PluginImageGenerateRequest {
+    string prompt = 1;
+    string aspect_ratio = 2;
+    string model = 3;
+    repeated PluginImage input_images = 4;
+}
+
+message PluginImageGenerateResponse {
+    // The picture: PNG, JPEG or WEBP bytes (checked by their own signature).
+    // Exactly one; more are ignored.
+    repeated PluginImage images = 1;
+
+    // Any text the model wrote beside the picture.
+    string caption = 2;
+
+    // "" when a picture was drawn. Otherwise why not: "quota", "rate_limited",
+    // "not_configured", "unavailable" (the daemon may then try the user's own
+    // image provider), or "refused" (the prompt was declined; nothing else is
+    // tried). An unknown code is read as "unavailable".
+    string error_code = 3;
+    string error_message = 4;
+    uint32 retry_after_secs = 5;
+}
+
+message PluginImageModelInfo {
+    string id = 1;
+    string name = 2;
+
+    // The model takes `PluginImageGenerateRequest.input_images`.
+    bool accepts_input_images = 3;
+}
+
+message PluginImageModelsResponse {
+    repeated PluginImageModelInfo models = 1;
+
+    // The model used when the user names none; "" for the first in `models`.
+    string default_model = 2;
 }
 
 // ── Music provider ──

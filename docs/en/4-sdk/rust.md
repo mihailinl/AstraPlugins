@@ -102,6 +102,15 @@ states `accepts_images` must accept messages that large: the SDK's capability
 server receives up to `limits::PLUGIN_MAX_MESSAGE_BYTES` (64 MiB) since 0.7.5,
 where gRPC's default is 4 MiB.
 
+**An image provider** (`image_provider`, since 0.7.5) serves `image_generate`:
+one picture per call, `ImageResponse::drawn(bytes)` or a refusal,
+`ImageResponse::refuse(ImageErrorCode::…, message)`, which is an answer and
+never an `Err`. `image_models` is optional; only a model it marks
+`ImageModelInfo::accepts_input_images()` is sent the pictures to edit, on
+`ImageRequest::input_images`. **No Astra release asks yet** — only a daemon
+built with `plugin-provider-slots`. The contract, the refusal codes and a
+worked plugin: [Image provider plugins](../image-provider-plugins.md).
+
 ## The macro layer
 
 | | What it is for |

@@ -4572,7 +4572,7 @@ jobs:
           # the catalogue refuses every listing that declares it.
           CAPABILITIES = {
               "tools", "tts", "stt", "wakeword", "ai_provider", "web_search",
-              "music_provider", "client", "actions", "triggers",
+              "image_provider", "music_provider", "client", "actions", "triggers",
               "ui_contributions", "event_handlers", "dom_access",
           }
           check(vocab == CAPABILITIES,

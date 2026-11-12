@@ -2,12 +2,12 @@
 
 # プロトコルリファレンス
 
-プロトコル世代 **1**。10 個のサービス、197 個の RPC。出典:
+プロトコル世代 **1**。10 個のサービス、199 個の RPC。出典:
 [`proto/plugin.proto`](../../../proto/plugin.proto)、Astra の
-`astra.proto` から生成された一部(`surface-sha256: 0644d8cc4f45d776…`
+`astra.proto` から生成された一部(`surface-sha256: c9af21fc3c3fbfbd…`
 — このページが説明しているプラグイン向け本体のダイジェスト)、
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION)
-によって `sha256:17ff2efb094c381f…` に固定されています。3 つの SDK
+によって `sha256:6e1c8055e3959650…` に固定されています。3 つの SDK
 それぞれに vendor されたコピーはすべて同じハッシュを持っています;
 `tools/check-proto.sh` がそれを保証します。
 
@@ -15,7 +15,7 @@
 
 | サービス | 方向 | RPC 数 | 誰が提供するか |
 |---|---|---|---|
-| [`PluginCapabilityService`](#plugincapabilityservice) | デーモン → プラグイン | 31 | あなたのプラグイン |
+| [`PluginCapabilityService`](#plugincapabilityservice) | デーモン → プラグイン | 33 | あなたのプラグイン |
 | [`PluginHostService`](#pluginhostservice) | プラグイン → デーモン | 14 | デーモン |
 | [`PluginService`](#pluginservice) | UI → デーモン | 23 | デーモン |
 
@@ -51,6 +51,8 @@
 | `AiComplete` | `ai_provider` | `PluginAiCompleteRequest` | `PluginAiStreamChunk` | server | live | モデルの補完をストリームします。プラグインが AI プロバイダになれる唯一の方法です。 |
 | `AiGetModels` | `ai_provider` | `Empty` | `PluginAiModelsResponse` | unary | live | このプロバイダが動かせるモデルと、それぞれをどう動かしてほしいか(ヒント)を、Astra のモデル選択のために一覧します。 |
 | `WebSearch` | `web_search` | `PluginWebSearchRequest` | `PluginWebSearchResponse` | unary | live | Answer one web search for the assistant's web_search tool, as a provider the user picks. |
+| `ImageGenerate` | `image_provider` | `PluginImageGenerateRequest` | `PluginImageGenerateResponse` | unary | live | アシスタントの generate_image ツールのために画像を 1 枚描きます。ユーザーが選んだ画像プロバイダとして、またはプラグインがチャットの AI プロバイダである間は最初に呼ばれます。 |
+| `ImageGetModels` | `image_provider` | `Empty` | `PluginImageModelsResponse` | unary | live | このプロバイダが提供する画像モデルを選択画面のために一覧し、そのうちどれが編集用の画像を受け取るかを示します。 |
 | `MusicSubscribe` | `music_provider` | `Empty` | `PluginMusicSnapshot` | server | live | Report what the music services the plugin reaches are playing, as a stream of WHOLE snapshots the media hub merges into the player widget, the island and the AI media tools. |
 | `MusicControl` | `music_provider` | `PluginMusicControlRequest` | `PluginMusicResult` | unary | live | Carry out one verb on one session: play, pause, next, previous, seek, like, unlike, shuffle, repeat, volume. |
 | `MusicGetQueue` | `music_provider` | `PluginMusicQueueRequest` | `PluginMusicQueueResponse` | unary | live | List a session's queue around the playing item, for the widget's queue panel and the AI's get_music_queue. |

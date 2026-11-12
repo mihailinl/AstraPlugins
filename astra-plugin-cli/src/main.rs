@@ -112,8 +112,8 @@ enum Commands {
         ui: String,
 
         /// Capabilities (comma-separated: tools, tts, stt, wakeword, ai_provider, web_search,
-        /// music_provider, client, actions, triggers, ui_contributions, event_handlers,
-        /// dom_access).
+        /// image_provider, music_provider, client, actions, triggers, ui_contributions,
+        /// event_handlers, dom_access).
         /// Overrides whatever --template implies.
         #[arg(short, long, alias = "caps")]
         capabilities: Option<String>,
@@ -593,9 +593,9 @@ async fn dispatch(cli: Cli) -> Result<Verdict> {
             // attaches Rejected as a context *object*, which `anyhow`'s
             // `chain()` does not yield, so the classification would be
             // invisible to `code_for`.
-            Err(e) if std::path::Path::new(&file).is_file() => Err(output::Rejected::err(
-                format!("the bundle did not verify: {e:#}"),
-            )),
+            Err(e) if std::path::Path::new(&file).is_file() => Err(output::Rejected::err(format!(
+                "the bundle did not verify: {e:#}"
+            ))),
             Err(e) => Err(e),
         },
         Commands::Test {

@@ -8404,6 +8404,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "requestType": "PluginWebSearchRequest",
               "responseType": "PluginWebSearchResponse"
             },
+            "ImageGenerate": {
+              "requestType": "PluginImageGenerateRequest",
+              "responseType": "PluginImageGenerateResponse"
+            },
+            "ImageGetModels": {
+              "requestType": "Empty",
+              "responseType": "PluginImageModelsResponse"
+            },
             "MusicSubscribe": {
               "requestType": "Empty",
               "responseType": "PluginMusicSnapshot",
@@ -10137,6 +10145,81 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "retryAfterSecs": {
               "type": "uint32",
               "id": 4
+            }
+          }
+        },
+        "PluginImageGenerateRequest": {
+          "fields": {
+            "prompt": {
+              "type": "string",
+              "id": 1
+            },
+            "aspectRatio": {
+              "type": "string",
+              "id": 2
+            },
+            "model": {
+              "type": "string",
+              "id": 3
+            },
+            "inputImages": {
+              "rule": "repeated",
+              "type": "PluginImage",
+              "id": 4
+            }
+          }
+        },
+        "PluginImageGenerateResponse": {
+          "fields": {
+            "images": {
+              "rule": "repeated",
+              "type": "PluginImage",
+              "id": 1
+            },
+            "caption": {
+              "type": "string",
+              "id": 2
+            },
+            "errorCode": {
+              "type": "string",
+              "id": 3
+            },
+            "errorMessage": {
+              "type": "string",
+              "id": 4
+            },
+            "retryAfterSecs": {
+              "type": "uint32",
+              "id": 5
+            }
+          }
+        },
+        "PluginImageModelInfo": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "acceptsInputImages": {
+              "type": "bool",
+              "id": 3
+            }
+          }
+        },
+        "PluginImageModelsResponse": {
+          "fields": {
+            "models": {
+              "rule": "repeated",
+              "type": "PluginImageModelInfo",
+              "id": 1
+            },
+            "defaultModel": {
+              "type": "string",
+              "id": 2
             }
           }
         },

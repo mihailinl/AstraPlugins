@@ -2,7 +2,7 @@
 
 # フックの対応表(Hook parity)
 
-プロトコル **1** · **45** 個のフック · 正典は [`spec/hooks.yaml`](../../spec/hooks.yaml)。
+プロトコル **1** · **47** 個のフック · 正典は [`spec/hooks.yaml`](../../spec/hooks.yaml)。
 
 *フック* とは、プラグイン向けの 2 つのサービスのどちらか一方にある 1 つの
 RPC のことです。`PluginCapabilityService` は **デーモン → プラグイン**方向
@@ -54,6 +54,8 @@ RPC のことです。`PluginCapabilityService` は **デーモン → プラグ
 | `AiComplete` | `ai_provider` | required | live | server | stable | stable | stable | `astra-daemon/src/plugins/capability_bridge.rs` |
 | `AiGetModels` | `ai_provider` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/lifecycle.rs` |
 | `WebSearch` | `web_search` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/capabilities.rs` |
+| `ImageGenerate` | `image_provider` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/capabilities.rs` |
+| `ImageGetModels` | `image_provider` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/capabilities.rs` |
 | `MusicSubscribe` | `music_provider` | required | live | server | stable | stable | stable | `astra-daemon/src/plugins/manager/music.rs` |
 | `MusicControl` | `music_provider` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/music.rs` |
 | `MusicGetQueue` | `music_provider` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/music.rs` |
@@ -101,6 +103,7 @@ RPC のことです。`PluginCapabilityService` は **デーモン → プラグ
 | `stt` | yes | yes | yes |
 | `ai_provider` | yes | yes | yes |
 | `web_search` | yes | yes | yes |
+| `image_provider` | yes | yes | yes |
 | `music_provider` | yes | yes | yes |
 | `actions` | yes | yes | yes |
 | `triggers` | yes | yes | yes |
@@ -137,6 +140,8 @@ RPC のことです。`PluginCapabilityService` は **デーモン → プラグ
 | `AiComplete` | `ai_provider` | required | server | probe |
 | `AiGetModels` | `ai_provider` | optional | unary | probe |
 | `WebSearch` | `web_search` | required | unary | probe |
+| `ImageGenerate` | `image_provider` | required | unary | probe |
+| `ImageGetModels` | `image_provider` | optional | unary | probe |
 | `MusicSubscribe` | `music_provider` | required | server | probe |
 | `MusicControl` | `music_provider` | required | unary | probe |
 | `MusicGetQueue` | `music_provider` | optional | unary | probe |

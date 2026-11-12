@@ -220,6 +220,11 @@ The block above is the generated scaffold's own test, verbatim, and it passes.
   built with `plugin-provider-slots` does, and only to a plugin granted the
   high-risk `receive_attachments` permission. Everywhere else the slice is
   empty.
+- An image provider (`image_provider`) implements `image_generate` — one
+  picture per call, `ImageResponse::drawn(bytes)` or
+  `ImageResponse::refuse(ImageErrorCode::…, message)` — and optionally
+  `image_models`; no Astra release asks yet, only a daemon built with
+  `plugin-provider-slots` does. Guide: `docs/en/image-provider-plugins.md`.
 
 ## Upgrading from 0.5
 

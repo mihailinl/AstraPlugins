@@ -35,6 +35,9 @@ import type {
   AudioChunk,
   AudioData,
   FieldDef,
+  ImageErrorCode,
+  ImageModelList,
+  ImageResponse,
   SttEvent,
   SttLoadStatus,
   SttOptions,
@@ -547,6 +550,52 @@ export class Harness {
       };
     }
     return { hits: res.hits };
+  }
+
+  /**
+   * `ImageGenerate`, through the real handler: the answer as it crossed the
+   * wire — one picture — with a refusal the plugin meant as a normal answer
+   * (`errorCode` set). A throw, or an absent hook, is a `HookStatusError`.
+   * `inputImages` are sent whatever the plugin's model list says: choosing who
+   * receives them is the daemon's part.
+   */
+  async imageGenerate(
+    prompt: string,
+    opts: { aspectRatio?: string; model?: string; inputImages?: readonly AiImage[] } = {}
+  ): Promise<ImageResponse> {
+    const res = (await this.unary("ImageGenerate", {
+      prompt,
+      aspectRatio: opts.aspectRatio ?? "",
+      model: opts.model ?? "",
+      inputImages: (opts.inputImages ?? []).map((i) => ({
+        mimeType: i.mimeType,
+        data: i.data,
+        filename: i.filename,
+      })),
+    })) as {
+      images: { mimeType: string; data: Buffer; filename: string }[];
+      caption: string;
+      errorCode: string;
+      errorMessage: string;
+      retryAfterSecs: number;
+    };
+    if (res.errorCode) {
+      return {
+        errorCode: res.errorCode as ImageErrorCode,
+        errorMessage: res.errorMessage,
+        retryAfterSecs: res.retryAfterSecs,
+      };
+    }
+    const first = res.images[0];
+    return { data: first?.data, mimeType: first?.mimeType ?? "", caption: res.caption };
+  }
+
+  /**
+   * `ImageGetModels`, through the real handler. Optional: a plugin that does
+   * not implement it is a `HookStatusError` with code UNIMPLEMENTED.
+   */
+  async imageGetModels(): Promise<ImageModelList> {
+    return (await this.unary("ImageGetModels", {})) as ImageModelList;
   }
 
   // ── events ──

@@ -29,6 +29,8 @@ Estos los implementas tú; el daemon los llama.
 | `AiComplete` | `ai_provider` | required | server | stable | Transmite en streaming una completion de modelo; la única forma en que un plugin puede ser un proveedor de IA. |
 | `AiGetModels` | `ai_provider` | optional | unary | stable | Lista los modelos que este proveedor puede ejecutar, y cómo quiere usarse cada uno (sus hints), para el selector de modelos de Astra. |
 | `WebSearch` | `web_search` | required | unary | stable | Answer one web search for the assistant's web_search tool, as a provider the user picks. |
+| `ImageGenerate` | `image_provider` | required | unary | stable | Dibuja UNA imagen para la herramienta generate_image del asistente, como el proveedor de imágenes que elige el usuario o, primero, mientras el plugin es el proveedor de IA del chat. |
+| `ImageGetModels` | `image_provider` | optional | unary | stable | Lista los modelos de imagen que ofrece este proveedor, para el selector, y cuáles de ellos aceptan imágenes para editar. |
 | `MusicSubscribe` | `music_provider` | required | server | stable | Report what the music services the plugin reaches are playing, as a stream of WHOLE snapshots the media hub merges into the player widget, the island and the AI media tools. |
 | `MusicControl` | `music_provider` | required | unary | stable | Carry out one verb on one session: play, pause, next, previous, seek, like, unlike, shuffle, repeat, volume. |
 | `MusicGetQueue` | `music_provider` | optional | unary | stable | List a session's queue around the playing item, for the widget's queue panel and the AI's get_music_queue. |

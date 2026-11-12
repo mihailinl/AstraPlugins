@@ -51,6 +51,8 @@ __all__ = [
     "AiModelHints",
     "AiModelInfo",
     "AiModelList",
+    "ImageModelInfo",
+    "ImageModelList",
     "DropdownOption",
     "FieldCondition",
     "FieldDef",
@@ -392,6 +394,88 @@ class AiModelList(_CapabilityType):
         raise TypeError(
             f"ai_get_models() returned {type(value).__name__}; expected an AiModelList "
             f"or a (models, default_model[, provider_hints]) tuple"
+        )
+
+
+# ── image provider ───────────────────────────────────────────────────────────
+
+
+@dataclass
+class ImageModelInfo(_CapabilityType):
+    """One image model an `image_provider` plugin offers in Astra's picker.
+
+    Answered by `image_get_models`. The model the person picks arrives on
+    `ImageRequest.model`.
+    """
+
+    _PROTO = plugin_pb2.PluginImageModelInfo
+
+    id: str = ""
+    name: str = ""
+    #: The model takes pictures to edit or draw from: only then does the daemon
+    #: send `ImageRequest.input_images`.
+    accepts_input_images: bool = False
+
+    def to_proto(self) -> Any:
+        return plugin_pb2.PluginImageModelInfo(
+            id=self.id, name=self.name, accepts_input_images=bool(self.accepts_input_images)
+        )
+
+    @classmethod
+    def from_proto(cls, msg: Any) -> "ImageModelInfo":
+        return cls(id=msg.id, name=msg.name, accepts_input_images=msg.accepts_input_images)
+
+
+@dataclass
+class ImageModelList(_CapabilityType):
+    """What `image_get_models` answers: the image models Astra's picker offers.
+
+    The model the person picks arrives on `ImageRequest.model`; an empty
+    ``model`` there means `default_model` (``""`` = the first in `models`).
+    `image_get_models` may also answer the ``(models, default_model)`` tuple
+    `ai_get_models` takes.
+    """
+
+    _PROTO = plugin_pb2.PluginImageModelsResponse
+
+    models: "list[ImageModelInfo]" = field(default_factory=list)
+    default_model: str = ""
+
+    def to_proto(self) -> Any:
+        return plugin_pb2.PluginImageModelsResponse(
+            models=[
+                coerce(m, ImageModelInfo, "image_get_models").to_proto()
+                for m in self.models or []
+            ],
+            default_model=self.default_model or "",
+        )
+
+    @classmethod
+    def from_proto(cls, msg: Any) -> "ImageModelList":
+        return cls(
+            models=[ImageModelInfo.from_proto(m) for m in msg.models],
+            default_model=msg.default_model,
+        )
+
+    @classmethod
+    def of(cls, value: Any) -> "ImageModelList":
+        """Whatever `image_get_models` answered, as an `ImageModelList`: one,
+        the ``(models, default_model)`` tuple, or ``None`` (no models)."""
+        if value is None:
+            return cls()
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, plugin_pb2.PluginImageModelsResponse):
+            return cls.from_proto(value)
+        if (
+            isinstance(value, (tuple, list))
+            and len(value) == 2
+            and not isinstance(value[0], (str, bytes, dict, ImageModelInfo))
+        ):
+            return cls(models=list(value[0] or []), default_model=value[1] or "")
+        raise TypeError(
+            f"image_get_models() returned {type(value).__name__}; expected an "
+            f"ImageModelList or a (models, default_model) tuple"
         )
 
 

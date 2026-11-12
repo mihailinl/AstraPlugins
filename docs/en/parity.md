@@ -3,7 +3,7 @@
 
 # Hook parity
 
-Protocol **1** · **45** hooks · source of truth [`spec/hooks.yaml`](../../spec/hooks.yaml).
+Protocol **1** · **47** hooks · source of truth [`spec/hooks.yaml`](../../spec/hooks.yaml).
 
 A *hook* is one RPC on one of the two plugin-facing services. `PluginCapabilityService` runs **daemon → plugin**: your plugin serves it and the daemon calls in. `PluginHostService` runs **plugin → daemon**: the daemon serves it and your plugin calls out. `PluginService` is not here — the daemon serves it to the Astra UI and no plugin ever touches it.
 
@@ -44,6 +44,8 @@ Derived from the rows below, not written by hand. Each one is a way a plugin aut
 | `AiComplete` | `ai_provider` | required | live | server | stable | stable | stable | `astra-daemon/src/plugins/capability_bridge.rs` |
 | `AiGetModels` | `ai_provider` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/lifecycle.rs` |
 | `WebSearch` | `web_search` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/capabilities.rs` |
+| `ImageGenerate` | `image_provider` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/capabilities.rs` |
+| `ImageGetModels` | `image_provider` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/capabilities.rs` |
 | `MusicSubscribe` | `music_provider` | required | live | server | stable | stable | stable | `astra-daemon/src/plugins/manager/music.rs` |
 | `MusicControl` | `music_provider` | required | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/music.rs` |
 | `MusicGetQueue` | `music_provider` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/manager/music.rs` |
@@ -90,6 +92,7 @@ Can a plugin written in this language implement this capability at all today?
 | `stt` | yes | yes | yes |
 | `ai_provider` | yes | yes | yes |
 | `web_search` | yes | yes | yes |
+| `image_provider` | yes | yes | yes |
 | `music_provider` | yes | yes | yes |
 | `actions` | yes | yes | yes |
 | `triggers` | yes | yes | yes |
@@ -100,7 +103,7 @@ Can a plugin written in this language implement this capability at all today?
 
 ## Conformance coverage
 
-The 30 inbound hooks a conformance run must exercise — every `daemon → plugin` hook the daemon actually calls. `astra-plugin test` calls each one implied by the plugin's declared capabilities and asserts no `UNIMPLEMENTED` for the `required` ones; `optional` hooks are exempt, because `Unimplemented → hook absent` is the forward-compat contract and a scaffold declaring everything would otherwise be indistinguishable from a broken plugin. Machine-readable copy: [`spec/generated/conformance.json`](../../spec/generated/conformance.json).
+The 32 inbound hooks a conformance run must exercise — every `daemon → plugin` hook the daemon actually calls. `astra-plugin test` calls each one implied by the plugin's declared capabilities and asserts no `UNIMPLEMENTED` for the `required` ones; `optional` hooks are exempt, because `Unimplemented → hook absent` is the forward-compat contract and a scaffold declaring everything would otherwise be indistinguishable from a broken plugin. Machine-readable copy: [`spec/generated/conformance.json`](../../spec/generated/conformance.json).
 
 | RPC | Capability | Req | Stream | Phase |
 |---|---|---|---|---|
@@ -119,6 +122,8 @@ The 30 inbound hooks a conformance run must exercise — every `daemon → plugi
 | `AiComplete` | `ai_provider` | required | server | probe |
 | `AiGetModels` | `ai_provider` | optional | unary | probe |
 | `WebSearch` | `web_search` | required | unary | probe |
+| `ImageGenerate` | `image_provider` | required | unary | probe |
+| `ImageGetModels` | `image_provider` | optional | unary | probe |
 | `MusicSubscribe` | `music_provider` | required | server | probe |
 | `MusicControl` | `music_provider` | required | unary | probe |
 | `MusicGetQueue` | `music_provider` | optional | unary | probe |
@@ -146,6 +151,8 @@ The 30 inbound hooks a conformance run must exercise — every `daemon → plugi
 - **`AiComplete`** — Stream a model completion; the only way a plugin can be an AI provider. Python and TypeScript bind it as an async generator; Rust as a channel-fed server stream that waits for the first chunk before opening the response, so an un-overridden hook can still answer UNIMPLEMENTED. All three SDKs bind it as of 5.4, so `ai_provider` is implementable in every language.
 - **`AiGetModels`** — List the models this provider can run, and how each wants to be driven (its hints), for Astra's model picker. Asked when the plugin starts, with its other definitions, and again when the AI page refreshes; UNIMPLEMENTED or an error is no list. The chosen model arrives on AiComplete's `model`, and an empty one means `default_model`. A model's `hints` (else the list's `provider_hints`) change only Astra's turns on that model, and only in a daemon built with `plugin-provider-slots`; a plugin that states `accepts_images` must accept 64 MiB messages, which every SDK's capability server does.
 - **`WebSearch`** — Answer one web search for the assistant's web_search tool, as a provider the user picks. A refusal the plugin means (quota, rate_limited, auth, not_configured, unavailable) is an ANSWER in `error_code`, not a gRPC error; the daemon owns the provider chain, the cache and the untrusted-content fence.
+- **`ImageGenerate`** — Draw ONE picture for the assistant's generate_image tool, as the image provider the user picks or, first, while the plugin is the chat's AI provider. A refusal the plugin means (quota, rate_limited, not_configured, unavailable, refused) is an ANSWER in `error_code`, not a gRPC error; `refused` is final, the others let the daemon try the user's own image provider. The daemon checks the picture by its bytes (PNG, JPEG or WEBP) and sends `input_images` only to a model ImageGetModels marks `accepts_input_images`. Only in a daemon built with `plugin-provider-slots`.
+- **`ImageGetModels`** — List the image models this provider offers, for the picker, and which of them take pictures to edit. UNIMPLEMENTED is no list: the model the user typed, or an empty string, arrives on ImageGenerate's `model`, and no picture the person attached is ever sent, because no model says it accepts one.
 - **`MusicSubscribe`** — Report what the music services the plugin reaches are playing, as a stream of WHOLE snapshots the media hub merges into the player widget, the island and the AI media tools. The SDK serves this stream itself from what the plugin publishes (MusicPublisher): the latest snapshot at once, again on every publish, and every music_snapshot_heartbeat_secs. A session missing from a snapshot has ended.
 - **`MusicControl`** — Carry out one verb on one session: play, pause, next, previous, seek, like, unlike, shuffle, repeat, volume. A refusal the plugin means (not_supported, no_active_device, auth, premium_required, rate_limited, ...) is an ANSWER in `error_code`, not a gRPC error.
 - **`OnActiveTriggers`** — Which of this plugin's trigger types a command is currently listening for. manager/capabilities.rs:438 routes it through `optional_hook`.

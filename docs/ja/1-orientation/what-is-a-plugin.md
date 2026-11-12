@@ -13,7 +13,7 @@ spawn し、シャットダウンを要求し、応じなければプロセス�
 
 - **gRPC を話せる言語であれば何で書いてもかまいません。** ここには 3 つの
   SDK があります — Rust、Python、TypeScript — これらは
-  [完全なパリティ](../reference/parity.md)にあります: 41 個すべてのフックが
+  [完全なパリティ](../reference/parity.md)にあります: 47 個すべてのフックが
   3 つすべてにあります。
 - **あなたと同じ権限を持ちます。それ以下ではありません。**
   [セキュリティモデル](security.md) を参照してください。
@@ -44,7 +44,7 @@ subscribe_events` であり、しかもユーザーの同意があって初め�
 `GetDaemonInfo` だけを呼び出せ、それ以外は一切呼び出せません
 ([`spec/permissions.md` §2](../spec/permissions.md))。
 
-## 13 個のケーパビリティ
+## 14 個のケーパビリティ
 
 すべてのキーは真偽値であり、デフォルトは `false` で、あるものを宣言すると
 特定のフックを提供する義務が生じます。右の列は*必須*のもので、任意の
@@ -58,6 +58,7 @@ subscribe_events` であり、しかもユーザーの同意があって初め�
 | `wakeword` | 音声設定のウェイクワード検出器 | `CallFromUi` の音声メソッド([契約](../wakeword-plugins.md)) |
 | `ai_provider` | モデルバックエンド | `AiComplete` |
 | `web_search` | a web search provider the user can pick for the assistant's searches | `WebSearch` ([guide](../../en/web-search-plugins.md)) |
+| `image_provider` | あなたのサービスでアシスタントの画像を描く画像プロバイダ | `ImageGenerate`([ガイド](../image-provider-plugins.md)) |
 | `music_provider` | music services Astra's player and the assistant can drive: like, queue, search and play | `MusicSubscribe`, `MusicControl` ([guide](../../en/music-provider-plugins.md)) |
 | `actions` | コマンドエディタ内のステップ | `ExecuteAction`、`GetPluginActionTypes` |
 | `triggers` | コマンドがlistenできるトリガー種別 | `GetPluginTriggerTypes`、`FireTrigger` |

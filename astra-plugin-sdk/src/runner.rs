@@ -38,7 +38,7 @@ use tracing::{info, warn};
 
 use crate::auth::{CapabilityAuth, CapabilityInterceptor};
 use crate::capability::{
-    AiChunk, AudioChunk, PluginCapability, SttEvent, TtsRequest, WebSearchRequest,
+    AiChunk, AudioChunk, ImageRequest, PluginCapability, SttEvent, TtsRequest, WebSearchRequest,
 };
 use crate::context::{Host, PluginContext, install_context};
 use crate::error::{ToolError, hook_status};
@@ -46,8 +46,13 @@ use crate::error::{ToolError, hook_status};
 /// A music hook's `Err` that is a refusal the plugin MEANT, as the three
 /// in-band fields (`error_code`, `error_message`, `retry_after_secs`).
 fn music_refusal(e: &anyhow::Error) -> Option<(String, String, u32)> {
-    e.downcast_ref::<crate::music::MusicRefusal>()
-        .map(|r| (r.code.as_str().to_string(), r.message.clone(), r.retry_after_secs))
+    e.downcast_ref::<crate::music::MusicRefusal>().map(|r| {
+        (
+            r.code.as_str().to_string(),
+            r.message.clone(),
+            r.retry_after_secs,
+        )
+    })
 }
 use crate::events;
 use crate::host_client::HostClient;
@@ -1304,8 +1309,7 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         _request: tonic::Request<proto::Empty>,
     ) -> Result<tonic::Response<proto::PluginAiModelsResponse>, tonic::Status> {
         let (models, default) = catch("ai_models", self.plugin.ai_models()).await?;
-        let provider_hints =
-            catch("ai_provider_hints", self.plugin.ai_provider_hints()).await?;
+        let provider_hints = catch("ai_provider_hints", self.plugin.ai_provider_hints()).await?;
         Ok(tonic::Response::new(proto::PluginAiModelsResponse {
             models: models.into_iter().map(Into::into).collect(),
             default_model: default,
@@ -1333,6 +1337,50 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         }
     }
 
+    // ── Image provider ──
+
+    async fn image_generate(
+        &self,
+        request: tonic::Request<proto::PluginImageGenerateRequest>,
+    ) -> Result<tonic::Response<proto::PluginImageGenerateResponse>, tonic::Status> {
+        let ctx = self.scoped(&request);
+        // Moved, not cloned: the pictures to edit can weigh 20 MiB.
+        let req: ImageRequest = request.into_inner().into();
+        // A refusal the plugin MEANT travels in the body (`error_code`) — the
+        // shape of `web_search` — so the daemon can tell "my allowance is
+        // spent, try the person's own provider" from "this plugin is broken".
+        // Only an `Err` or a panic becomes a status, and an un-overridden hook
+        // answers UNIMPLEMENTED.
+        match catch("image_generate", self.plugin.image_generate(&ctx, req)).await? {
+            // An empty picture is neither a picture nor a refusal. Sent as is,
+            // the daemon would refuse its bytes; a status says what happened:
+            // this plugin answered nothing.
+            Ok(crate::capability::ImageResponse::Drawn { data, .. }) if data.is_empty() => Err(
+                tonic::Status::internal("image_generate drew an empty picture"),
+            ),
+            Ok(response) => Ok(tonic::Response::new(response.into_proto())),
+            Err(e) => Err(hook_status(e)),
+        }
+    }
+
+    async fn image_get_models(
+        &self,
+        request: tonic::Request<proto::Empty>,
+    ) -> Result<tonic::Response<proto::PluginImageModelsResponse>, tonic::Status> {
+        let ctx = self.scoped(&request);
+        // Optional: the default answers UNIMPLEMENTED, which the daemon reads
+        // as "no list" — and then sends this provider no picture to edit.
+        match catch("image_models", self.plugin.image_models(&ctx)).await? {
+            Ok((models, default_model)) => {
+                Ok(tonic::Response::new(proto::PluginImageModelsResponse {
+                    models: models.into_iter().map(Into::into).collect(),
+                    default_model,
+                }))
+            }
+            Err(e) => Err(hook_status(e)),
+        }
+    }
+
     // ── Music provider ──
     //
     // A refusal the plugin MEANT (`MusicRefusal`) travels in the body; any
@@ -1340,7 +1388,10 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
     // answers UNIMPLEMENTED.
 
     type MusicSubscribeStream = std::pin::Pin<
-        Box<dyn tokio_stream::Stream<Item = Result<proto::PluginMusicSnapshot, tonic::Status>> + Send>,
+        Box<
+            dyn tokio_stream::Stream<Item = Result<proto::PluginMusicSnapshot, tonic::Status>>
+                + Send,
+        >,
     >;
 
     async fn music_subscribe(
@@ -1348,7 +1399,9 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         _request: tonic::Request<proto::Empty>,
     ) -> Result<tonic::Response<Self::MusicSubscribeStream>, tonic::Status> {
         let Some(publisher) = self.plugin.music_publisher() else {
-            return Err(tonic::Status::unimplemented("this plugin is not a music provider"));
+            return Err(tonic::Status::unimplemented(
+                "this plugin is not a music provider",
+            ));
         };
         let stream = tokio_stream::StreamExt::map(publisher.stream(), Ok);
         Ok(tonic::Response::new(Box::pin(stream)))
@@ -1372,7 +1425,11 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
             Ok(()) => Ok(tonic::Response::new(proto::PluginMusicResult::default())),
             Err(e) => match music_refusal(&e) {
                 Some((error_code, error_message, retry_after_secs)) => {
-                    Ok(tonic::Response::new(proto::PluginMusicResult { error_code, error_message, retry_after_secs }))
+                    Ok(tonic::Response::new(proto::PluginMusicResult {
+                        error_code,
+                        error_message,
+                        retry_after_secs,
+                    }))
                 }
                 None => Err(hook_status(e)),
             },
@@ -1397,7 +1454,12 @@ impl<P: PluginCapability> proto::plugin_capability_service_server::PluginCapabil
         let limit = req.limit as usize;
         match catch("music_get_queue", self.plugin.music_get_queue(&ctx, req)).await? {
             Ok(queue) => Ok(tonic::Response::new(proto::PluginMusicQueueResponse {
-                items: queue.items.into_iter().take(limit).map(Into::into).collect(),
+                items: queue
+                    .items
+                    .into_iter()
+                    .take(limit)
+                    .map(Into::into)
+                    .collect(),
                 current_index: queue.current_index,
                 ..Default::default()
             })),
@@ -2353,7 +2415,9 @@ mod tests {
                     .flat_map(|m| &m.images)
                     .map(|image| image.data.len())
                     .sum();
-                chunks.send(AiChunk::text(format!("{} {pictures}", req.model))).await?;
+                chunks
+                    .send(AiChunk::text(format!("{} {pictures}", req.model)))
+                    .await?;
                 Ok(())
             }
         }
@@ -2369,8 +2433,14 @@ mod tests {
         let vision = list.models[0].hints.clone().expect("the model's own hints");
         assert!(vision.accepts_images);
         assert_eq!(vision.context_window, 128_000);
-        assert_eq!(vision.tool_loading, "", "Auto is the empty string on the wire");
-        assert!(list.models[1].hints.is_none(), "absent = the provider's hints");
+        assert_eq!(
+            vision.tool_loading, "",
+            "Auto is the empty string on the wire"
+        );
+        assert!(
+            list.models[1].hints.is_none(),
+            "absent = the provider's hints"
+        );
         let provider = list.provider_hints.expect("the provider's hints");
         assert_eq!(provider.tool_loading, "all");
         assert!(!provider.accepts_images);
@@ -2463,9 +2533,12 @@ mod tests {
                         assert_eq!(req.country.as_deref(), Some("DE"));
                         assert_eq!(req.language, None, "an empty language is None");
                         Ok(WebSearchResponse::hits((0..5).map(|i| {
-                            WebSearchHit::new(format!("hit {i}"), format!("https://example.com/{i}"))
-                                .with_snippet("text")
-                                .with_published("2026-10-01")
+                            WebSearchHit::new(
+                                format!("hit {i}"),
+                                format!("https://example.com/{i}"),
+                            )
+                            .with_snippet("text")
+                            .with_published("2026-10-01")
                         })))
                     }
                 }

@@ -15,6 +15,8 @@ from astra_plugin_sdk.capability_types import (
     AiModelInfo,
     AiModelList,
     DropdownOption,
+    ImageModelInfo,
+    ImageModelList,
     FieldCondition,
     FieldDef,
     ToolDef,
@@ -92,6 +94,11 @@ from astra_plugin_sdk.types import (
     WebSearchHit,
     WebSearchRequest,
     WebSearchResponse,
+    IMAGE_ASPECT_RATIOS,
+    ImageErrorCode,
+    ImageRequest,
+    ImageResponse,
+    image_mime_type,
 )
 
 __all__ = [
@@ -168,6 +175,14 @@ __all__ = [
     "WebSearchHit",
     "WebSearchRequest",
     "WebSearchResponse",
+    # ── image provider payloads ──
+    "IMAGE_ASPECT_RATIOS",
+    "ImageErrorCode",
+    "ImageModelInfo",
+    "ImageModelList",
+    "ImageRequest",
+    "ImageResponse",
+    "image_mime_type",
     # ── music provider payloads ──
     "MUSIC_CONTROLS",
     "MusicControlRequest",

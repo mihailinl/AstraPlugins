@@ -109,7 +109,7 @@
 protocol: 1
 proto: "proto/plugin.proto"
 astra_daemon_root: "astra-daemon"
-capabilities: "tools tts stt wakeword ai_provider web_search music_provider client actions triggers ui_contributions event_handlers dom_access core"
+capabilities: "tools tts stt wakeword ai_provider web_search image_provider music_provider client actions triggers ui_contributions event_handlers dom_access core"
 
 # `wakeword` uses CallFromUi's documented status/process-audio/reset-audio
 # methods while a dedicated audio RPC is not part of protocol 1. `dom_access`
@@ -376,6 +376,37 @@ hooks:
     daemon_calls: "src/plugins/manager/capabilities.rs:622"
     summary: "Answer one web search for the assistant's web_search tool, as a provider the user picks."
     note: "A refusal the plugin means (quota, rate_limited, auth, not_configured, unavailable) is an ANSWER in `error_code`, not a gRPC error; the daemon owns the provider chain, the cache and the untrusted-content fence."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  # ── PluginCapabilityService — image_provider ──
+  - rpc: ImageGenerate
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: image_provider
+    requirement: required
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/manager/capabilities.rs:673"
+    summary: "Draw ONE picture for the assistant's generate_image tool, as the image provider the user picks or, first, while the plugin is the chat's AI provider."
+    note: "A refusal the plugin means (quota, rate_limited, not_configured, unavailable, refused) is an ANSWER in `error_code`, not a gRPC error; `refused` is final, the others let the daemon try the user's own image provider. The daemon checks the picture by its bytes (PNG, JPEG or WEBP) and sends `input_images` only to a model ImageGetModels marks `accepts_input_images`. Only in a daemon built with `plugin-provider-slots`."
+    rust: stable
+    python: stable
+    typescript: stable
+
+  - rpc: ImageGetModels
+    service: PluginCapabilityService
+    direction: "daemon->plugin"
+    capability: image_provider
+    requirement: optional
+    routing: live
+    since: 1
+    streaming: unary
+    daemon_calls: "src/plugins/manager/capabilities.rs:693"
+    summary: "List the image models this provider offers, for the picker, and which of them take pictures to edit."
+    note: "UNIMPLEMENTED is no list: the model the user typed, or an empty string, arrives on ImageGenerate's `model`, and no picture the person attached is ever sent, because no model says it accepts one."
     rust: stable
     python: stable
     typescript: stable

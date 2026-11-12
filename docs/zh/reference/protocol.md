@@ -2,19 +2,19 @@
 
 # 协议参考手册
 
-协议世代 **1**。10 个服务，197 个 RPC。来源：
+协议世代 **1**。10 个服务，199 个 RPC。来源：
 [`proto/plugin.proto`](../../../proto/plugin.proto)，从 Astra 的
-`astra.proto` 生成出的一部分（`surface-sha256: 0644d8cc4f45d776…`，
+`astra.proto` 生成出的一部分（`surface-sha256: c9af21fc3c3fbfbd…`，
 即本页所讲述的面向插件主体的摘要），由
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) 固定为
-`sha256:17ff2efb094c381f…`。三个 SDK 中每一份 vendor 的拷贝都携带同样
+`sha256:6e1c8055e3959650…`。三个 SDK 中每一份 vendor 的拷贝都携带同样
 的哈希值；`tools/check-proto.sh` 就是用来确认这一点的。
 
 ## 三个面向插件的服务
 
 | 服务 | 方向 | RPC 数 | 由谁提供 |
 |---|---|---|---|
-| [`PluginCapabilityService`](#plugincapabilityservice) | 守护进程 → 插件 | 31 | 你的插件 |
+| [`PluginCapabilityService`](#plugincapabilityservice) | 守护进程 → 插件 | 33 | 你的插件 |
 | [`PluginHostService`](#pluginhostservice) | 插件 → 守护进程 | 14 | 守护进程 |
 | [`PluginService`](#pluginservice) | UI → 守护进程 | 23 | 守护进程 |
 
@@ -48,6 +48,8 @@
 | `AiComplete` | `ai_provider` | `PluginAiCompleteRequest` | `PluginAiStreamChunk` | server | live | 流式返回一次模型补全；这是插件能成为 AI 提供者的唯一方式。 |
 | `AiGetModels` | `ai_provider` | `Empty` | `PluginAiModelsResponse` | unary | live | 列出这个提供者能运行的模型，以及每个模型希望如何被驱动（它的提示），供 Astra 的模型选择器使用。 |
 | `WebSearch` | `web_search` | `PluginWebSearchRequest` | `PluginWebSearchResponse` | unary | live | Answer one web search for the assistant's web_search tool, as a provider the user picks. |
+| `ImageGenerate` | `image_provider` | `PluginImageGenerateRequest` | `PluginImageGenerateResponse` | unary | live | 为助手的 generate_image 工具绘制一张图片：作为用户选择的图片提供者，或在插件是聊天的 AI 提供者时优先被调用。 |
+| `ImageGetModels` | `image_provider` | `Empty` | `PluginImageModelsResponse` | unary | live | 列出这个提供者提供的图片模型供选择器使用，以及其中哪些接受要编辑的图片。 |
 | `MusicSubscribe` | `music_provider` | `Empty` | `PluginMusicSnapshot` | server | live | Report what the music services the plugin reaches are playing, as a stream of WHOLE snapshots the media hub merges into the player widget, the island and the AI media tools. |
 | `MusicControl` | `music_provider` | `PluginMusicControlRequest` | `PluginMusicResult` | unary | live | Carry out one verb on one session: play, pause, next, previous, seek, like, unlike, shuffle, repeat, volume. |
 | `MusicGetQueue` | `music_provider` | `PluginMusicQueueRequest` | `PluginMusicQueueResponse` | unary | live | List a session's queue around the playing item, for the widget's queue panel and the AI's get_music_queue. |

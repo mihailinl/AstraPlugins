@@ -129,7 +129,7 @@ and none of these examples should be read as a demonstration that it is.
 
 ## See also
 
-- [The root README](../README.md) — what a plugin is, and the thirteen capabilities
+- [The root README](../README.md) — what a plugin is, and the fourteen capabilities
 - [`docs/en/`](../docs/en/README.md) — the documentation
-- [`spec/hooks.yaml`](../spec/hooks.yaml) — the 45 hooks, and which SDK
+- [`spec/hooks.yaml`](../spec/hooks.yaml) — the 47 hooks, and which SDK
   implements each

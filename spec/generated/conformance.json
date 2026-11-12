@@ -109,6 +109,20 @@
       "phase": "probe"
     },
     {
+      "rpc": "ImageGenerate",
+      "capability": "image_provider",
+      "requirement": "required",
+      "streaming": "unary",
+      "phase": "probe"
+    },
+    {
+      "rpc": "ImageGetModels",
+      "capability": "image_provider",
+      "requirement": "optional",
+      "streaming": "unary",
+      "phase": "probe"
+    },
+    {
       "rpc": "MusicSubscribe",
       "capability": "music_provider",
       "requirement": "required",

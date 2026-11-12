@@ -7958,6 +7958,16 @@ class PluginCapabilityServiceStub(object):
                 request_serializer=plugin__pb2.PluginWebSearchRequest.SerializeToString,
                 response_deserializer=plugin__pb2.PluginWebSearchResponse.FromString,
                 _registered_method=True)
+        self.ImageGenerate = channel.unary_unary(
+                '/astra.PluginCapabilityService/ImageGenerate',
+                request_serializer=plugin__pb2.PluginImageGenerateRequest.SerializeToString,
+                response_deserializer=plugin__pb2.PluginImageGenerateResponse.FromString,
+                _registered_method=True)
+        self.ImageGetModels = channel.unary_unary(
+                '/astra.PluginCapabilityService/ImageGetModels',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.PluginImageModelsResponse.FromString,
+                _registered_method=True)
         self.MusicSubscribe = channel.unary_stream(
                 '/astra.PluginCapabilityService/MusicSubscribe',
                 request_serializer=plugin__pb2.Empty.SerializeToString,
@@ -8171,6 +8181,29 @@ class PluginCapabilityServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ImageGenerate(self, request, context):
+        """── Image generation ──
+        A plugin that declares `capabilities.image_provider` draws pictures for the
+        `generate_image` AI tool, in an Astra built with the `plugin-provider-slots`
+        feature: when the user chooses it as the image provider
+        (`plugin__<plugin id>`), and first, while the plugin is the chat's AI
+        provider, with the user's own image provider as the fallback. The daemon
+        asks for ONE picture per call, saves it and shows it; a refusal is an
+        ANSWER (`error_code`), like `WebSearch`.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def ImageGetModels(self, request, context):
+        """The image models this provider offers, for the picker. Optional: an
+        UNIMPLEMENTED answer is "no list", and the model the user typed (or "")
+        is passed on `PluginImageGenerateRequest.model`.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def MusicSubscribe(self, request, context):
         """── Music provider ──
         A plugin that declares `capabilities.music_provider` reports what music
@@ -8354,6 +8387,16 @@ def add_PluginCapabilityServiceServicer_to_server(servicer, server):
                     servicer.WebSearch,
                     request_deserializer=plugin__pb2.PluginWebSearchRequest.FromString,
                     response_serializer=plugin__pb2.PluginWebSearchResponse.SerializeToString,
+            ),
+            'ImageGenerate': grpc.unary_unary_rpc_method_handler(
+                    servicer.ImageGenerate,
+                    request_deserializer=plugin__pb2.PluginImageGenerateRequest.FromString,
+                    response_serializer=plugin__pb2.PluginImageGenerateResponse.SerializeToString,
+            ),
+            'ImageGetModels': grpc.unary_unary_rpc_method_handler(
+                    servicer.ImageGetModels,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.PluginImageModelsResponse.SerializeToString,
             ),
             'MusicSubscribe': grpc.unary_stream_rpc_method_handler(
                     servicer.MusicSubscribe,
@@ -8865,6 +8908,60 @@ class PluginCapabilityService(object):
             '/astra.PluginCapabilityService/WebSearch',
             plugin__pb2.PluginWebSearchRequest.SerializeToString,
             plugin__pb2.PluginWebSearchResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ImageGenerate(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginCapabilityService/ImageGenerate',
+            plugin__pb2.PluginImageGenerateRequest.SerializeToString,
+            plugin__pb2.PluginImageGenerateResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ImageGetModels(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginCapabilityService/ImageGetModels',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.PluginImageModelsResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -208,6 +208,43 @@ pub fn generate_plugin_py(name: &str, capabilities: &[&str]) -> String {
         );
     }
 
+    if capabilities.contains(&"image_provider") {
+        imports.extend([
+            "ImageErrorCode",
+            "ImageModelInfo",
+            "ImageModelList",
+            "ImageResponse",
+        ]);
+        methods.push_str(
+            r#"
+    async def image_generate(self, request):
+        # The whole of the `image_provider` capability: draw ONE picture for the
+        # assistant's `generate_image` tool. Call your image API with
+        # `request.prompt` (and `request.aspect_ratio`, `request.model`) and
+        # return the PNG, JPEG or WEBP bytes, e.g.
+        #     return ImageResponse.drawn(png_bytes)
+        # A refusal you mean (missing key, spent allowance, a declined prompt)
+        # is an answer, as below: REFUSED ends the call, any other code lets
+        # Astra try the person's own image provider; raising reports the plugin
+        # as broken. Keep the API key in `[config]`.
+        return ImageResponse.refuse(
+            ImageErrorCode.NOT_CONFIGURED,
+            "this image provider is a scaffold: implement image_generate",
+        )
+
+    async def image_get_models(self):
+        # The image models Astra's picker offers. Optional, but without it
+        # Astra never sends a picture to edit: only a model with
+        # `accepts_input_images=True` receives the ones the person attached, on
+        # `request.input_images`.
+        return ImageModelList(
+            models=[ImageModelInfo("demo-image", "Demo Image")],
+            default_model="demo-image",
+        )
+"#,
+        );
+    }
+
     if capabilities.contains(&"music_provider") {
         imports.extend(["MusicErrorCode", "MusicRefusal"]);
         methods.push_str(

@@ -29,6 +29,8 @@
 | `AiComplete` | `ai_provider` | required | server | stable | モデルの補完をストリームします。プラグインが AI プロバイダになれる唯一の方法です。 |
 | `AiGetModels` | `ai_provider` | optional | unary | stable | このプロバイダが動かせるモデルと、それぞれをどう動かしてほしいか(ヒント)を、Astra のモデル選択のために一覧します。 |
 | `WebSearch` | `web_search` | required | unary | stable | Answer one web search for the assistant's web_search tool, as a provider the user picks. |
+| `ImageGenerate` | `image_provider` | required | unary | stable | アシスタントの generate_image ツールのために画像を 1 枚描きます。ユーザーが選んだ画像プロバイダとして、またはプラグインがチャットの AI プロバイダである間は最初に呼ばれます。 |
+| `ImageGetModels` | `image_provider` | optional | unary | stable | このプロバイダが提供する画像モデルを選択画面のために一覧し、そのうちどれが編集用の画像を受け取るかを示します。 |
 | `MusicSubscribe` | `music_provider` | required | server | stable | Report what the music services the plugin reaches are playing, as a stream of WHOLE snapshots the media hub merges into the player widget, the island and the AI media tools. |
 | `MusicControl` | `music_provider` | required | unary | stable | Carry out one verb on one session: play, pause, next, previous, seek, like, unlike, shuffle, repeat, volume. |
 | `MusicGetQueue` | `music_provider` | optional | unary | stable | List a session's queue around the playing item, for the widget's queue panel and the AI's get_music_queue. |

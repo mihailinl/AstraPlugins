@@ -41,7 +41,14 @@ from astra_plugin_sdk import limits
 from astra_plugin_sdk.plugin import Plugin, _CapabilityServicer
 from astra_plugin_sdk.proto import plugin_pb2
 from astra_plugin_sdk.testing.recording_host import RecordingHost
-from astra_plugin_sdk.types import AiImage, AudioChunk, SttOptions, WebSearchResponse
+from astra_plugin_sdk.capability_types import ImageModelList
+from astra_plugin_sdk.types import (
+    AiImage,
+    AudioChunk,
+    ImageResponse,
+    SttOptions,
+    WebSearchResponse,
+)
 
 __all__ = ["Harness", "Result", "SttEvent", "HarnessError", "FakeContext"]
 
@@ -532,6 +539,50 @@ class Harness:
         )
         self._raise_if_failed(ctx, "web_search")
         return WebSearchResponse.from_proto(response)
+
+    # ── image_provider ──
+
+    def image_generate(
+        self,
+        prompt: str,
+        /,
+        *,
+        aspect_ratio: str = "",
+        model: str = "",
+        input_images: Iterable[AiImage] | None = None,
+    ) -> ImageResponse:
+        """Ask for a picture the way the daemon does (`ImageGenerate`), through
+        the real servicer.
+
+        The answer is what crossed the wire — one picture — read back into an
+        `ImageResponse`. A refusal the plugin meant is a normal answer here
+        (`response.refused`); a raise, or a hook that is not implemented, is a
+        `HarnessError`. `input_images` are sent whatever the plugin's model
+        list says: choosing who receives them is the daemon's part.
+        """
+        ctx = FakeContext()
+        response = self.run(
+            self._servicer.ImageGenerate(
+                plugin_pb2.PluginImageGenerateRequest(
+                    prompt=prompt,
+                    aspect_ratio=aspect_ratio,
+                    model=model,
+                    input_images=[_image_proto(i) for i in input_images or ()],
+                ),
+                ctx,
+            )
+        )
+        self._raise_if_failed(ctx, "image_generate")
+        return ImageResponse.from_proto(response)
+
+    def image_models(self) -> ImageModelList:
+        """`ImageGetModels` through the real servicer. A plugin that does not
+        implement it — the hook is optional — is a `HarnessError` naming
+        ``UNIMPLEMENTED``."""
+        ctx = FakeContext()
+        response = self.run(self._servicer.ImageGetModels(plugin_pb2.Empty(), ctx))
+        self._raise_if_failed(ctx, "image_get_models")
+        return ImageModelList.from_proto(response)
 
     # ── music_provider ──
 

@@ -126,6 +126,21 @@ const WEB_SEARCH_ERROR_CODES: &[&str] = &[
     "unavailable",
 ];
 
+/// [`PROBE_TIMEOUT`] for `ImageGenerate`: drawing is a round trip to a model
+/// that takes seconds, not milliseconds. Half the daemon's default call budget
+/// (120 s), which is how long it waits for one picture.
+const IMAGE_PROBE_TIMEOUT: Duration = Duration::from_secs(60);
+
+/// The refusal codes the daemon reads (`PluginImageGenerateResponse.error_code`).
+/// Anything else it reads as `unavailable`.
+const IMAGE_ERROR_CODES: &[&str] = &[
+    "quota",
+    "rate_limited",
+    "not_configured",
+    "unavailable",
+    "refused",
+];
+
 /// The refusal codes the daemon reads on every music answer
 /// (`PluginMusicResult.error_code` and its siblings). Anything else it reads as
 /// `unavailable`.
@@ -1528,6 +1543,14 @@ async fn probe_one(
             Err(status) => Err(status),
         },
         "WebSearch" => return web_search(client).await,
+        "ImageGenerate" => return image_generate(client).await,
+        "ImageGetModels" => match probe_call!(client, rpc, image_get_models(proto::Empty {})) {
+            Ok(list) => match image_model_list_verdict(&list) {
+                Ok(summary) => Ok(summary),
+                Err(problem) => return (Status::Error, problem),
+            },
+            Err(status) => Err(status),
+        },
         "MusicSubscribe" => return music_subscribe(client).await,
         "MusicControl" => {
             let answer = probe_call!(
@@ -1554,7 +1577,10 @@ async fn probe_one(
                 && r.error_code.is_empty()
                 && r.items.len() > 5
             {
-                return (Status::Error, format!("asked for 5 item(s) and got {}", r.items.len()));
+                return (
+                    Status::Error,
+                    format!("asked for 5 item(s) and got {}", r.items.len()),
+                );
             }
             return music_answer(answer.map(|r| r.error_code));
         }
@@ -1574,7 +1600,10 @@ async fn probe_one(
                 && r.error_code.is_empty()
                 && r.items.len() > 3
             {
-                return (Status::Error, format!("asked for 3 item(s) and got {}", r.items.len()));
+                return (
+                    Status::Error,
+                    format!("asked for 3 item(s) and got {}", r.items.len()),
+                );
             }
             return music_answer(answer.map(|r| r.error_code));
         }
@@ -1795,6 +1824,58 @@ async fn stt_process(
 /// The longest model id Astra keeps (`admit_model_list` in the daemon).
 const MAX_MODEL_ID_CHARS: usize = 200;
 
+/// Why Astra would drop a listed model, AI or image (`admits_model_id` in the
+/// daemon): an empty id, one longer than [`MAX_MODEL_ID_CHARS`], or one with a
+/// control character.
+fn model_id_problem(id: &str) -> Result<(), String> {
+    if id.trim().is_empty() {
+        return Err("a model has an empty id; Astra drops it from the picker".into());
+    }
+    if id.chars().count() > MAX_MODEL_ID_CHARS {
+        return Err(format!(
+            "model id `{}` is longer than {MAX_MODEL_ID_CHARS} characters; Astra drops it",
+            brief(id)
+        ));
+    }
+    if id.chars().any(char::is_control) {
+        return Err(format!(
+            "model id {id:?} carries a control character; Astra drops it"
+        ));
+    }
+    Ok(())
+}
+
+/// `ImageGetModels`' answer, read the way Astra admits it
+/// (`admit_image_model_list`): the id rule of [`model_id_problem`], and a
+/// `default_model` that names a listed model. An empty list is fine: the
+/// picker takes a typed model id — and no picture to edit is ever sent.
+fn image_model_list_verdict(list: &proto::PluginImageModelsResponse) -> Result<String, String> {
+    for model in &list.models {
+        model_id_problem(&model.id)?;
+    }
+    if !list.default_model.is_empty() && !list.models.iter().any(|m| m.id == list.default_model) {
+        return Err(format!(
+            "default_model `{}` is not in the list; Astra ignores it and uses the first model",
+            brief(&list.default_model)
+        ));
+    }
+    if list.models.is_empty() {
+        return Ok(
+            "an empty model list (the picker takes a typed model id; no picture to edit is sent)"
+                .into(),
+        );
+    }
+    let editors = list
+        .models
+        .iter()
+        .filter(|m| m.accepts_input_images)
+        .count();
+    Ok(format!(
+        "{} image model(s), {editors} of them taking pictures to edit",
+        list.models.len()
+    ))
+}
+
 /// `AiGetModels`' answer, read the way Astra admits it.
 ///
 /// The daemon DROPS a model whose id is empty, longer than
@@ -1818,20 +1899,7 @@ fn ai_model_list_verdict(list: &proto::PluginAiModelsResponse) -> Result<String,
     };
     for model in &list.models {
         let id = &model.id;
-        if id.trim().is_empty() {
-            return Err("a model has an empty id; Astra drops it from the picker".into());
-        }
-        if id.chars().count() > MAX_MODEL_ID_CHARS {
-            return Err(format!(
-                "model id `{}` is longer than {MAX_MODEL_ID_CHARS} characters; Astra drops it",
-                brief(id)
-            ));
-        }
-        if id.chars().any(char::is_control) {
-            return Err(format!(
-                "model id {id:?} carries a control character; Astra drops it"
-            ));
-        }
+        model_id_problem(id)?;
         if let Some(hints) = &model.hints {
             check_hints(&format!("model `{id}`"), hints)?;
         }
@@ -1867,7 +1935,11 @@ fn ai_model_list_verdict(list: &proto::PluginAiModelsResponse) -> Result<String,
     Ok(format!(
         "{} model(s), default `{default}`; {hinted} with hints of their own{}; {images} read pictures",
         list.models.len(),
-        if list.provider_hints.is_some() { ", provider hints set" } else { "" },
+        if list.provider_hints.is_some() {
+            ", provider hints set"
+        } else {
+            ""
+        },
     ))
 }
 
@@ -1967,15 +2039,27 @@ fn music_answer(answer: Result<String, tonic::Status>) -> (Status, String) {
 async fn music_subscribe(
     client: &mut PluginCapabilityServiceClient<tonic::transport::Channel>,
 ) -> (Status, String) {
-    let mut stream = match tokio::time::timeout(PROBE_TIMEOUT, client.music_subscribe(req(proto::Empty {}))).await
-    {
-        Err(_) => return (Status::Error, format!("no response within {PROBE_TIMEOUT:?}")),
-        Ok(Err(s)) if s.code() == tonic::Code::Unimplemented => {
-            return (Status::Unimplemented, "answered UNIMPLEMENTED".into());
-        }
-        Ok(Err(s)) => return (Status::Error, format!("{:?}: {}", s.code(), brief(s.message()))),
-        Ok(Ok(r)) => r.into_inner(),
-    };
+    let mut stream =
+        match tokio::time::timeout(PROBE_TIMEOUT, client.music_subscribe(req(proto::Empty {})))
+            .await
+        {
+            Err(_) => {
+                return (
+                    Status::Error,
+                    format!("no response within {PROBE_TIMEOUT:?}"),
+                );
+            }
+            Ok(Err(s)) if s.code() == tonic::Code::Unimplemented => {
+                return (Status::Unimplemented, "answered UNIMPLEMENTED".into());
+            }
+            Ok(Err(s)) => {
+                return (
+                    Status::Error,
+                    format!("{:?}: {}", s.code(), brief(s.message())),
+                );
+            }
+            Ok(Ok(r)) => r.into_inner(),
+        };
     match tokio::time::timeout(PROBE_TIMEOUT, stream.message()).await {
         Err(_) => (
             Status::Error,
@@ -1984,7 +2068,10 @@ async fn music_subscribe(
                  provider until its first snapshot arrives"
             ),
         ),
-        Ok(Err(s)) => (Status::Error, format!("{:?}: {}", s.code(), brief(s.message()))),
+        Ok(Err(s)) => (
+            Status::Error,
+            format!("{:?}: {}", s.code(), brief(s.message())),
+        ),
         Ok(Ok(None)) => (Status::Error, "the stream ended without a snapshot".into()),
         Ok(Ok(Some(snapshot))) => (
             Status::Ok,
@@ -2091,6 +2178,105 @@ async fn web_search(
         );
     }
     (Status::Ok, format!("{} hit(s)", resp.hits.len()))
+}
+
+/// `ImageGenerate`, with a real prompt.
+///
+/// A refusal the plugin MEANT (`error_code` set — no key configured, no network
+/// on this machine) is an answer and passes: the daemon reads it and tries the
+/// person's own image provider, or stops on `refused`. What fails is what the
+/// daemon would misread or refuse: an `error_code` outside the five it knows
+/// (read as `unavailable`), an answer with neither a picture nor a code (read
+/// as a declined prompt, so nothing else is tried), a picture that is not PNG,
+/// JPEG or WEBP by its own bytes, or more than the one picture asked for.
+async fn image_generate(
+    client: &mut PluginCapabilityServiceClient<tonic::transport::Channel>,
+) -> (Status, String) {
+    let request = proto::PluginImageGenerateRequest {
+        prompt: "A small blue circle on a white background.".into(),
+        aspect_ratio: "1:1".into(),
+        model: String::new(),
+        // Pictures to edit go only to a model the plugin's own list marks
+        // `accepts_input_images`; a probe from outside knows of none.
+        input_images: Vec::new(),
+    };
+    let resp = match tokio::time::timeout(IMAGE_PROBE_TIMEOUT, client.image_generate(req(request)))
+        .await
+    {
+        Err(_) => {
+            return (
+                Status::Error,
+                format!("no response within {IMAGE_PROBE_TIMEOUT:?}"),
+            );
+        }
+        Ok(Err(s)) if s.code() == tonic::Code::Unimplemented => {
+            return (Status::Unimplemented, "answered UNIMPLEMENTED".into());
+        }
+        Ok(Err(s)) => {
+            return (
+                Status::Error,
+                format!(
+                    "{:?}: {} — a refusal the plugin means belongs in `error_code`, not in a \
+                     status; the daemon reads a status as this plugin being broken",
+                    s.code(),
+                    brief(s.message())
+                ),
+            );
+        }
+        Ok(Ok(r)) => r.into_inner(),
+    };
+
+    let code = resp.error_code.trim();
+    if !code.is_empty() {
+        if !IMAGE_ERROR_CODES.contains(&code) {
+            return (
+                Status::Error,
+                format!(
+                    "refused with error_code `{}`, which the daemon does not know and reads as \
+                     `unavailable`. Use one of: {}",
+                    brief(code),
+                    IMAGE_ERROR_CODES.join(", ")
+                ),
+            );
+        }
+        return (
+            Status::Ok,
+            format!("refused in band: {code}: {}", brief(&resp.error_message)),
+        );
+    }
+    let Some(picture) = resp.images.first() else {
+        return (
+            Status::Error,
+            "answered neither a picture nor an `error_code`; the daemon reads that as a \
+             declined prompt and tries no other image provider"
+                .into(),
+        );
+    };
+    if resp.images.len() > 1 {
+        return (
+            Status::Error,
+            format!(
+                "answered {} pictures; the daemon asks for one per call and keeps the first, \
+                 so the SDKs send exactly one and this plugin answers the wire by hand",
+                resp.images.len()
+            ),
+        );
+    }
+    let Some(kind) = astra_plugin_sdk::ImageResponse::mime_type_of(&picture.data) else {
+        return (
+            Status::Error,
+            format!(
+                "the picture ({} byte(s), labelled `{}`) is not PNG, JPEG or WEBP by its own \
+                 bytes, and the daemon refuses it",
+                picture.data.len(),
+                brief(&picture.mime_type)
+            ),
+        );
+    };
+    (
+        Status::Ok,
+        format!("one {kind} picture, {} byte(s)", picture.data.len()),
+    )
 }
 
 // ── the two schema assertions ────────────────────────────────────────────────
@@ -2842,13 +3028,12 @@ mod tests {
             name: id.into(),
             hints: None,
         };
-        let list = |models: Vec<proto::PluginAiModelInfo>, default: &str| {
-            proto::PluginAiModelsResponse {
+        let list =
+            |models: Vec<proto::PluginAiModelInfo>, default: &str| proto::PluginAiModelsResponse {
                 models,
                 default_model: default.into(),
                 provider_hints: None,
-            }
-        };
+            };
 
         // No list is an answer, not a failure.
         assert!(ai_model_list_verdict(&list(vec![], "")).is_ok());
@@ -2889,6 +3074,36 @@ mod tests {
     }
 
     #[test]
+    fn an_image_model_list_is_judged_the_way_astra_admits_it() {
+        let model = |id: &str, edits: bool| proto::PluginImageModelInfo {
+            id: id.into(),
+            name: id.into(),
+            accepts_input_images: edits,
+        };
+        let list = |models: Vec<proto::PluginImageModelInfo>, default: &str| {
+            proto::PluginImageModelsResponse {
+                models,
+                default_model: default.into(),
+            }
+        };
+
+        // No list is an answer, not a failure.
+        assert!(image_model_list_verdict(&list(vec![], "")).is_ok());
+        let summary = image_model_list_verdict(&list(
+            vec![model("draw", false), model("edit", true)],
+            "edit",
+        ))
+        .unwrap();
+        assert!(summary.contains("2 image model(s), 1 of them"), "{summary}");
+
+        // The daemon's `admit_image_model_list` drops these in silence.
+        assert!(image_model_list_verdict(&list(vec![model(" ", false)], "")).is_err());
+        assert!(image_model_list_verdict(&list(vec![model(&"x".repeat(201), false)], "")).is_err());
+        assert!(image_model_list_verdict(&list(vec![model("a\u{7}b", false)], "")).is_err());
+        assert!(image_model_list_verdict(&list(vec![model("a", false)], "b")).is_err());
+    }
+
+    #[test]
     fn every_live_hook_has_a_probe() {
         // The engine's coverage, asserted rather than assumed: a hook added to
         // the spec with no arm in `probe_one` must fail here, not on an
@@ -2909,6 +3124,8 @@ mod tests {
             "AiComplete",
             "AiGetModels",
             "WebSearch",
+            "ImageGenerate",
+            "ImageGetModels",
             "MusicSubscribe",
             "MusicControl",
             "MusicGetQueue",

@@ -223,6 +223,11 @@ checkout before it was written down.
   built with `plugin-provider-slots` does, and only to a plugin granted the
   high-risk `receive_attachments` permission. Everywhere else the array is
   empty.
+- An image provider (`image_provider`) gives `plugin({...})` an `image`
+  section — `generate`, one picture per call, answering
+  `ImageGeneration.drawn(bytes)` or `ImageGeneration.refuse(code, message)`,
+  and optionally `models`; no Astra release asks yet, only a daemon built
+  with `plugin-provider-slots` does. Guide: `docs/en/image-provider-plugins.md`.
 
 Full history, including everything breaking in 0.5.0:
 [`CHANGELOG.md`](CHANGELOG.md).

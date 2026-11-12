@@ -48,8 +48,14 @@ __all__ = [
     "WebSearchRequest",
     "WebSearchResponse",
     "WEB_SEARCH_MAX_COUNT",
+    "IMAGE_ASPECT_RATIOS",
+    "ImageErrorCode",
+    "ImageRequest",
+    "ImageResponse",
+    "image_mime_type",
     "coerce_ai_chunk",
     "coerce_audio_chunk",
+    "coerce_image_response",
     "coerce_web_search_response",
 ]
 
@@ -523,6 +529,197 @@ def coerce_web_search_response(value: Any) -> WebSearchResponse:
     raise TypeError(
         f"web_search returned {type(value).__name__}; return a WebSearchResponse "
         f"or a list of WebSearchHit"
+    )
+
+
+# ── image provider ───────────────────────────────────────────────────────────
+
+#: Every aspect ratio the daemon sends today. ``""`` is the model's own default.
+IMAGE_ASPECT_RATIOS = ("1:1", "16:9", "9:16", "4:3", "3:4")
+
+
+class ImageErrorCode(str, enum.Enum):
+    """Why a provider did not draw. Each code changes what the daemon does
+    next, which is why they are a closed set rather than a message.
+
+    A `str` enum, so the member IS its wire string: `ImageErrorCode.QUOTA ==
+    "quota"`.
+    """
+
+    #: The account's allowance is spent; the daemon tries the person's own
+    #: image provider, when there is another.
+    QUOTA = "quota"
+    #: Too many pictures right now. Set `retry_after_secs` when the API says.
+    RATE_LIMITED = "rate_limited"
+    #: Something the person has to set (usually the key) is missing.
+    NOT_CONFIGURED = "not_configured"
+    #: Anything else: the service is down, the network failed, the answer was
+    #: unreadable. The daemon may try the person's own image provider.
+    UNAVAILABLE = "unavailable"
+    #: The prompt itself was declined (a safety filter, a soft refusal). The
+    #: daemon tries nothing else: another provider would get the same prompt.
+    REFUSED = "refused"
+
+
+def image_mime_type(data: bytes) -> str:
+    """A picture's type, read from its own first bytes: ``"image/png"``,
+    ``"image/jpeg"`` or ``"image/webp"`` — the three the daemon accepts — else
+    ``""``."""
+    head = bytes(data[:12])
+    if head.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "image/png"
+    if head.startswith(b"\xff\xd8\xff"):
+        return "image/jpeg"
+    if len(head) >= 12 and head[:4] == b"RIFF" and head[8:12] == b"WEBP":
+        return "image/webp"
+    return ""
+
+
+@dataclass
+class ImageRequest:
+    """One picture to draw, as the daemon asks an `image_provider` for it.
+
+    The daemon asks for ONE picture per call; a person who asked for four costs
+    four calls.
+    """
+
+    #: What to draw, as the model wrote it.
+    prompt: str = ""
+    #: One of `IMAGE_ASPECT_RATIOS` (``"16:9"``), or ``""`` for the model's own
+    #: default. Passed on as the daemon sent it: map it onto your API, and draw
+    #: at your default when you cannot.
+    aspect_ratio: str = ""
+    #: The model the person chose — an id from `image_get_models`, or typed —
+    #: and ``""`` for your default.
+    model: str = ""
+    #: The pictures the person attached to edit or draw from
+    #: (``generate_image``'s ``edit``), bytes as they are. Sent only for a model
+    #: your `image_get_models` list marks ``accepts_input_images``; empty for
+    #: any other, so a provider that lists no models never receives one.
+    input_images: list[AiImage] = field(default_factory=list)
+
+    @classmethod
+    def from_proto(cls, msg: Any) -> "ImageRequest":
+        return cls(
+            prompt=msg.prompt,
+            aspect_ratio=msg.aspect_ratio.strip(),
+            model=msg.model.strip(),
+            input_images=[AiImage.from_proto(i) for i in msg.input_images],
+        )
+
+    def to_proto(self) -> Any:
+        return plugin_pb2.PluginImageGenerateRequest(
+            prompt=self.prompt,
+            aspect_ratio=self.aspect_ratio,
+            model=self.model,
+            input_images=[i.to_proto() for i in self.input_images],
+        )
+
+
+@dataclass
+class ImageResponse:
+    """A provider's answer: the picture, or the refusal it means.
+
+    A refusal is an ANSWER, not an exception. ``ImageResponse.refuse(
+    ImageErrorCode.QUOTA, "monthly allowance used")`` is how the daemon learns
+    to try another provider; raising tells it this plugin is broken.
+    """
+
+    #: PNG, JPEG or WEBP bytes. The daemon checks them by their own signature,
+    #: so anything else is refused however it is labelled.
+    data: bytes = b""
+    #: ``"image/png"`` | ``"image/jpeg"`` | ``"image/webp"``. Read from the bytes
+    #: when left empty; informational, the bytes decide.
+    mime_type: str = ""
+    #: Any text the model wrote beside the picture.
+    caption: str = ""
+    #: "" when a picture was drawn, else an `ImageErrorCode`.
+    error_code: str = ""
+    #: Short and in English: the model reads it.
+    error_message: str = ""
+    #: With `RATE_LIMITED`: seconds to wait, 0 when unknown.
+    retry_after_secs: int = 0
+
+    @classmethod
+    def drawn(cls, data: bytes, mime_type: str = "", caption: str = "") -> "ImageResponse":
+        """The picture was drawn. ``mime_type`` is read from the bytes when
+        omitted."""
+        data = bytes(data)
+        return cls(data=data, mime_type=mime_type or image_mime_type(data), caption=caption)
+
+    @classmethod
+    def refuse(
+        cls,
+        code: "ImageErrorCode | str",
+        message: str,
+        retry_after_secs: int = 0,
+    ) -> "ImageResponse":
+        """No picture, for `code`'s reason.
+
+        `code` is checked here, so a typo fails in the plugin's own test rather
+        than reaching the daemon as an unknown code it reads as "unavailable".
+        """
+        return cls(
+            error_code=ImageErrorCode(code).value,
+            error_message=message,
+            retry_after_secs=max(0, int(retry_after_secs)),
+        )
+
+    @property
+    def refused(self) -> bool:
+        return bool(self.error_code)
+
+    @classmethod
+    def from_proto(cls, msg: Any) -> "ImageResponse":
+        first = msg.images[0] if len(msg.images) else None
+        return cls(
+            data=bytes(first.data) if first is not None else b"",
+            mime_type=first.mime_type if first is not None else "",
+            caption=msg.caption,
+            error_code=msg.error_code,
+            error_message=msg.error_message,
+            retry_after_secs=msg.retry_after_secs,
+        )
+
+    def to_proto(self) -> Any:
+        """The wire message: exactly one picture, or the refusal and none."""
+        if self.error_code:
+            return plugin_pb2.PluginImageGenerateResponse(
+                error_code=self.error_code,
+                error_message=self.error_message,
+                retry_after_secs=max(0, int(self.retry_after_secs)),
+            )
+        data = bytes(self.data)
+        if not data:
+            # Neither a picture nor a refusal. Sent as is, the daemon would
+            # refuse its bytes; an answer with no picture at all it reads as a
+            # declined prompt and tries no other provider. Raised, it is a
+            # status that says this plugin answered nothing, and the daemon
+            # falls back.
+            raise ValueError(
+                "image_generate answered neither a picture nor a refusal; return "
+                "ImageResponse.drawn(data) or ImageResponse.refuse(code, message)"
+            )
+        return plugin_pb2.PluginImageGenerateResponse(
+            images=[
+                plugin_pb2.PluginImage(
+                    mime_type=self.mime_type or image_mime_type(data), data=data
+                )
+            ],
+            caption=self.caption,
+        )
+
+
+def coerce_image_response(value: Any) -> ImageResponse:
+    """Accept what an author returns: an `ImageResponse`, or the picture's bytes,
+    which means it was drawn."""
+    if isinstance(value, ImageResponse):
+        return value
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return ImageResponse.drawn(bytes(value))
+    raise TypeError(
+        f"image_generate returned {type(value).__name__}; return an ImageResponse "
+        f"or the picture's bytes"
     )
 
 
