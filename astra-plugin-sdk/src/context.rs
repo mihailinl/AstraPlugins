@@ -227,7 +227,11 @@ pub trait Host: Send + Sync + 'static {
 
     /// **Ask the person** to change some of Astra's settings, on a card they
     /// answer. Permission: `request_settings_change` (not high-risk: nothing
-    /// changes without the person's Allow).
+    /// changes without the person's Allow). It also needs an account that opens
+    /// Astra, and **no Astra release answers it yet**: an Astra built without
+    /// the `plugin-requests` feature answers `Refused` / `not_compiled`, and
+    /// one older than 2026-11-13 — every release today — fails the call with
+    /// `UNIMPLEMENTED`, an `Err`, not an outcome.
     ///
     /// Only the settings the assistant itself may change can be asked for (the
     /// voice, the AI model, the language — never the permission mode, a key or
@@ -264,8 +268,8 @@ pub trait Host: Send + Sync + 'static {
     ///   `reason_too_long` (more than
     ///   [`limits::SETTINGS_CHANGE_REASON_MAX_CHARS`](crate::limits::SETTINGS_CHANGE_REASON_MAX_CHARS)
     ///   characters — refused, never cut), `busy` (one of this plugin's
-    ///   requests is already waiting), `rate_limited` (two at once, then one
-    ///   every two minutes), `not_assistant_editable`, `invalid_value`,
+    ///   requests is already waiting), `rate_limited` (a burst of two, then
+    ///   one every two minutes), `not_assistant_editable`, `invalid_value`,
     ///   `unknown_choice`, `needs_api_key`, `needs_stt_provider`,
     ///   `provider_unreachable`, `stale` (the settings changed while the card
     ///   was up), `stopped` (this plugin's authority ended first),
@@ -310,6 +314,114 @@ pub trait Host: Send + Sync + 'static {
         let _ = (changes, reason);
         Err(anyhow::anyhow!(
             "this Host does not implement RequestSettingsChange (request_settings_change)"
+        ))
+    }
+
+    /// **Offer the person a command** to keep, on a card they answer.
+    /// Permission: `propose_commands` (**high-risk**: a command the person
+    /// keeps runs later, on its own triggers, as the person's own command — its
+    /// steps, built-ins such as a shell command included, run without asking
+    /// again). It also needs an account that opens Astra, and **no Astra
+    /// release answers it yet**: an Astra built without the `plugin-requests`
+    /// feature answers `Refused` / `not_compiled`, and one older than
+    /// 2026-11-13 — every release today — fails the call with `UNIMPLEMENTED`,
+    /// an `Err`, not an outcome.
+    ///
+    /// `key` is this plugin's own name for the command — 1 to 64 characters of
+    /// `a-z`, `A-Z`, `0-9`, `.`, `_` and `-`; the same key offered again is the
+    /// same command, updated in place. `command_json` is ONE portable command
+    /// as JSON (what a `.astra` file's `commands[]` holds — split a file with
+    /// [`commands_from_astra_file`](crate::commands_from_astra_file)), read by
+    /// the same reader as a Workshop command: strict JSON, known action and
+    /// trigger types only, the local fields (id, switch, folder, provenance)
+    /// dropped, and it may use Astra's built-in actions and triggers and **this
+    /// plugin's own** — never another plugin's. `reason` is the plugin's own
+    /// words, shown on the card.
+    ///
+    /// The card names this plugin and the command and offers Review / Deny;
+    /// the command is kept only from Astra's Workshop sheet, which shows every
+    /// trigger by its full value and every step with what it may do, and an
+    /// Enable switch — never by a bare Allow. What is kept is exactly what the
+    /// sheet showed.
+    ///
+    /// The call **lasts until the person answers or the card expires** —
+    /// Astra's confirmation timeout, at least 30 s, 120 s unless the person
+    /// changed it. Never await it on a path that must answer quickly; the SDK
+    /// puts no deadline of its own on it. Offer one command at a time: a second
+    /// offer while one is waiting is `busy`, even one that would be
+    /// `Unchanged`. Read
+    /// [`outcome()`](proto::PluginProposeCommandResponse::outcome):
+    ///
+    /// * `PluginProposeCommandOutcome::Saved` — the person kept it; `enabled`
+    ///   says whether the command is on after it was kept (Astra may keep it
+    ///   switched off). Record it.
+    /// * `PluginProposeCommandOutcome::Unchanged` — what is kept under this
+    ///   key came from this very offer — also after the person edited it.
+    ///   Nobody was asked.
+    /// * `PluginProposeCommandOutcome::Declined` — the person said no, now or
+    ///   to this very command before (until Astra restarts). Record it: **do
+    ///   not offer it again unasked.** Astra's own memory of a no ends at a
+    ///   restart, and a command the person deleted is offered as new.
+    /// * `PluginProposeCommandOutcome::TimedOut` — nobody answered before the
+    ///   card expired (no window open counts).
+    /// * `PluginProposeCommandOutcome::Refused` — not asked, or not kept:
+    ///   `code` says why, and `error` is the same as a [`proto::PluginError`] —
+    ///   a sentence, and `retry_after_ms` for `rate_limited`. The words:
+    ///   `not_compiled` (this Astra takes no offers: it was built without the
+    ///   `plugin-requests` feature), `locked`, `invalid_key`, `reason_too_long`
+    ///   (more than
+    ///   [`limits::PROPOSE_COMMAND_REASON_MAX_CHARS`](crate::limits::PROPOSE_COMMAND_REASON_MAX_CHARS)
+    ///   characters — refused, never cut), `too_large` (more than
+    ///   [`limits::PROPOSE_COMMAND_MAX_BYTES`](crate::limits::PROPOSE_COMMAND_MAX_BYTES)
+    ///   bytes of JSON), `invalid_command` (`error.message` usually leads with
+    ///   the Workshop's own code: `E_COMMAND_FORMAT`,
+    ///   `E_COMMAND_UNKNOWN_ACTION`, … — not when the card itself cannot be
+    ///   shown), `foreign_plugin` (it uses another plugin's action or trigger),
+    ///   `busy` (one of this plugin's offers is already waiting),
+    ///   `rate_limited` (a burst of two, then one every two minutes), `stopped`
+    ///   (this plugin's authority ended first), `stale` (the command it updates
+    ///   changed or went while the card was up), `write_refused`.
+    ///
+    /// ```ignore
+    /// use astra_plugin_sdk::commands_from_astra_file;
+    /// use astra_plugin_sdk::proto::PluginProposeCommandOutcome;
+    ///
+    /// let commands = commands_from_astra_file(include_str!("../morning.astra"))?;
+    /// let offered = ctx
+    ///     .host()
+    ///     .propose_command(
+    ///         "morning-briefing",
+    ///         &serde_json::to_string(&commands[0])?,
+    ///         "Reads you the news when you say good morning",
+    ///     )
+    ///     .await?;
+    /// match offered.outcome() {
+    ///     PluginProposeCommandOutcome::Saved | PluginProposeCommandOutcome::Unchanged => {}
+    ///     PluginProposeCommandOutcome::Refused if offered.code == "rate_limited" => {
+    ///         // offer later: offered.error.unwrap_or_default().retry_after_ms
+    ///     }
+    ///     _ => {} // declined, timed out, refused: the person goes without it
+    /// }
+    /// ```
+    ///
+    /// The daemon is the authority on every limit; the SDK checks none, so it
+    /// can never disagree with the Astra it talks to. A refusal by the
+    /// daemon's gates (no grant, no account that opens Astra) is an `Err`,
+    /// like every host call. An Astra older than this RPC answers
+    /// `UNIMPLEMENTED`.
+    ///
+    /// Defaulted, like [`Host::speak`]: a `Host` written before this method
+    /// existed keeps compiling and answers with an error that says so, never
+    /// an invented outcome. Every `Host` in this crate overrides it.
+    async fn propose_command(
+        &self,
+        key: &str,
+        command_json: &str,
+        reason: &str,
+    ) -> Result<proto::PluginProposeCommandResponse> {
+        let _ = (key, command_json, reason);
+        Err(anyhow::anyhow!(
+            "this Host does not implement ProposeCommand (propose_command)"
         ))
     }
 
@@ -1020,11 +1132,12 @@ impl Host for CausalHost {
         self.inner.get_ai_settings().await
     }
 
-    // The four below are defaulted on `Host`, so forgetting one here would
+    // The five below are defaulted on `Host`, so forgetting one here would
     // compile and answer "this Host does not implement …" from inside a
     // handler while the real client underneath implements it perfectly well.
-    // `tests::the_scoping_wrapper_forwards_speech_and_identity` and
-    // `tests::the_scoping_wrapper_forwards_settings_requests` are the guards.
+    // `tests::the_scoping_wrapper_forwards_speech_and_identity`,
+    // `tests::the_scoping_wrapper_forwards_settings_requests` and
+    // `tests::the_scoping_wrapper_forwards_command_offers` are the guards.
 
     async fn speak(&self, text: &str) -> Result<proto::PluginSpeakResponse> {
         self.inner.speak(text).await
@@ -1044,6 +1157,15 @@ impl Host for CausalHost {
         reason: &str,
     ) -> Result<proto::PluginSettingsChangeResponse> {
         self.inner.request_settings_change(changes, reason).await
+    }
+
+    async fn propose_command(
+        &self,
+        key: &str,
+        command_json: &str,
+        reason: &str,
+    ) -> Result<proto::PluginProposeCommandResponse> {
+        self.inner.propose_command(key, command_json, reason).await
     }
 
     async fn set_variable(&self, name: &str, value: &str, scope: &str) -> Result<()> {
@@ -1087,6 +1209,8 @@ pub(crate) struct CauseSpy {
     /// Every `request_settings_change`, as it arrived — the same proof for
     /// the settings request.
     asked: std::sync::Mutex<Vec<proto::PluginSettingsChangeRequest>>,
+    /// Every `propose_command`, as it arrived — the same proof for the offer.
+    offered: std::sync::Mutex<Vec<proto::PluginProposeCommandRequest>>,
 }
 
 #[cfg(test)]
@@ -1101,6 +1225,10 @@ impl CauseSpy {
 
     pub(crate) fn asked(&self) -> Vec<proto::PluginSettingsChangeRequest> {
         self.asked.lock().unwrap().clone()
+    }
+
+    pub(crate) fn offered(&self) -> Vec<proto::PluginProposeCommandRequest> {
+        self.offered.lock().unwrap().clone()
     }
 }
 
@@ -1167,6 +1295,26 @@ impl Host for CauseSpy {
             });
         Ok(proto::PluginSettingsChangeResponse {
             outcome: proto::PluginSettingsChangeOutcome::Applied as i32,
+            ..Default::default()
+        })
+    }
+    async fn propose_command(
+        &self,
+        key: &str,
+        command_json: &str,
+        reason: &str,
+    ) -> Result<proto::PluginProposeCommandResponse> {
+        self.offered
+            .lock()
+            .unwrap()
+            .push(proto::PluginProposeCommandRequest {
+                key: key.to_owned(),
+                command_json: command_json.to_owned(),
+                reason: reason.to_owned(),
+            });
+        Ok(proto::PluginProposeCommandResponse {
+            outcome: proto::PluginProposeCommandOutcome::Saved as i32,
+            enabled: true,
             ..Default::default()
         })
     }
@@ -1268,6 +1416,17 @@ mod tests {
                 ..Default::default()
             })
         }
+        async fn propose_command(
+            &self,
+            _: &str,
+            _: &str,
+            _: &str,
+        ) -> Result<proto::PluginProposeCommandResponse> {
+            Ok(proto::PluginProposeCommandResponse {
+                outcome: proto::PluginProposeCommandOutcome::Unchanged as i32,
+                ..Default::default()
+            })
+        }
         async fn set_variable(&self, _: &str, _: &str, _: &str) -> Result<()> {
             Ok(())
         }
@@ -1283,8 +1442,8 @@ mod tests {
     }
 
     /// A `Host` that never heard of `get_ai_settings`, `speak`,
-    /// `stop_speaking`, `get_user_identity` or `request_settings_change`: the
-    /// defaulted methods.
+    /// `stop_speaking`, `get_user_identity`, `request_settings_change` or
+    /// `propose_command`: the defaulted methods.
     struct BareHost;
 
     #[async_trait::async_trait]
@@ -1540,6 +1699,113 @@ mod tests {
         assert_eq!(C::new("x", "say \"hi\"\n").value_json, r#""say \"hi\"\n""#);
         // `path` is carried as written: checking it is the daemon's job.
         assert_eq!(C::new(String::from("ai.model"), "m").path, "ai.model");
+    }
+
+    /// Additive: a `Host` written before `ProposeCommand` compiles unchanged
+    /// and gets a plain error — never an invented outcome, least of all a
+    /// `Saved` nobody kept.
+    #[tokio::test]
+    async fn a_host_without_command_offers_answers_with_a_plain_error() {
+        let err = BareHost
+            .propose_command("k", "{}", "why")
+            .await
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("does not implement ProposeCommand"), "{err}");
+    }
+
+    /// The scoped host a handler is given must reach the inner host's
+    /// `propose_command` with the key, the JSON and the reason as written, not
+    /// fall to the trait's default.
+    #[tokio::test]
+    async fn the_scoping_wrapper_forwards_command_offers() {
+        let (ctx, spy) = spied();
+        let scoped = ctx.for_invocation(Some(Arc::from("lease-1")));
+
+        let json = r#"{"name":"Morning","triggers":[],"actions":[]}"#;
+        let offered = scoped
+            .host()
+            .propose_command("morning", json, "reads you the news")
+            .await
+            .expect("forwarded");
+        assert_eq!(offered.outcome(), proto::PluginProposeCommandOutcome::Saved);
+        assert!(offered.enabled);
+        assert_eq!(
+            spy.offered(),
+            vec![proto::PluginProposeCommandRequest {
+                key: "morning".into(),
+                command_json: json.into(),
+                reason: "reads you the news".into(),
+            }]
+        );
+        // Offering is not a fire: nothing about it spends or carries the lease.
+        assert!(spy.causes().is_empty());
+    }
+
+    /// Every `Host` impl in this crate answers `propose_command` without the
+    /// default. Add a new wrapper or fake to the list.
+    #[tokio::test]
+    async fn every_in_repo_host_answers_command_offers_without_the_default() {
+        let recording = crate::testing::RecordingHost::new("rec");
+        let hosts: Vec<(&str, Arc<dyn Host>)> = vec![
+            ("testing::RecordingHost", recording),
+            ("NullHost", Arc::new(NullHost)),
+        ];
+        for (name, h) in hosts {
+            h.propose_command("k", "{}", "why")
+                .await
+                .unwrap_or_else(|e| panic!("{name}.propose_command fell to the default: {e}"));
+        }
+    }
+
+    /// The level-1 host records what was offered and answers what was staged —
+    /// `Saved` and switched on by default, any outcome when told — and a denied
+    /// grant is an `Err` with nothing on the record.
+    #[tokio::test]
+    async fn the_recording_host_records_command_offers_and_answers_what_was_staged() {
+        let host = crate::testing::RecordingHost::new("rec");
+        let json = r#"{"name":"Morning"}"#;
+
+        let offered = host.propose_command("morning", json, "why").await.unwrap();
+        assert_eq!(offered.outcome(), proto::PluginProposeCommandOutcome::Saved);
+        assert!(offered.enabled);
+
+        host.set_command_offer_response(proto::PluginProposeCommandResponse {
+            outcome: proto::PluginProposeCommandOutcome::Refused as i32,
+            code: "foreign_plugin".into(),
+            error: Some(proto::PluginError {
+                message: "the command uses the plugin `other`".into(),
+                ..Default::default()
+            }),
+            ..Default::default()
+        });
+        let offered = host
+            .propose_command("morning", json, "again")
+            .await
+            .unwrap();
+        assert_eq!(
+            offered.outcome(),
+            proto::PluginProposeCommandOutcome::Refused
+        );
+        assert_eq!(offered.code, "foreign_plugin");
+        assert!(!offered.enabled);
+
+        let recorded = host.command_offers();
+        assert_eq!(recorded.len(), 2);
+        assert_eq!(
+            (recorded[0].key.as_str(), recorded[0].command_json.as_str()),
+            ("morning", json)
+        );
+        assert_eq!(recorded[1].reason, "again");
+
+        host.deny("propose_command");
+        assert!(host.propose_command("morning", json, "no").await.is_err());
+        assert_eq!(
+            host.command_offers().len(),
+            2,
+            "a denied call offered nothing"
+        );
+        assert_eq!(host.recorded().call_count("propose_command"), 3);
     }
 
     fn ctx_for_test() -> PluginContext {

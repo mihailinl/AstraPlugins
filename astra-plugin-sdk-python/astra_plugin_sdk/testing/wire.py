@@ -125,6 +125,15 @@ class MockDaemon(plugin_pb2_grpc.PluginHostServiceServicer):
         self.settings_change_response: dict[str, Any] = {
             "outcome": plugin_pb2.PLUGIN_SETTINGS_CHANGE_OUTCOME_APPLIED
         }
+        #: What `ProposeCommand` answers once it has passed the gates, as
+        #: keyword arguments of `PluginProposeCommandResponse`. Saved and
+        #: switched on — the person kept it with Enable on — until told
+        #: otherwise. The mock answers at once; the real daemon answers when
+        #: the person does.
+        self.command_offer_response: dict[str, Any] = {
+            "outcome": plugin_pb2.PLUGIN_PROPOSE_COMMAND_OUTCOME_SAVED,
+            "enabled": True,
+        }
 
         self.registrations: list[plugin_pb2.PluginRegisterRequest] = []
         self._logs: list[LogLine] = []
@@ -136,6 +145,8 @@ class MockDaemon(plugin_pb2_grpc.PluginHostServiceServicer):
         self._spoken: list[str] = []
         self._stops: int = 0
         self._settings_requests: list[Any] = []
+        self._command_offers: list[Any] = []
+        self._causes: list[tuple[str, str | None]] = []
         self.unauthenticated_calls: list[str] = []
 
         self._server: grpc.aio.Server | None = None
@@ -156,6 +167,7 @@ class MockDaemon(plugin_pb2_grpc.PluginHostServiceServicer):
                 f"{rpc}: this plugin's manifest does not declare the permission it needs"
             )
             return False
+        self._causes.append((rpc, cause_from_metadata(context.invocation_metadata())))
         return True
 
     # ── the service ──
@@ -240,6 +252,12 @@ class MockDaemon(plugin_pb2_grpc.PluginHostServiceServicer):
         self._settings_requests.append(request)
         return plugin_pb2.PluginSettingsChangeResponse(**self.settings_change_response)
 
+    async def ProposeCommand(self, request, context):
+        if not self._authenticate(context, "ProposeCommand"):
+            return plugin_pb2.PluginProposeCommandResponse()
+        self._command_offers.append(request)
+        return plugin_pb2.PluginProposeCommandResponse(**self.command_offer_response)
+
     async def FireTrigger(self, request, context):
         if not self._authenticate(context, "FireTrigger"):
             return plugin_pb2.Empty()
@@ -318,6 +336,19 @@ class MockDaemon(plugin_pb2_grpc.PluginHostServiceServicer):
         """Every `RequestSettingsChange` that passed the gates, in order, as
         the plugin sent it."""
         return list(self._settings_requests)
+
+    def command_offers(self) -> list[Any]:
+        """Every `ProposeCommand` that passed the gates, in order, as the
+        plugin sent it."""
+        return list(self._command_offers)
+
+    def causes(self, rpc: str) -> list[str | None]:
+        """The `x-astra-cause` each call to `rpc` (named by method,
+        `"ProposeCommand"`) that passed the gates carried, in order — `None`
+        for a call that carried none. Only `FireTrigger` spends a lease, so a
+        plugin's other calls should show `None` even from inside a leased
+        handler."""
+        return [cause for name, cause in self._causes if name == rpc]
 
     # ── lifecycle ──
 

@@ -163,6 +163,10 @@ fn generate_permissions(capabilities: &[&str]) -> String {
             "ask the person to change a setting the assistant may change, on a card they answer",
         ),
         (
+            "propose_commands",
+            "offer the person a command to keep, from Astra's Workshop sheet (high risk: its own consent checkbox)",
+        ),
+        (
             "speak",
             "say your own words aloud in Astra's voice (high risk: its own consent checkbox)",
         ),

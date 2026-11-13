@@ -21,6 +21,7 @@ so there is no reachable object on which an unauthenticated ``log()`` /
 """
 
 import json
+import math
 from collections.abc import Iterable, Mapping
 from typing import Any
 
@@ -67,6 +68,139 @@ def settings_change_request(
             for path, value in pairs
         ],
         reason=reason,
+    )
+
+
+#: The members :func:`commands_from_astra_file` removes from every command: the
+#: file's own ``source_id``, and the LOCAL members of a portable command (Astra's
+#: ``astra-core/src/command/portable_schema.rs::LOCAL_FIELDS``) — this
+#: installation's identity, switch, folder and provenance for it. The daemon
+#: drops them from an offer anyway; removing them here keeps the offer to what
+#: the person is asked about.
+_ASTRA_FILE_LOCAL_FIELDS = (
+    "source_id",
+    "id",
+    "created_at",
+    "updated_at",
+    "group_id",
+    "enabled",
+    "marketplace_source",
+    "catalogue_source",
+    "plugin_source",
+)
+
+
+def _refuse_constant(name: str) -> Any:
+    # `json` accepts the literals NaN, Infinity and -Infinity by default. They
+    # are not JSON, and the Rust and TypeScript readers refuse them, so this
+    # one does too. (A number that only OVERFLOWS to infinity, `1e400`, is
+    # `_finite_float`'s case: `json` hands it to `parse_float`, not here.)
+    raise ValueError(f"{name} is not JSON")
+
+
+def _finite_float(literal: str) -> float:
+    # `float("1e400")` is infinity, which `json` would hand back as a number;
+    # serde_json refuses it as out of range, and so does this reader. Integers
+    # need no such hook: a Python int holds any of them exactly (and `json`
+    # itself refuses one too long to convert, past `sys.get_int_max_str_digits`).
+    value = float(literal)
+    if not math.isfinite(value):
+        raise ValueError(f"{literal} is out of range")
+    return value
+
+
+def commands_from_astra_file(text: str) -> list[dict[str, Any]]:
+    """**The commands in a ``.astra`` file**, each ready to offer with
+    :meth:`HostClient.propose_command`.
+
+    A ``.astra`` file is what Astra's Commands page exports — ``{"format":
+    "astra-commands", "version": 1, "commands": [...]}``, or a group's
+    ``{"format": "astra-group", "version": 1, "group": {"name": ...},
+    "commands": [...]}``. ``propose_command`` takes ONE command, so the usual
+    path is: build the command in Astra, export it, ship the file with the
+    plugin, and offer each command in it.
+
+    Reads those two formats and nothing else. Text that is not JSON, a top
+    level that is not an object, another ``format`` (a single command on its
+    own, or the pre-group ``"astra-command"``), a ``version`` that is not a
+    number, a group file whose ``group`` is not an object, ``commands`` that is
+    not a list, or a command that is not an object raises ``ValueError`` saying
+    which. Each command is returned whole except for its top-level local
+    members — ``source_id``, ``id``, ``created_at``, ``updated_at``,
+    ``group_id``, ``enabled``, ``marketplace_source``, ``catalogue_source`` and
+    ``plugin_source``; nothing else about it is checked here — that is the
+    daemon's reader's job, and its refusal names what is wrong. The same helper
+    is in all three SDKs, held to ``testdata/astra-file/vectors.json``.
+
+    A member given twice collapses to the last one, as in the Rust and
+    TypeScript helpers: the daemon's strict reader would refuse the duplicate,
+    but this helper parses and re-serialises, so what is offered is the last
+    value alone. A number out of range (``1e400``) is not JSON here, and a file
+    nested too deep to parse raises the same ``ValueError``.
+
+    ::
+
+        commands = commands_from_astra_file(Path("morning.astra").read_text("utf-8"))
+        offered = await self.host.propose_command(
+            "morning-briefing", commands[0], "Reads you the news when you say good morning"
+        )
+    """
+    try:
+        doc = json.loads(text, parse_constant=_refuse_constant, parse_float=_finite_float)
+    except (ValueError, RecursionError) as e:
+        raise ValueError(f"not a .astra file: it is not JSON ({e})") from None
+    if not isinstance(doc, dict):
+        raise ValueError("not a .astra file: it is not a JSON object")
+    fmt = doc.get("format")
+    if not isinstance(fmt, str) or fmt not in ("astra-commands", "astra-group"):
+        found = "missing" if "format" not in doc else json.dumps(fmt, ensure_ascii=False)
+        raise ValueError(
+            'not a .astra file: `format` must be "astra-commands" or "astra-group", '
+            f"not {found}"
+        )
+    version = doc.get("version")
+    if not isinstance(version, (int, float)) or isinstance(version, bool):
+        raise ValueError("not a .astra file: `version` must be a number")
+    if fmt == "astra-group" and not isinstance(doc.get("group"), dict):
+        raise ValueError("not a .astra group file: `group` must be an object")
+    commands = doc.get("commands")
+    if not isinstance(commands, list):
+        raise ValueError("not a .astra file: `commands` must be an array")
+    out: list[dict[str, Any]] = []
+    for i, command in enumerate(commands):
+        if not isinstance(command, dict):
+            raise ValueError(f"not a .astra file: commands[{i}] is not a JSON object")
+        out.append({k: v for k, v in command.items() if k not in _ASTRA_FILE_LOCAL_FIELDS})
+    return out
+
+
+def propose_command_request(
+    key: str, command: Mapping[str, Any] | str, reason: str
+) -> plugin_pb2.PluginProposeCommandRequest:
+    """The ``PluginProposeCommandRequest`` :meth:`HostClient.propose_command` sends.
+
+    ``command`` is one portable command: a ``dict`` (serialised compactly, its
+    characters kept — a value JSON cannot represent, ``NaN`` or infinity or an
+    object ``json`` cannot encode, raises ``ValueError`` / ``TypeError`` here
+    instead of reaching the daemon as something else), or a ``str`` that is
+    already its JSON, sent as it is. Nothing else is checked: the key, the size
+    and the reason's length are the daemon's to judge (``REFUSED``), so the SDK
+    can never disagree with the Astra it talks to.
+    """
+    if isinstance(command, str):
+        command_json = command
+    elif isinstance(command, Mapping):
+        command_json = json.dumps(
+            dict(command), allow_nan=False, ensure_ascii=False, separators=(",", ":")
+        )
+    else:
+        raise TypeError(
+            "command is one portable command: a dict, or a str of its JSON — "
+            f"not {type(command).__name__} (a whole .astra file is split with "
+            "commands_from_astra_file)"
+        )
+    return plugin_pb2.PluginProposeCommandRequest(
+        key=key, command_json=command_json, reason=reason
     )
 
 
@@ -324,7 +458,10 @@ class HostClient:
 
         Needs the ``request_settings_change`` permission (not high-risk:
         nothing changes without the person's Allow) and an account that opens
-        Astra. ``changes`` is ``{path: value}`` or ``(path, value)`` pairs —
+        Astra. **No Astra release answers it yet**: an Astra built without the
+        ``plugin-requests`` feature answers ``REFUSED`` / ``not_compiled``, and
+        one older than 2026-11-13 — every release today — fails the call with
+        ``UNIMPLEMENTED``, an error, not an outcome. ``changes`` is ``{path: value}`` or ``(path, value)`` pairs —
         dotted settings paths the assistant itself may change (``ai.model``,
         ``voice.tts_speed``; never the permission mode, a key or Tool Search),
         each value any JSON value; ``reason`` is shown on the card in the
@@ -358,7 +495,7 @@ class HostClient:
           ``reason_too_long`` (more than
           :data:`astra_plugin_sdk.limits.SETTINGS_CHANGE_REASON_MAX_CHARS`
           characters — refused, never cut), ``busy`` (one of this plugin's
-          requests is already waiting), ``rate_limited`` (two at once, then
+          requests is already waiting), ``rate_limited`` (a burst of two, then
           one every two minutes), ``not_assistant_editable``,
           ``invalid_value``, ``unknown_choice``, ``needs_api_key``,
           ``needs_stt_provider``, ``provider_unreachable``, ``stale`` (the
@@ -383,6 +520,95 @@ class HostClient:
         """
         return await self._stub.RequestSettingsChange(
             settings_change_request(changes, reason), metadata=self._metadata
+        )
+
+    async def propose_command(
+        self, key: str, command: Mapping[str, Any] | str, reason: str
+    ) -> plugin_pb2.PluginProposeCommandResponse:
+        """**Offer the person a command** to keep, on a card they answer.
+
+        Needs the ``propose_commands`` permission — **high-risk**: a command
+        the person keeps runs later, on its own triggers, as the person's own
+        command; its steps, built-ins such as a shell command included, run
+        without asking again — and an account that opens Astra. **No Astra
+        release answers it yet**: an Astra built without the
+        ``plugin-requests`` feature answers ``REFUSED`` / ``not_compiled``, and
+        one older than 2026-11-13 — every release today — fails the call with
+        ``UNIMPLEMENTED``, an error, not an outcome. ``key`` is this plugin's
+        own name for the command, 1 to 64 characters of ``a-z``, ``A-Z``,
+        ``0-9``, ``.``, ``_`` and ``-``; the same key offered again is the same
+        command, updated in place. ``command`` is ONE portable command — a
+        ``dict``, or a ``str`` of its JSON (split a ``.astra`` file with
+        :func:`commands_from_astra_file`) — read by the same reader as a
+        Workshop command: strict JSON, known action and trigger types only, the
+        local members (id, switch, folder, provenance) dropped, and it may use
+        Astra's built-in actions and triggers and **this plugin's own** —
+        never another plugin's.
+        ``reason`` is shown on the card in the plugin's own words.
+
+        The card names this plugin and the command and offers Review / Deny;
+        the command is kept only from Astra's Workshop sheet, which shows every
+        trigger by its full value and every step with what it may do, and an
+        Enable switch — never by a bare Allow.
+
+        The call **lasts until the person answers or the card expires** —
+        Astra's confirmation timeout, at least 30 s, 120 s unless the person
+        changed it — so never await it on a path that must answer quickly. The
+        SDK puts no deadline of its own on it. Offer one command at a time: a
+        second offer while one is waiting is ``busy``, even one that would be
+        ``UNCHANGED``. It answers ``response.outcome``:
+
+        * ``plugin_pb2.PLUGIN_PROPOSE_COMMAND_OUTCOME_SAVED`` — the person kept
+          it; ``response.enabled`` says whether the command is on after it
+          was kept (Astra may keep it switched off). Record it.
+        * ``plugin_pb2.PLUGIN_PROPOSE_COMMAND_OUTCOME_UNCHANGED`` — what is kept
+          under this key came from this very offer — also after the person
+          edited it. Nobody was asked.
+        * ``plugin_pb2.PLUGIN_PROPOSE_COMMAND_OUTCOME_DECLINED`` — the person
+          said no, now or to this very command before (until Astra restarts).
+          Record it: **do not offer it again unasked.** Astra's own memory of a
+          no ends at a restart, and a command the person deleted is offered as
+          new.
+        * ``plugin_pb2.PLUGIN_PROPOSE_COMMAND_OUTCOME_TIMED_OUT`` — nobody
+          answered before the card expired (no window open counts).
+        * ``plugin_pb2.PLUGIN_PROPOSE_COMMAND_OUTCOME_REFUSED`` — not asked, or
+          not kept: ``response.code`` says why, and ``response.error`` is a
+          ``PluginError`` — a sentence, and ``retry_after_ms`` for
+          ``rate_limited``. The words: ``not_compiled`` (this Astra was built
+          without the ``plugin-requests`` feature), ``locked``,
+          ``invalid_key``, ``reason_too_long`` (more than
+          :data:`astra_plugin_sdk.limits.PROPOSE_COMMAND_REASON_MAX_CHARS`
+          characters — refused, never cut), ``too_large`` (more than
+          :data:`astra_plugin_sdk.limits.PROPOSE_COMMAND_MAX_BYTES` bytes of
+          JSON), ``invalid_command`` (``error.message`` usually leads with the
+          Workshop's own code: ``E_COMMAND_FORMAT``,
+          ``E_COMMAND_UNKNOWN_ACTION``, … — not when the card itself cannot be
+          shown), ``foreign_plugin`` (it uses another
+          plugin's action or trigger), ``busy`` (one of this plugin's offers is
+          already waiting), ``rate_limited`` (a burst of two, then one every two
+          minutes), ``stopped`` (this plugin's authority ended first),
+          ``stale`` (the command it updates changed or went while the card was
+          up), ``write_refused``.
+
+        ::
+
+            commands = commands_from_astra_file(MORNING_FILE)
+            offered = await self.host.propose_command(
+                "morning-briefing", commands[0], "Reads you the news when you say good morning"
+            )
+            if offered.outcome == plugin_pb2.PLUGIN_PROPOSE_COMMAND_OUTCOME_REFUSED:
+                if offered.code == "rate_limited":
+                    retry_in = offered.error.retry_after_ms / 1000
+
+        The daemon is the authority on every limit; this client checks none
+        (see :func:`propose_command_request` for the one thing it does: a value
+        JSON cannot hold raises). A refusal by the gates — no grant, an account
+        that does not open Astra, an Astra older than this RPC
+        (``UNIMPLEMENTED``) — raises ``grpc.aio.AioRpcError`` like every host
+        call.
+        """
+        return await self._stub.ProposeCommand(
+            propose_command_request(key, command, reason), metadata=self._metadata
         )
 
     async def subscribe_events(self, event_types: list[str] | None = None, exclude_source_id: str = ""):

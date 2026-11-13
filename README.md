@@ -21,8 +21,8 @@ gRPC on loopback. Two services run in opposite directions:
 - `PluginHostService` — **plugin → daemon**. Astra serves it; your plugin calls
   out to log, fire a trigger, set a variable, push to the UI.
 
-48 hooks across the two, protocol version 1, one source of truth in
-[`spec/hooks.yaml`](spec/hooks.yaml). All three SDKs implement all 48 — see
+49 hooks across the two, protocol version 1, one source of truth in
+[`spec/hooks.yaml`](spec/hooks.yaml). All three SDKs implement all 49 — see
 the generated hook-parity page under [`docs/en/`](docs/en/README.md), which
 `tools/parity` renders from that file and CI drift-checks.
 
@@ -54,19 +54,19 @@ error rather than a silently-dropped line
 
 Capabilities are the inbound direction only. The outbound direction —
 which host RPCs your plugin is allowed to call — is `[permissions]`, and it is
-**default-deny**. Of the fifteen host RPCs, four are always allowed (`Register`,
-`GetPluginSelfConfig`, `PluginLog`, `GetDaemonInfo`) and eleven are gated on a
+**default-deny**. Of the sixteen host RPCs, four are always allowed (`Register`,
+`GetPluginSelfConfig`, `PluginLog`, `GetDaemonInfo`) and twelve are gated on a
 consented permission; two more permissions (`dom_access`, `client`) gate a
 surface rather than a call, and one (`receive_attachments`) gates what the
 daemon sends a tool. The table lives in the daemon at
 `astra-daemon/src/plugins/host_service.rs` (`HOST_RPC_PERMISSIONS`) and a test
 there fails if a new host RPC ships ungated.
 
-Thirteen permission ids, each with a `reason` you write and the user reads on the
+Fourteen permission ids, each with a `reason` you write and the user reads on the
 install consent sheet: `fire_trigger`, `subscribe_events`, `set_variable`,
 `send_chat_message`, `push_to_ui`, `set_theme_contribution`, `dom_access`,
 `client`, `read_ai_settings`, `speak`, `read_user_identity`,
-`receive_attachments`, `request_settings_change`.
+`receive_attachments`, `request_settings_change`, `propose_commands`.
 
 ### What a plugin is **not**
 

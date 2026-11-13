@@ -257,6 +257,89 @@ test("the recording host keeps a deep copy of what was asked, as the daemon woul
   assert.deepEqual(host.settingsChangeRequests()[0].changes, [{ path: "x.obj", value: { a: [1, "two"] } }]);
 });
 
+test("ctx.proposeCommand() reaches the recording host, which records it and answers SAVED", async () => {
+  const host = new RecordingHost("demo");
+  const h = await Harness.create(demo().app).withHost(host).start();
+  const offered = await h.plugin.ctx().proposeCommand(
+    "morning",
+    { name: "Good morning", triggers: [{ type: "text", phrases: ["good morning"] }], actions: [] },
+    "reads you the news"
+  );
+  assert.deepEqual(offered, { outcome: "SAVED", enabled: true, code: "" });
+  assert.deepEqual(host.commandOffers(), [
+    {
+      key: "morning",
+      commandJson: '{"name":"Good morning","triggers":[{"type":"text","phrases":["good morning"]}],"actions":[]}',
+      reason: "reads you the news",
+    },
+  ]);
+});
+
+test("a REFUSED offer surfaces its code and wait, and the offer is still recorded", async () => {
+  const host = new RecordingHost("demo");
+  host.commandOfferResult = {
+    outcome: "REFUSED",
+    enabled: false,
+    code: "rate_limited",
+    error: {
+      code: "PLUGIN_ERROR_RATE_LIMITED",
+      message: "too many command offers",
+      hint: "",
+      configField: "",
+      retryAfterMs: 120000,
+      docUrl: "",
+    },
+  };
+  const h = await Harness.create(demo().app).withHost(host).start();
+  const offered = await h.plugin.ctx().proposeCommand("morning", '{"name":"x"}', "why");
+  assert.equal(offered.outcome, "REFUSED");
+  assert.equal(offered.code, "rate_limited");
+  assert.equal(offered.enabled, false);
+  assert.equal(offered.error.retryAfterMs, 120000);
+  assert.deepEqual(host.commandOffers(), [{ key: "morning", commandJson: '{"name":"x"}', reason: "why" }]);
+});
+
+test("ctx.proposeCommand says plainly when the host predates it", async () => {
+  const host = new RecordingHost("demo");
+  host.proposeCommand = undefined;
+  const h = await Harness.create(demo().app).withHost(host).start();
+  await assert.rejects(
+    () => h.plugin.ctx().proposeCommand("k", { name: "x" }, "why"),
+    /does not implement proposeCommand \(ProposeCommand\)/
+  );
+});
+
+test("a denied propose_commands grant is a rejection, not an outcome", async () => {
+  const host = new RecordingHost("demo");
+  host.failAlways("proposeCommand", new Error("permission denied: propose_commands"));
+  const h = await Harness.create(demo().app).withHost(host).start();
+  await assert.rejects(
+    () => h.plugin.ctx().proposeCommand("k", { name: "x" }, "why"),
+    /permission denied: propose_commands/
+  );
+  assert.deepEqual(host.commandOffers(), []);
+});
+
+test("a command JSON cannot hold is refused before anything is recorded or sent", async () => {
+  const host = new RecordingHost("demo");
+  for (const command of [
+    { name: "x", priority: Number.NaN },
+    { name: "x", nested: { n: Number.POSITIVE_INFINITY } },
+    { name: "x", tags: ["a", undefined] },
+    { name: "x", tags: [() => 1] },
+    [{ name: "x" }],
+    undefined,
+    null,
+    42,
+  ]) {
+    await assert.rejects(
+      () => host.proposeCommand("k", command, "why"),
+      (e) => e instanceof TypeError && /command/.test(e.message)
+    );
+  }
+  assert.deepEqual(host.commandOffers(), []);
+});
+
 test("ctx.requestSettingsChange says plainly when the host predates it", async () => {
   const host = new RecordingHost("demo");
   host.requestSettingsChange = undefined;

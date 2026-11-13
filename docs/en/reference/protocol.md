@@ -11,14 +11,14 @@
 
 # Protocol reference
 
-Protocol generation **1**. 10 services, 200 RPCs. Source: [`proto/plugin.proto`](../../../proto/plugin.proto), a generated slice of Astra's `astra.proto` (`surface-sha256: 828036790246a89f…`, the digest of the plugin-facing body you are reading about), pinned by [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) at `sha256:97a23c6a59ad86f8…`. Every vendored copy in the three SDKs has that same hash; `tools/check-proto.sh` is what says so.
+Protocol generation **1**. 10 services, 201 RPCs. Source: [`proto/plugin.proto`](../../../proto/plugin.proto), a generated slice of Astra's `astra.proto` (`surface-sha256: 52fb82747b2a7a5f…`, the digest of the plugin-facing body you are reading about), pinned by [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) at `sha256:d8d9f6fdc58b5c67…`. Every vendored copy in the three SDKs has that same hash; `tools/check-proto.sh` is what says so.
 
 ## The three plugin services
 
 | Service | Direction | RPCs | Who serves it |
 |---|---|---|---|
 | [`PluginCapabilityService`](#plugincapabilityservice) | daemon → plugin | 33 | your plugin |
-| [`PluginHostService`](#pluginhostservice) | plugin → daemon | 15 | the daemon |
+| [`PluginHostService`](#pluginhostservice) | plugin → daemon | 16 | the daemon |
 | [`PluginService`](#pluginservice) | UI → daemon | 23 | the daemon |
 
 The protocol generation is the contract. A plugin sends it in `PluginRegisterRequest.protocol_version` and the daemon answers with its own floor in `PluginRegisterResponse.min_supported_protocol`; `sdk_name` and `sdk_version` ride along for triage and gate nothing.
@@ -84,6 +84,7 @@ The protocol generation is the contract. A plugin sends it in `PluginRegisterReq
 | `StopSpeaking` | `speak` | `Empty` | `Empty` | unary | live | Stop everything this plugin asked to be said, sounding and queued, and nothing else Astra is saying. |
 | `GetUserIdentity` | `read_user_identity` | `Empty` | `PluginUserIdentity` | unary | live | Pseudonyms for this installation and the signed-in account, made for this plugin alone; never the account's own id, a name, an email or a hardware serial. |
 | `RequestSettingsChange` | `request_settings_change` | `PluginSettingsChangeRequest` | `PluginSettingsChangeResponse` | unary | live | Ask the person to change some of Astra's settings — only the ones the assistant itself may change — on a card they answer; nothing changes without their Allow. |
+| `ProposeCommand` | `propose_commands` | `PluginProposeCommandRequest` | `PluginProposeCommandResponse` | unary | live | Offer the person one portable command to keep, under this plugin's own key; they keep it only from Astra's Workshop sheet, which shows every trigger and step. |
 
 `none` means every plugin may always call it — the bootstrap set, which the daemon does not run a permission check on at all. It is a claim about the daemon, not a shrug: the column comes from [`spec/hooks.yaml`](../../../spec/hooks.yaml), and parity rule R6 checks every row of it against `HOST_RPC_PERMISSIONS` in the daemon's `plugins/host_service.rs`, which is the table `require_permission` reads. A host RPC with no row there is ungated, and R6 calls that a security finding rather than a spec typo.
 

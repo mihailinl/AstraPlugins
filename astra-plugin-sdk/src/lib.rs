@@ -71,6 +71,7 @@ pub mod proto {
 
 mod auth;
 mod capability;
+mod command_offer;
 mod context;
 mod daemon_client;
 mod error;
@@ -89,6 +90,7 @@ pub mod wire;
 
 pub use auth::CapabilityAuth;
 pub use capability::*;
+pub use command_offer::commands_from_astra_file;
 pub use music::{
     MusicControlRequest, MusicErrorCode, MusicItem, MusicPlayRequest, MusicPlayed, MusicPublisher,
     MusicQueue, MusicQueueRequest, MusicRefusal, MusicSearchRequest, MusicService, MusicSession,
@@ -302,6 +304,7 @@ pub mod schema {
 /// Everything a plugin normally needs, in one `use`.
 pub mod prelude {
     pub use crate::capability::*;
+    pub use crate::command_offer::commands_from_astra_file;
     pub use crate::music::{
         MusicControlRequest, MusicErrorCode, MusicItem, MusicPlayRequest, MusicPlayed, MusicPublisher,
         MusicQueue, MusicQueueRequest, MusicRefusal, MusicSearchRequest, MusicService, MusicSession,

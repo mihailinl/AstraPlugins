@@ -364,6 +364,44 @@ impl HostClient {
         Ok(resp.into_inner())
     }
 
+    /// Offer the person one command to keep, on a card they answer, and wait
+    /// for what became of it. Permission: `propose_commands` (high-risk).
+    ///
+    /// See [`Host::propose_command`] for the five outcomes and the words a
+    /// `Refused` answer's `code` carries. The daemon is the authority on the
+    /// limits — a key of 1 to 64 plain characters, at most
+    /// [`limits::PROPOSE_COMMAND_MAX_BYTES`](crate::limits::PROPOSE_COMMAND_MAX_BYTES)
+    /// bytes of JSON, and a reason of at most
+    /// [`limits::PROPOSE_COMMAND_REASON_MAX_CHARS`](crate::limits::PROPOSE_COMMAND_REASON_MAX_CHARS)
+    /// characters, refused (never cut) — so this client checks none of them.
+    ///
+    /// No deadline: the call lasts until the person answers or the card
+    /// expires (Astra's confirmation timeout, at least 30 s, and the person
+    /// may set it far longer), and a deadline here would cut an offer the
+    /// person was still reading.
+    ///
+    /// An `Err` is the gates, not the answer: no `propose_commands` grant, an
+    /// account that does not open Astra, or an Astra older than this RPC
+    /// (`UNIMPLEMENTED`).
+    pub async fn propose_command(
+        &self,
+        key: &str,
+        command_json: &str,
+        reason: &str,
+    ) -> Result<proto::PluginProposeCommandResponse> {
+        let resp = self
+            .client
+            .clone()
+            .propose_command(proto::PluginProposeCommandRequest {
+                key: key.to_string(),
+                command_json: command_json.to_string(),
+                reason: reason.to_string(),
+            })
+            .await
+            .map_err(|s| rpc_failed("ProposeCommand", s))?;
+        Ok(resp.into_inner())
+    }
+
     /// Subscribe to daemon events. Permission: `subscribe_events`.
     ///
     /// `exclude_source_id` — if non-empty, ChatMessageSync events from this
@@ -564,6 +602,15 @@ impl Host for HostClient {
         HostClient::request_settings_change(self, changes, reason).await
     }
 
+    async fn propose_command(
+        &self,
+        key: &str,
+        command_json: &str,
+        reason: &str,
+    ) -> Result<proto::PluginProposeCommandResponse> {
+        HostClient::propose_command(self, key, command_json, reason).await
+    }
+
     async fn set_variable(&self, name: &str, value: &str, scope: &str) -> Result<()> {
         HostClient::set_variable(self, name, value, scope).await
     }
@@ -620,6 +667,10 @@ mod tests {
         asked: Arc<Mutex<Vec<proto::PluginSettingsChangeRequest>>>,
         /// What `RequestSettingsChange` answers; `None` = applied.
         settings_answer: Option<proto::PluginSettingsChangeResponse>,
+        /// Every `ProposeCommand` as it arrived.
+        offered: Arc<Mutex<Vec<proto::PluginProposeCommandRequest>>>,
+        /// What `ProposeCommand` answers; `None` = saved, switched on.
+        offer_answer: Option<proto::PluginProposeCommandResponse>,
     }
 
     impl FakeDaemon {
@@ -804,6 +855,21 @@ mod tests {
             ))
         }
 
+        async fn propose_command(
+            &self,
+            req: tonic::Request<proto::PluginProposeCommandRequest>,
+        ) -> Result<tonic::Response<proto::PluginProposeCommandResponse>, tonic::Status> {
+            require_token(&req, &self.seen)?;
+            self.offered.lock().unwrap().push(req.into_inner());
+            Ok(tonic::Response::new(self.offer_answer.clone().unwrap_or(
+                proto::PluginProposeCommandResponse {
+                    outcome: proto::PluginProposeCommandOutcome::Saved as i32,
+                    enabled: true,
+                    ..Default::default()
+                },
+            )))
+        }
+
         async fn set_variable(
             &self,
             req: tonic::Request<proto::PluginSetVariableRequest>,
@@ -928,6 +994,16 @@ mod tests {
         assert_eq!(asked.outcome(), proto::PluginSettingsChangeOutcome::Applied);
         assert_eq!(seen.lock().unwrap().as_deref(), Some(TOKEN));
 
+        // And the defaulted command offer.
+        *seen.lock().unwrap() = None;
+        let offered = as_host
+            .propose_command("k", r#"{"name":"x"}"#, "why")
+            .await
+            .expect("Host::propose_command must reach ProposeCommand, not the default");
+        assert_eq!(offered.outcome(), proto::PluginProposeCommandOutcome::Saved);
+        assert!(offered.enabled);
+        assert_eq!(seen.lock().unwrap().as_deref(), Some(TOKEN));
+
         handle.abort();
     }
 
@@ -994,6 +1070,72 @@ mod tests {
         );
         assert_eq!(arrived[0].changes[9].value_json, r#""gpt-4.1""#);
         assert_eq!(arrived[0].reason, reason, "the reason whole, never cut");
+
+        handle.abort();
+    }
+
+    /// A `Refused` offer is an `Ok` that carries everything the daemon said —
+    /// the code word and the `PluginError` with its `retry_after_ms` — and the
+    /// offer reaches the daemon exactly as written. Nothing is checked or
+    /// trimmed on the way: a key the daemon refuses, JSON that is not a
+    /// command and a 200-character reason go out as they are, and the
+    /// daemon's refusal of them is what the plugin reads.
+    #[tokio::test]
+    async fn a_refused_command_offer_carries_its_code_and_wait() {
+        let offered = Arc::new(Mutex::new(Vec::new()));
+        let server = FakeDaemon {
+            offered: offered.clone(),
+            offer_answer: Some(proto::PluginProposeCommandResponse {
+                outcome: proto::PluginProposeCommandOutcome::Refused as i32,
+                code: "rate_limited".into(),
+                error: Some(proto::PluginError {
+                    code: proto::PluginErrorCode::PluginErrorRateLimited as i32,
+                    message: "too many command offers".into(),
+                    retry_after_ms: 120_000,
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        let (addr, handle, _) = server.serve().await;
+
+        let bootstrap = super::HostClient::connect_bootstrap(&addr, "test".into())
+            .await
+            .expect("bootstrap connect");
+        let (host, _) = bootstrap
+            .register(1234, vec!["tools".into()], "spawn-token".into())
+            .await
+            .expect("register");
+
+        let key = "not a key / far too long ".repeat(4);
+        let json = "[1, 2, 3]";
+        let reason = "é".repeat(200);
+        let answer = host
+            .propose_command(&key, json, &reason)
+            .await
+            .expect("an answer, not an Err");
+        assert_eq!(
+            answer.outcome(),
+            proto::PluginProposeCommandOutcome::Refused
+        );
+        assert_eq!(answer.code, "rate_limited");
+        assert!(!answer.enabled);
+        let why = answer.error.expect("Refused carries the PluginError");
+        assert_eq!(why.code(), proto::PluginErrorCode::PluginErrorRateLimited);
+        assert_eq!(why.retry_after_ms, 120_000);
+        assert_eq!(why.message, "too many command offers");
+
+        let arrived = offered.lock().unwrap().clone();
+        assert_eq!(
+            arrived,
+            vec![proto::PluginProposeCommandRequest {
+                key,
+                command_json: json.into(),
+                reason,
+            }],
+            "the key, the JSON and the reason whole, unchecked"
+        );
 
         handle.abort();
     }

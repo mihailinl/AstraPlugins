@@ -72,7 +72,7 @@ zip を誰かに送ることも公開ではありません。メンテナーに�
 | [CLI](reference/cli.md) | `clap` の定義、`astra-plugin --help` を実行して生成 |
 | [プロトコル](reference/protocol.md) | `proto/plugin.proto` |
 | [エラー](reference/errors.md) | 3 つの SDK すべてのエラー分類 |
-| [フックの対応表](reference/parity.md) | `spec/hooks.yaml` — 3 つの SDK すべてにある 48 個のフック |
+| [フックの対応表](reference/parity.md) | `spec/hooks.yaml` — 3 つの SDK すべてにある 49 個のフック |
 | [パーミッション](3-reference/permissions.md) | 手書き: 各パーミッションが何を許可するか、理由の書き方 |
 | [設定フィールド](3-reference/config-fields.md) | 手書き: 設定 UI、`[config]`、TTS/STT のフィールドフック |
 | [ウェイクワードプラグイン](wakeword-plugins.md) | 手書き: 音声ページへの組み込み、プラグイン設定、音声呼び出しの契約 |

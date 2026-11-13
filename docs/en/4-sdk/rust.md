@@ -176,7 +176,7 @@ From a place a parameter cannot reach — a `Drop` impl, a callback from a C
 library, a `std::thread` spawned at startup — `astra_plugin_sdk::ctx()` returns
 the running plugin's context, and `try_ctx()` the fallible version.
 
-### `Host` — the thirteen calls out
+### `Host` — the fourteen calls out
 
 | Method | Permission |
 |---|---|
@@ -188,6 +188,7 @@ the running plugin's context, and `try_ctx()` the fallible version.
 | `stop_speaking()` — stop everything this plugin asked to be said | `speak` |
 | `get_user_identity()` — pseudonyms for this installation and the signed-in account | `read_user_identity` |
 | `request_settings_change(changes, reason)` — ask the person to change some of Astra's settings, on a card they answer | `request_settings_change` |
+| `propose_command(key, command_json, reason)` — offer the person a command to keep, from Astra's Workshop sheet | `propose_commands` (high-risk) |
 | `fire_trigger(type, payload_json)` | `fire_trigger` |
 | `set_variable(name, value, scope)` | `set_variable` |
 | `push_to_ui(event, payload_json)` | `push_to_ui` |
@@ -222,11 +223,43 @@ by default — and the SDK puts no deadline on it, so never await it on a path t
 must answer quickly. `PluginSettingChange::new` serialises any
 `serde_json::Value` into `value_json`. At most `limits::SETTINGS_CHANGE_MAX_CHANGES`
 (8) changes and a reason of `limits::SETTINGS_CHANGE_REASON_MAX_CHARS` (140)
-characters; the daemon refuses more, the SDK checks nothing. It needs Astra built
-with the `plugin-requests` feature (else `Refused`, `not_compiled`) — no release
-has it yet. [Permissions](../3-reference/permissions.md#asking-the-person-to-change-a-setting)
+characters; the daemon refuses more, the SDK checks nothing. **No Astra release
+answers it yet**: an Astra built without the `plugin-requests` feature answers
+`Refused` / `not_compiled`, and one older than 2026-11-13 — every release today
+— fails the call with `UNIMPLEMENTED`, an `Err`, not an outcome.
+[Permissions](../3-reference/permissions.md#asking-the-person-to-change-a-setting)
 has the whole contract; `RecordingHost::set_settings_change_response` stages the
 answer and `settings_change_requests()` lists what your plugin asked for.
+
+`propose_command("morning", &serde_json::to_string(&command)?, "why")` offers
+the person one portable command to keep under your plugin's own `key` (1-64 of
+`a-z A-Z 0-9 . _ -`; the same key again updates the same command). They keep it
+only from Astra's Workshop sheet, which shows every trigger and step. The
+command may use Astra's built-in actions and triggers — a shell command, key
+presses, file operations — and your plugin's own, never another plugin's
+(`foreign_plugin`); once kept, its steps run as the person's own command,
+without asking again. Build the command in Astra, export it, ship the `.astra`
+file, and split it with `astra_plugin_sdk::commands_from_astra_file(text)?` —
+each command comes back as a `serde_json::Value` without the members that belong
+to one installation (`id`, `enabled`, the folder, the provenance); a file of
+another shape is an error. It returns `proto::PluginProposeCommandResponse`:
+read `outcome()` — `Saved` (with `enabled`: whether the command is on after it
+was kept), `Unchanged` (what is kept under the key came from this very offer,
+also after the person edited it; nobody was asked), `Declined` (record it; **do
+not offer it again unasked**), `TimedOut`, or `Refused` with `code`
+(`foreign_plugin`, `invalid_command`, `rate_limited`, `busy`, …) and
+`error.retry_after_ms`. **The call lasts until the person answers or the card
+expires**, and the SDK puts no deadline on it; offer one command at a time — a
+second offer while one waits is `busy`. At most
+`limits::PROPOSE_COMMAND_MAX_BYTES` (1 MiB) of JSON and a reason of
+`limits::PROPOSE_COMMAND_REASON_MAX_CHARS` (140) characters; the daemon refuses
+more, the SDK checks nothing. **No Astra release answers it yet**: an Astra
+built without the `plugin-requests` feature answers `Refused` / `not_compiled`,
+and one older than 2026-11-13 — every release today — fails the call with
+`UNIMPLEMENTED`, an `Err`, not an outcome.
+[Permissions](../3-reference/permissions.md#offering-the-person-a-command) has
+the whole contract; `RecordingHost::set_command_offer_response` stages the
+answer and `command_offers()` lists what your plugin offered.
 
 `Host` is a trait, so a test can substitute `RecordingHost` and assert on what
 your plugin told Astra.

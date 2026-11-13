@@ -188,6 +188,7 @@ of a function that returns one — which is the shape
 | `stopSpeaking()` — stop everything this plugin asked to be said | `speak` |
 | `getUserIdentity()` — pseudonyms for this installation and the signed-in account | `read_user_identity` |
 | `requestSettingsChange(changes, reason)` — ask the person to change some of Astra's settings, on a card they answer | `request_settings_change` |
+| `proposeCommand(key, command, reason)` — offer the person a command to keep, from Astra's Workshop sheet | `propose_commands` (high-risk) |
 
 The wrappers take a **payload object** and stringify it for you;
 `ctx.host` is the raw client underneath, typed `Host | null`, whose
@@ -197,8 +198,8 @@ For the chat's provider, model and endpoint (never a key; needs
 `read_ai_settings`) call `ctx.getAiSettings()`: `Host.getAiSettings` is optional
 on the interface, and the wrapper throws a clear error when the host lacks it,
 so you never write `ctx.host?.getAiSettings?.()` yourself. `ctx.speak()`,
-`ctx.stopSpeaking()`, `ctx.getUserIdentity()` and `ctx.requestSettingsChange()`
-work the same way.
+`ctx.stopSpeaking()`, `ctx.getUserIdentity()`, `ctx.requestSettingsChange()` and
+`ctx.proposeCommand()` work the same way.
 
 `ctx.speak(text)` resolves with a `SpeakResult`: `outcome` is `"SPOKEN"`,
 `"STOPPED"` (silence was asked for — **not an error**; do not say it again
@@ -226,11 +227,45 @@ await it on a path that must answer quickly. A value JSON cannot hold (`NaN`,
 `undefined`, a function) throws a `TypeError` before anything is sent; nothing
 else is checked client-side — at most `limits.SETTINGS_CHANGE_MAX_CHANGES` (8)
 changes and a reason of `limits.SETTINGS_CHANGE_REASON_MAX_CHARS` (140)
-characters, and the daemon refuses more. It needs Astra built with the
-`plugin-requests` feature (else `"REFUSED"`, `not_compiled`) — no release has it
-yet. [Permissions](../3-reference/permissions.md#asking-the-person-to-change-a-setting)
+characters, and the daemon refuses more. **No Astra release answers it yet**: an
+Astra built without the `plugin-requests` feature answers `"REFUSED"` /
+`not_compiled`, and one older than 2026-11-13 — every release today — fails the
+call with `UNIMPLEMENTED`, a rejection, not an outcome.
+[Permissions](../3-reference/permissions.md#asking-the-person-to-change-a-setting)
 has the whole contract. In a test, `RecordingHost.settingsChangeResult` stages
 the answer and `settingsChangeRequests()` lists what was asked for.
+
+`ctx.proposeCommand("morning", command, "why")` offers the person one portable
+command to keep under your plugin's own `key` (1-64 of `a-z A-Z 0-9 . _ -`; the
+same key again updates the same command). They keep it only from Astra's
+Workshop sheet, which shows every trigger and step. The command may use Astra's
+built-in actions and triggers — a shell command, key presses, file operations —
+and your plugin's own, never another plugin's (`foreign_plugin`); once kept, its
+steps run as the person's own command, without asking again. `command` is an
+object, or a string that is already its JSON; build the command in Astra, export
+it, ship the `.astra` file, and split it with `commandsFromAstraFile(text)` —
+each command comes back as an object without the members that belong to one
+installation (`id`, `enabled`, the folder, the provenance); a file of another
+shape throws. It resolves with a `CommandOfferResult`: `outcome` is `"SAVED"`
+(with `enabled`: whether the command is on after it was kept), `"UNCHANGED"`
+(what is kept under the key came from this very offer, also after the person
+edited it; nobody was asked), `"DECLINED"` (record it; **do not offer it again
+unasked**), `"TIMED_OUT"`, or `"REFUSED"` with `code` (`foreign_plugin`,
+`invalid_command`, `rate_limited`, `busy`, …) and `error.retryAfterMs`; an
+outcome this SDK does not know reads as `"UNSPECIFIED"`. **The call lasts until
+the person answers or the card expires**, and the SDK puts no deadline on it;
+offer one command at a time — a second offer while one waits is `busy`. A
+command JSON cannot hold (`NaN`, `undefined` in a list) throws a `TypeError`
+before anything is sent; nothing else is checked client-side — at most
+`limits.PROPOSE_COMMAND_MAX_BYTES` (1 MiB) of JSON and a reason of
+`limits.PROPOSE_COMMAND_REASON_MAX_CHARS` (140) characters, and the daemon
+refuses more. **No Astra release answers it yet**: an Astra built without the
+`plugin-requests` feature answers `"REFUSED"` / `not_compiled`, and one older
+than 2026-11-13 — every release today — fails the call with `UNIMPLEMENTED`, a
+rejection, not an outcome.
+[Permissions](../3-reference/permissions.md#offering-the-person-a-command) has
+the whole contract. In a test, `RecordingHost.commandOfferResult` stages the
+answer and `commandOffers()` lists what was offered.
 
 `DaemonClient` is `@deprecated` (0.7.4): Astra refuses a plugin's session token
 on every service but `PluginHostService`, so it has done nothing since SDK

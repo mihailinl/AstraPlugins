@@ -1,0 +1,299 @@
+{
+  "schema": "astra.astra-file.vectors/1",
+  "why": [
+    "`commands_from_astra_file` / `commandsFromAstraFile` splits a `.astra` file",
+    "(what Astra's Commands page exports) into the portable commands a plugin",
+    "offers with `proposeCommand`, one at a time. Three SDKs carry it; this file",
+    "is the one answer all three are held to, so the question a test answers is",
+    "not \"does Rust still do what Rust did\" but \"do the three agree\".",
+    "Read by astra-plugin-sdk/src/command_offer.rs (tests),",
+    "astra-plugin-sdk-python/tests/test_command_offer.py and",
+    "astra-plugin-sdk-ts/tools/command-offer.test.mjs.",
+    "",
+    "The format is Astra's astra-ui/src/lib/commandTransfer.ts:",
+    "{format: \"astra-commands\", version, commands: [...]} and",
+    "{format: \"astra-group\", version, group: {name}, commands: [...]}. The",
+    "members dropped from each command are `source_id` and Astra's",
+    "portable_schema.rs::LOCAL_FIELDS — the daemon drops them anyway; the helper",
+    "keeps the offer clean."
+  ],
+  "how_to_read_this": {
+    "accepted": "`text` is the exact file text; the helper must return exactly `commands`, in order (member order is not significant).",
+    "refused": "`text` is the exact file text; the helper must fail, and its error message must contain `mentions`.",
+    "local_fields": "the members removed from every command, top level only — each SDK's own list must EQUAL this one.",
+    "unsafe_integers": "numbers Rust and Python read exactly and a JavaScript number cannot: Rust and Python must return `commands`; TypeScript must refuse with an error containing `ts_mentions`, never round."
+  },
+  "local_fields": [
+    "source_id",
+    "id",
+    "created_at",
+    "updated_at",
+    "group_id",
+    "enabled",
+    "marketplace_source",
+    "catalogue_source",
+    "plugin_source"
+  ],
+  "accepted": [
+    {
+      "name": "commands-file",
+      "note": "What Astra's Export writes: `source_id` and `enabled` on every command, the provenance members null. Only TOP-LEVEL local members go: an `id` inside an action is the action's own.",
+      "text": "{\n  \"format\": \"astra-commands\",\n  \"version\": 1,\n  \"commands\": [\n    {\n      \"name\": \"Good morning\",\n      \"description\": \"Reads the news when you say good morning\",\n      \"triggers\": [\n        {\n          \"type\": \"text\",\n          \"phrases\": [\n            \"good morning\"\n          ]\n        }\n      ],\n      \"actions\": [\n        {\n          \"type\": \"dynamic\",\n          \"handler_id\": \"plugin__news__read_headlines\",\n          \"params\": {\n            \"count\": 5\n          }\n        }\n      ],\n      \"enabled\": true,\n      \"tags\": [\n        \"morning\"\n      ],\n      \"slash_enabled\": false,\n      \"slash_description\": \"\",\n      \"priority\": 0,\n      \"catalogue_source\": null,\n      \"marketplace_source\": null,\n      \"source_id\": \"6f1c2a9e-0d4b-4c3e-9f7a-2b8e5d1c0a11\"\n    },\n    {\n      \"name\": \"Quiet hours\",\n      \"triggers\": [],\n      \"actions\": [\n        {\n          \"id\": \"kept-inside-an-action\",\n          \"type\": \"notify\",\n          \"title\": \"Shh\",\n          \"message\": \"Quiet hours\"\n        }\n      ],\n      \"enabled\": false,\n      \"source_id\": \"0a4d7c2e-8b1f-4e6a-a3c5-9d2f7e1b4c22\"\n    }\n  ]\n}\n",
+      "commands": [
+        {
+          "name": "Good morning",
+          "description": "Reads the news when you say good morning",
+          "triggers": [
+            {
+              "type": "text",
+              "phrases": [
+                "good morning"
+              ]
+            }
+          ],
+          "actions": [
+            {
+              "type": "dynamic",
+              "handler_id": "plugin__news__read_headlines",
+              "params": {
+                "count": 5
+              }
+            }
+          ],
+          "tags": [
+            "morning"
+          ],
+          "slash_enabled": false,
+          "slash_description": "",
+          "priority": 0
+        },
+        {
+          "name": "Quiet hours",
+          "triggers": [],
+          "actions": [
+            {
+              "id": "kept-inside-an-action",
+              "type": "notify",
+              "title": "Shh",
+              "message": "Quiet hours"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "group-file",
+      "note": "A group export, hand-edited to carry every local member a command has in Astra: all of them dropped, an unknown member kept for the daemon to judge.",
+      "text": "{\n  \"format\": \"astra-group\",\n  \"version\": 1,\n  \"group\": {\n    \"name\": \"Mornings\"\n  },\n  \"commands\": [\n    {\n      \"id\": \"11111111-2222-3333-4444-555555555555\",\n      \"created_at\": \"2026-11-01T08:00:00Z\",\n      \"updated_at\": \"2026-11-02T08:00:00Z\",\n      \"group_id\": \"66666666-7777-8888-9999-000000000000\",\n      \"plugin_source\": {\n        \"plugin_id\": \"news\",\n        \"key\": \"morning\",\n        \"digest\": \"abc\"\n      },\n      \"name\": \"Coffee\",\n      \"triggers\": [\n        {\n          \"type\": \"text\",\n          \"phrases\": [\n            \"coffee\"\n          ]\n        }\n      ],\n      \"actions\": [],\n      \"x_future_field\": {\n        \"kept\": [\n          1,\n          \"two\",\n          null\n        ]\n      }\n    }\n  ]\n}\n",
+      "commands": [
+        {
+          "name": "Coffee",
+          "triggers": [
+            {
+              "type": "text",
+              "phrases": [
+                "coffee"
+              ]
+            }
+          ],
+          "actions": [],
+          "x_future_field": {
+            "kept": [
+              1,
+              "two",
+              null
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "empty",
+      "note": "A file with no commands is a file, and offers nothing.",
+      "text": "{\"format\":\"astra-commands\",\"version\":1,\"commands\":[]}",
+      "commands": []
+    },
+    {
+      "name": "a-later-version",
+      "note": "`version` is a number, as the format declares it; which number is not the helper's business — the daemon reads every command it is offered.",
+      "text": "{\"format\":\"astra-commands\",\"version\":2,\"commands\":[{\"name\":\"x\"}]}",
+      "commands": [
+        {
+          "name": "x"
+        }
+      ]
+    },
+    {
+      "name": "graph-mode",
+      "note": "A graph-mode command — `editor_mode` and `workflow` — travels whole; ids INSIDE the workflow are the graph's own, not local members.",
+      "text": "{\n  \"format\": \"astra-commands\",\n  \"version\": 1,\n  \"commands\": [\n    {\n      \"id\": \"00000000-0000-4000-8000-000000000005\",\n      \"name\": \"On crit\",\n      \"editor_mode\": \"graph\",\n      \"triggers\": [],\n      \"actions\": [],\n      \"enabled\": true,\n      \"workflow\": {\n        \"nodes\": {\n          \"t\": {\n            \"id\": \"t\",\n            \"node_type\": \"trigger\",\n            \"data\": {\n              \"trigger_type\": \"plugin__dice-roller__on_natural_20\"\n            }\n          },\n          \"a\": {\n            \"id\": \"a\",\n            \"node_type\": \"action\",\n            \"data\": {\n              \"action_type\": \"speak\",\n              \"config\": {\n                \"text\": \"Natural twenty!\"\n              }\n            }\n          }\n        },\n        \"edges\": {\n          \"e1\": {\n            \"id\": \"e1\",\n            \"source_node\": \"t\",\n            \"target_node\": \"a\"\n          }\n        },\n        \"edge_order\": [\n          \"e1\"\n        ]\n      },\n      \"source_id\": \"00000000-0000-4000-8000-000000000005\"\n    }\n  ]\n}\n",
+      "commands": [
+        {
+          "name": "On crit",
+          "editor_mode": "graph",
+          "triggers": [],
+          "actions": [],
+          "workflow": {
+            "nodes": {
+              "t": {
+                "id": "t",
+                "node_type": "trigger",
+                "data": {
+                  "trigger_type": "plugin__dice-roller__on_natural_20"
+                }
+              },
+              "a": {
+                "id": "a",
+                "node_type": "action",
+                "data": {
+                  "action_type": "speak",
+                  "config": {
+                    "text": "Natural twenty!"
+                  }
+                }
+              }
+            },
+            "edges": {
+              "e1": {
+                "id": "e1",
+                "source_node": "t",
+                "target_node": "a"
+              }
+            },
+            "edge_order": [
+              "e1"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "duplicate-members",
+      "note": "A member given twice collapses to the LAST one in all three SDKs (serde_json, Python's json and JSON.parse agree). The daemon's strict reader would have refused the duplicate; the helper re-serialises, so what is offered is the last value alone.",
+      "text": "{\"format\":\"astra-commands\",\"version\":1,\"commands\":[{\"name\":\"first\",\"actions\":[],\"name\":\"second\"}]}",
+      "commands": [
+        {
+          "name": "second",
+          "actions": []
+        }
+      ]
+    },
+    {
+      "name": "proto-member",
+      "note": "A top-level `__proto__` member is an ordinary key: kept as data, never a prototype (TypeScript builds the command with Object.fromEntries).",
+      "text": "{\"format\":\"astra-commands\",\"version\":1,\"commands\":[{\"name\":\"x\",\"__proto__\":{\"polluted\":true}}]}",
+      "commands": [
+        {
+          "name": "x",
+          "__proto__": {
+            "polluted": true
+          }
+        }
+      ]
+    }
+  ],
+  "refused": [
+    {
+      "name": "not-json",
+      "text": "{\"format\": \"astra-commands\", ",
+      "mentions": "not JSON"
+    },
+    {
+      "name": "nan-is-not-json",
+      "text": "{\"format\":\"astra-commands\",\"version\":NaN,\"commands\":[]}",
+      "mentions": "not JSON"
+    },
+    {
+      "name": "a-list",
+      "text": "[]",
+      "mentions": "JSON object"
+    },
+    {
+      "name": "a-string",
+      "text": "\"astra-commands\"",
+      "mentions": "JSON object"
+    },
+    {
+      "name": "one-portable-command",
+      "note": "One command on its own is what `proposeCommand` takes, not a .astra file.",
+      "text": "{\"name\":\"Morning\",\"triggers\":[],\"actions\":[]}",
+      "mentions": "`format`"
+    },
+    {
+      "name": "legacy-single-command",
+      "note": "The pre-group `astra-command` format; Astra still imports it, the helper does not read it.",
+      "text": "{\"format\":\"astra-command\",\"version\":1,\"command\":{\"name\":\"x\"}}",
+      "mentions": "`format`"
+    },
+    {
+      "name": "no-version",
+      "text": "{\"format\":\"astra-commands\",\"commands\":[]}",
+      "mentions": "`version`"
+    },
+    {
+      "name": "version-as-text",
+      "text": "{\"format\":\"astra-commands\",\"version\":\"1\",\"commands\":[]}",
+      "mentions": "`version`"
+    },
+    {
+      "name": "version-as-bool",
+      "text": "{\"format\":\"astra-commands\",\"version\":true,\"commands\":[]}",
+      "mentions": "`version`"
+    },
+    {
+      "name": "group-without-group",
+      "text": "{\"format\":\"astra-group\",\"version\":1,\"commands\":[]}",
+      "mentions": "`group`"
+    },
+    {
+      "name": "group-as-text",
+      "text": "{\"format\":\"astra-group\",\"version\":1,\"group\":\"Mornings\",\"commands\":[]}",
+      "mentions": "`group`"
+    },
+    {
+      "name": "no-commands",
+      "text": "{\"format\":\"astra-commands\",\"version\":1}",
+      "mentions": "`commands`"
+    },
+    {
+      "name": "commands-as-object",
+      "text": "{\"format\":\"astra-commands\",\"version\":1,\"commands\":{\"name\":\"x\"}}",
+      "mentions": "`commands`"
+    },
+    {
+      "name": "a-command-that-is-not-an-object",
+      "text": "{\"format\":\"astra-commands\",\"version\":1,\"commands\":[{\"name\":\"x\"},\"y\"]}",
+      "mentions": "commands[1]"
+    },
+    {
+      "name": "number-overflow",
+      "note": "1e400 is no finite number: serde_json refuses it, and Python and TypeScript refuse it rather than read infinity.",
+      "text": "{\"format\":\"astra-commands\",\"version\":1,\"commands\":[{\"name\":\"x\",\"priority\":1e400}]}",
+      "mentions": "not JSON"
+    }
+  ],
+  "unsafe_integers": [
+    {
+      "name": "two-to-the-53-plus-one",
+      "text": "{\"format\":\"astra-commands\",\"version\":1,\"commands\":[{\"name\":\"x\",\"priority\":9007199254740993}]}",
+      "commands": [
+        {
+          "name": "x",
+          "priority": 9007199254740993
+        }
+      ],
+      "ts_mentions": "cannot hold exactly"
+    },
+    {
+      "name": "a-huge-integral-double",
+      "text": "{\"format\":\"astra-commands\",\"version\":1,\"commands\":[{\"name\":\"x\",\"priority\":1e300}]}",
+      "commands": [
+        {
+          "name": "x",
+          "priority": 1e+300
+        }
+      ],
+      "ts_mentions": "cannot hold exactly"
+    }
+  ]
+}

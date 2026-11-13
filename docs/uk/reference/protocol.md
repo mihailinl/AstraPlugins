@@ -2,12 +2,12 @@
 
 # Довідник протоколу
 
-Покоління протоколу **1**. 10 сервісів, 200 RPC. Джерело:
+Покоління протоколу **1**. 10 сервісів, 201 RPC. Джерело:
 [`proto/plugin.proto`](../../../proto/plugin.proto), згенерований зріз
-`astra.proto` Astra (`surface-sha256: 828036790246a89f…` — дайджест
+`astra.proto` Astra (`surface-sha256: 52fb82747b2a7a5f…` — дайджест
 оберненого до плагінів тіла, про яке тут і йдеться), закріплений
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) на
-`sha256:97a23c6a59ad86f8…`. У кожної завендореної копії в трьох SDK той
+`sha256:d8d9f6fdc58b5c67…`. У кожної завендореної копії в трьох SDK той
 самий хеш; `tools/check-proto.sh` — те, що це підтверджує.
 
 ## Три сервіси плагіна
@@ -15,7 +15,7 @@
 | Сервіс | Напрямок | RPC | Хто обслуговує |
 |---|---|---|---|
 | [`PluginCapabilityService`](#plugincapabilityservice) | демон → плагін | 33 | ваш плагін |
-| [`PluginHostService`](#pluginhostservice) | плагін → демон | 15 | демон |
+| [`PluginHostService`](#pluginhostservice) | плагін → демон | 16 | демон |
 | [`PluginService`](#pluginservice) | UI → демон | 23 | демон |
 
 Покоління протоколу — це контракт. Плагін надсилає його в
@@ -92,6 +92,7 @@ RPC тут — хук, який ви реалізуєте, і `UNIMPLEMENTED` �
 | `StopSpeaking` | `speak` | `Empty` | `Empty` | unary | live | Stop everything this plugin asked to be said, sounding and queued, and nothing else Astra is saying. |
 | `GetUserIdentity` | `read_user_identity` | `Empty` | `PluginUserIdentity` | unary | live | Pseudonyms for this installation and the signed-in account, made for this plugin alone; never the account's own id, a name, an email or a hardware serial. |
 | `RequestSettingsChange` | `request_settings_change` | `PluginSettingsChangeRequest` | `PluginSettingsChangeResponse` | unary | live | Ask the person to change some of Astra's settings — only the ones the assistant itself may change — on a card they answer; nothing changes without their Allow. |
+| `ProposeCommand` | `propose_commands` | `PluginProposeCommandRequest` | `PluginProposeCommandResponse` | unary | live | Offer the person one portable command to keep, under this plugin's own key; they keep it only from Astra's Workshop sheet, which shows every trigger and step. |
 | `GetAiSettings` | `read_ai_settings` | `GetAiSettingsRequest` | `PluginAiSettings` | unary | live | The user's chat provider, model and endpoint (never a key), so a plugin never reads Astra's files for them. |
 
 `none` означає, що будь-який плагін може викликати це завжди — стартовий

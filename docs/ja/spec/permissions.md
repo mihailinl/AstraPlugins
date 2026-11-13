@@ -24,7 +24,7 @@
 
 ## 1. 語彙
 
-13 個の id、閉じた集合です(`astra-plugin-manifest/src/permissions.rs`、
+14 個の id、閉じた集合です(`astra-plugin-manifest/src/permissions.rs`、
 `PERMISSION_NAMES`、テストによって enum に固定されています)。レジス
 トリは、リスト掲載の id をこのリストに対して検証し、Astra のローカライズ
 されたラベルテーブルもこれをキーとしているため、ある場所には追加され
@@ -45,8 +45,9 @@
 | `read_user_identity` | `GetUserIdentity` | このインストールとサインイン中のアカウントの、呼び出したプラグイン専用に作られた仮名 ID を読む — アカウント自身の id、名前、メールアドレス、ハードウェアのシリアル番号であることは決してない | |
 | `receive_attachments` | *RPC なし* — **配送** | `wants_attachments` を宣言したツールの中で、呼び出しが応答するメッセージに人が添付した画像を受け取る (`PluginCallToolRequest.attachments`) | ● |
 | `request_settings_change` | `RequestSettingsChange` | 本人が応答するカードで、Astra の設定の一部を変えるよう頼む — 頼めるのはアシスタント自身が変更できる設定だけ。本人が許可しない限り何も変わらない。さらに Astra を利用できるアカウントが必要 | |
+| `propose_commands` | `ProposeCommand` | 残してもらうポータブルなコマンドを 1 つ本人に提案する。Workshop のコマンドと同じように読まれ、使えるのは Astra の組み込みのアクションとトリガーと、呼び出したプラグイン自身のもの — 他のプラグインのものは決して使えない(`foreign_plugin`)。残されるのは、すべてのトリガーとすべての手順を見せる Workshop のシートからだけ。Astra を利用できるアカウントも必要 | ● |
 
-**●が付いた 7 つは高リスク**(`HIGH_RISK_PERMISSIONS`)であり、それぞれ
+**●が付いた 8 つは高リスク**(`HIGH_RISK_PERMISSIONS`)であり、それぞれ
 が独自の同意チェックボックスを得ます。計画の §4.3 は 4 つのチェック
 ボックスを詳述し `push_to_ui` を省略していますが、§5.6 は 5 つを一覧
 します。実装は**和集合**を取ります。なぜなら、この不一致は UI の段落と
@@ -58,6 +59,16 @@
 (§5)— アナウンスはプラグインが望むごく普通のことであり、チェックボックスが
 その判断です。`receive_attachments` も同じ日に同じ条件で加わりました: 人の
 写真がサードパーティのコードに届くからです。
+`propose_commands` は 2026-11-13 に加わりました: 本人が残したコマンドは、
+それをもたらした提案のずっと後に、そのトリガーによって、本人自身の
+コマンドとして実行され、その手順はシェルコマンドのような組み込みのものも
+含めて改めて尋ねることなく実行されるからです。これもティア 2 のインポートに対しては拒否されません —
+提案のたびにカードが出て、コマンドが残されるのは Workshop のシートから
+だけで、シートはすべてのトリガーを完全な値で、すべての手順をそれが
+できることと共に見せます。毎回のシートそのものが判断です。デーモンが
+これに応えるのは `plugin-requests` ビルド機能付きでビルドされたときだけで
+(まだどのリリースにもありません)、それ以外では `not_compiled` として
+拒否します。
 
 `speak` は 2 つの RPC をゲートする唯一の id です: 自分の発話を止めることは
 話すことの一部だからです。`read_ai_settings` と `read_user_identity` は意図的に
@@ -170,6 +181,7 @@ Astra が知らない何かを要求していることが伝えられます。
 | `StopSpeaking` | `speak` |
 | `GetUserIdentity` | `read_user_identity` |
 | `RequestSettingsChange` | `request_settings_change` |
+| `ProposeCommand` | `propose_commands` |
 
 `GetDaemonInfo` は、計画の 3 つのリストへの 1 つの追加であり、見落とし
 ではなく意思決定です: これは `version`、`state`、`grpc_port`、
@@ -295,12 +307,13 @@ true` — プラグイン自身のディレクトリ内のファイルの 1 行 
    インストールごとの答え;
 2. **上限(ceiling)** — どんなレコードも買い越せない出所ごとのルール。
 
-`require_permission` は、パーミッションをゲートする 11 個のホスト RPC
+`require_permission` は、パーミッションをゲートする 12 個のホスト RPC
 — `SubscribeEvents`、`SendChatMessage`、`FireTrigger`、
 `SetVariable`、`SetThemeContribution`、`PushToUi`、`GetAiSettings`、`Speak`、
-`StopSpeaking`、`GetUserIdentity`、`RequestSettingsChange` — に対して 1 つ目を
-尋ねます(`Speak` と `RequestSettingsChange` はさらに Astra を利用できる
-アカウントを必要とします。`require_authorized_plugin`)。残りの 4 つ(`Register`、`GetPluginSelfConfig`、
+`StopSpeaking`、`GetUserIdentity`、`RequestSettingsChange`、`ProposeCommand`
+— に対して 1 つ目を尋ねます(`SendChatMessage`、`FireTrigger`、`Speak`、
+`RequestSettingsChange`、`ProposeCommand` はさらに Astra を利用できるアカウントを必要とします。
+`require_authorized_plugin`)。残りの 4 つ(`Register`、`GetPluginSelfConfig`、
 `PluginLog`、`GetDaemonInfo`)は `HOST_RPC_PERMISSIONS` の中で `None`
 を運び、常に許可されます; §2 に表と理由があります。
 `ceiling_admits` は、*サーフェス*が渡されるあらゆる場所 —
@@ -337,8 +350,8 @@ directory」バッジを求めています; **そのバッジは今日 UI には
 
 ティア 2 の拒否リストは `TIER2_REFUSED_PERMISSIONS` です — 意図的に
 `HIGH_RISK_PERMISSIONS` と**同じリストではありません**: `push_to_ui`、
-`speak`、`receive_attachments` はチェックボックスに値するものの、ユーザーが選んでインポートしたファイル
-を拒否するには値しません。この 4 つは §5.5 から引用されたものであり、
+`speak`、`receive_attachments`、`propose_commands` はチェックボックスに値するものの、ユーザーが選んでインポートしたファイル
+を拒否するには値しません。拒否される 4 つは §5.5 から引用されたものであり、
 推測されたものではありません。
 
 **ティア 3 はティア 2 に素敵なバッジを付けたものではありません。** この

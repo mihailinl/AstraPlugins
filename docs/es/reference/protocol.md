@@ -2,13 +2,13 @@
 
 # Referencia del protocolo
 
-Generación de protocolo **1**. 10 servicios, 200 RPC. Fuente:
+Generación de protocolo **1**. 10 servicios, 201 RPC. Fuente:
 [`proto/plugin.proto`](../../../proto/plugin.proto), un recorte
 generado del `astra.proto` de Astra
-(`surface-sha256: 828036790246a89f…`, el digest del cuerpo orientado a
+(`surface-sha256: 52fb82747b2a7a5f…`, el digest del cuerpo orientado a
 plugins del que trata esta página), fijado por
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) en
-`sha256:97a23c6a59ad86f8…`. Cada copia vendorizada en los tres SDK tiene
+`sha256:d8d9f6fdc58b5c67…`. Cada copia vendorizada en los tres SDK tiene
 ese mismo hash; `tools/check-proto.sh` es lo que lo confirma.
 
 ## Los tres servicios de plugin
@@ -16,7 +16,7 @@ ese mismo hash; `tools/check-proto.sh` es lo que lo confirma.
 | Servicio | Dirección | RPC | Quién lo sirve |
 |---|---|---|---|
 | [`PluginCapabilityService`](#plugincapabilityservice) | daemon → plugin | 33 | tu plugin |
-| [`PluginHostService`](#pluginhostservice) | plugin → daemon | 15 | el daemon |
+| [`PluginHostService`](#pluginhostservice) | plugin → daemon | 16 | el daemon |
 | [`PluginService`](#pluginservice) | UI → daemon | 23 | el daemon |
 
 La generación de protocolo es el contrato. Un plugin la envía en
@@ -93,6 +93,7 @@ capabilities que declaraste.
 | `StopSpeaking` | `speak` | `Empty` | `Empty` | unary | live | Stop everything this plugin asked to be said, sounding and queued, and nothing else Astra is saying. |
 | `GetUserIdentity` | `read_user_identity` | `Empty` | `PluginUserIdentity` | unary | live | Pseudonyms for this installation and the signed-in account, made for this plugin alone; never the account's own id, a name, an email or a hardware serial. |
 | `RequestSettingsChange` | `request_settings_change` | `PluginSettingsChangeRequest` | `PluginSettingsChangeResponse` | unary | live | Ask the person to change some of Astra's settings — only the ones the assistant itself may change — on a card they answer; nothing changes without their Allow. |
+| `ProposeCommand` | `propose_commands` | `PluginProposeCommandRequest` | `PluginProposeCommandResponse` | unary | live | Offer the person one portable command to keep, under this plugin's own key; they keep it only from Astra's Workshop sheet, which shows every trigger and step. |
 | `GetAiSettings` | `read_ai_settings` | `GetAiSettingsRequest` | `PluginAiSettings` | unary | live | The user's chat provider, model and endpoint (never a key), so a plugin never reads Astra's files for them. |
 
 `none` significa que cualquier plugin puede llamarla siempre — el

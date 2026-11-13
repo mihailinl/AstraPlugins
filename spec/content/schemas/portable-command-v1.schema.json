@@ -1676,6 +1676,29 @@
       ],
       "type": "object"
     },
+    "PluginProvenance": {
+      "description": "Where a command a PLUGIN offered came from (`PluginHostService.ProposeCommand`, kept by the\nperson from its sheet): the plugin, its own key for the command, and the content digest of\nwhat it offered under that key — so the same offer again is recognised (nobody is asked) and\na different one is an update of this command. Set only by the daemon's keep of such an offer,\nnever by a save request; the portable form clears it (`command::portable::portable_command`).",
+      "properties": {
+        "digest": {
+          "description": "The content digest of the command as the plugin offered it (local members aside).",
+          "type": "string"
+        },
+        "key": {
+          "description": "The plugin's own name for the command.",
+          "type": "string"
+        },
+        "plugin_id": {
+          "description": "The plugin's id.",
+          "type": "string"
+        }
+      },
+      "required": [
+        "plugin_id",
+        "key",
+        "digest"
+      ],
+      "type": "object"
+    },
     "PressKeysAction": {
       "description": "Press keyboard keys",
       "properties": {
@@ -2281,7 +2304,7 @@
   },
   "$id": "https://astra.minice.ai/schemas/portable-command-v1.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "description": "A CommandDefinition as a .astra file or a Workshop catalogue command artefact carries it — the local fields (id, created_at, updated_at, group_id, enabled, marketplace_source, catalogue_source) are optional here; an installer stamps its own.",
+  "description": "A CommandDefinition as a .astra file or a Workshop catalogue command artefact carries it — the local fields (id, created_at, updated_at, group_id, enabled, marketplace_source, catalogue_source, plugin_source) are optional here; an installer stamps its own.",
   "properties": {
     "actions": {
       "description": "Actions to execute.\n\n`deserialize_actions` (`opening.rs`) migrates the legacy\n`{\"type\":\"execute\",\"shell\":\"open\",…}` shape to `open_application`\nBEFORE each element is decoded as an [`Action`] — but every field that\nshape sets (`shell`, `path`, `arguments`) already exists, unconstrained,\non [`ExecuteAction`], so the migration is invisible to this field's\nschema: that legacy shape, and today's `open_application` shape, both\nalready validate as themselves. The schema therefore needs no override\nhere, only this note.",
@@ -2352,6 +2375,17 @@
     "name": {
       "description": "Command name",
       "type": "string"
+    },
+    "plugin_source": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/PluginProvenance"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The plugin that offered this command, when a person kept a plugin's offer."
     },
     "priority": {
       "default": 4,

@@ -3937,6 +3937,22 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "releaseNote": {
               "type": "CommandReleaseNote",
               "id": 18
+            },
+            "pluginSource": {
+              "type": "PluginSourceMarker",
+              "id": 19
+            }
+          }
+        },
+        "PluginSourceMarker": {
+          "fields": {
+            "pluginId": {
+              "type": "string",
+              "id": 1
+            },
+            "key": {
+              "type": "string",
+              "id": 2
             }
           }
         },
@@ -8335,6 +8351,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "RequestSettingsChange": {
               "requestType": "PluginSettingsChangeRequest",
               "responseType": "PluginSettingsChangeResponse"
+            },
+            "ProposeCommand": {
+              "requestType": "PluginProposeCommandRequest",
+              "responseType": "PluginProposeCommandResponse"
             }
           }
         },
@@ -9812,6 +9832,52 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "PLUGIN_SETTINGS_CHANGE_OUTCOME_DECLINED": 3,
             "PLUGIN_SETTINGS_CHANGE_OUTCOME_TIMED_OUT": 4,
             "PLUGIN_SETTINGS_CHANGE_OUTCOME_REFUSED": 5
+          }
+        },
+        "PluginProposeCommandRequest": {
+          "fields": {
+            "key": {
+              "type": "string",
+              "id": 1
+            },
+            "commandJson": {
+              "type": "string",
+              "id": 2
+            },
+            "reason": {
+              "type": "string",
+              "id": 3
+            }
+          }
+        },
+        "PluginProposeCommandOutcome": {
+          "values": {
+            "PLUGIN_PROPOSE_COMMAND_OUTCOME_UNSPECIFIED": 0,
+            "PLUGIN_PROPOSE_COMMAND_OUTCOME_SAVED": 1,
+            "PLUGIN_PROPOSE_COMMAND_OUTCOME_UNCHANGED": 2,
+            "PLUGIN_PROPOSE_COMMAND_OUTCOME_DECLINED": 3,
+            "PLUGIN_PROPOSE_COMMAND_OUTCOME_TIMED_OUT": 4,
+            "PLUGIN_PROPOSE_COMMAND_OUTCOME_REFUSED": 5
+          }
+        },
+        "PluginProposeCommandResponse": {
+          "fields": {
+            "outcome": {
+              "type": "PluginProposeCommandOutcome",
+              "id": 1
+            },
+            "enabled": {
+              "type": "bool",
+              "id": 2
+            },
+            "code": {
+              "type": "string",
+              "id": 3
+            },
+            "error": {
+              "type": "PluginError",
+              "id": 4
+            }
           }
         },
         "PluginSettingsChangeResponse": {

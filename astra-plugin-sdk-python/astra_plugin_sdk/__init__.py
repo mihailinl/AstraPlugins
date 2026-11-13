@@ -7,7 +7,11 @@
 """Astra Plugin SDK — build plugins for Astra in Python."""
 
 from astra_plugin_sdk.plugin import Plugin
-from astra_plugin_sdk.host_client import HostClient, HostClientBootstrap
+from astra_plugin_sdk.host_client import (
+    HostClient,
+    HostClientBootstrap,
+    commands_from_astra_file,
+)
 from astra_plugin_sdk.daemon_client import DaemonClient
 from astra_plugin_sdk.capability_types import (
     ActionTypeDef,
@@ -110,6 +114,8 @@ __all__ = [
     "current_attachments",
     "HostClient",
     "HostClientBootstrap",
+    # ── a .astra file, split into the commands a plugin offers ──
+    "commands_from_astra_file",
     "DaemonClient",
     "tool",
     "action",

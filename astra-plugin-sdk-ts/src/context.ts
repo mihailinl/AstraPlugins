@@ -25,6 +25,7 @@
 
 import type {
   AiSettings,
+  CommandOfferResult,
   Host,
   SettingChange,
   SettingsChangeResult,
@@ -200,10 +201,13 @@ export interface PluginContext {
    * `"REFUSED"` with `code` (and `error.retryAfterMs` for `rate_limited`).
    * Only the settings the assistant itself may change can be asked for; all of
    * `changes` change, or none. Needs the `request_settings_change` permission
-   * and an Astra built with the `plugin-requests` feature (else `"REFUSED"`,
-   * `code` `not_compiled`). At most `limits.SETTINGS_CHANGE_MAX_CHANGES`
-   * changes and a `reason` of at most `limits.SETTINGS_CHANGE_REASON_MAX_CHARS`
-   * characters — the daemon refuses more, it never cuts.
+   * and an account that opens Astra. **No Astra release answers it yet**: an
+   * Astra built without the `plugin-requests` feature resolves `"REFUSED"` with
+   * `code` `not_compiled`, and one older than 2026-11-13 — every release today
+   * — fails the call with `UNIMPLEMENTED`, a rejection, not an outcome. At most
+   * `limits.SETTINGS_CHANGE_MAX_CHANGES` changes and a `reason` of at most
+   * `limits.SETTINGS_CHANGE_REASON_MAX_CHARS` characters — the daemon refuses
+   * more, it never cuts.
    *
    * **It lasts until the person answers or the card expires** (Astra's
    * confirmation timeout, at least 30 s): never await it on a path that must
@@ -223,6 +227,54 @@ export interface PluginContext {
    * call, like `speak`.
    */
   requestSettingsChange(changes: SettingChange[], reason: string): Promise<SettingsChangeResult>;
+  /**
+   * OFFER the person one command to keep, on a card they answer, and resolve
+   * with what became of it: `"SAVED"` (with `enabled`: whether the command is
+   * on after it was kept), `"UNCHANGED"` (what is kept under `key` came from
+   * this very offer, also after the person edited it; nobody was asked),
+   * `"DECLINED"` (record it; do not offer it again unasked), `"TIMED_OUT"`, or
+   * `"REFUSED"` with `code` (and `error.retryAfterMs` for `rate_limited`).
+   * The person keeps it only from Astra's Workshop sheet, which shows every
+   * trigger and step and an Enable switch.
+   *
+   * `key` is this plugin's own name for the command — 1 to 64 characters of
+   * `a-z A-Z 0-9 . _ -`; the same key offered again updates the same command.
+   * `command` is ONE portable command, as an object or its JSON text (split a
+   * `.astra` file with `commandsFromAstraFile`); it may use Astra's built-in
+   * actions and triggers and this plugin's own — never another plugin's
+   * (`foreign_plugin`). Needs the `propose_commands` permission (high-risk: a
+   * kept command runs later, on its triggers, as the person's own command —
+   * its steps, built-ins such as a shell command included, run without asking
+   * again) and an account that opens Astra. **No Astra release answers it
+   * yet**: an Astra built without the `plugin-requests` feature resolves
+   * `"REFUSED"` with `code` `not_compiled`, and one older than 2026-11-13 —
+   * every release today — fails the call with `UNIMPLEMENTED`, a rejection,
+   * not an outcome. At most `limits.PROPOSE_COMMAND_MAX_BYTES` bytes of JSON
+   * and a `reason` of at most `limits.PROPOSE_COMMAND_REASON_MAX_CHARS`
+   * characters — the daemon refuses more, it never cuts.
+   *
+   * **It lasts until the person answers or the card expires** (Astra's
+   * confirmation timeout, at least 30 s): never await it on a path that must
+   * answer quickly. Offer one command at a time: a second offer while one is
+   * waiting is `"REFUSED"` with `busy`, even one that would be `"UNCHANGED"`.
+   *
+   * ```ts
+   * const [morning] = commandsFromAstraFile(MORNING_ASTRA);
+   * const offered = await ctx.proposeCommand("morning-briefing", morning, "Reads you the news");
+   * if (offered.outcome === "REFUSED" && offered.code === "rate_limited") {
+   *   setTimeout(offerLater, offered.error?.retryAfterMs ?? 120_000);
+   * }
+   * ```
+   *
+   * Rejects with a clear error when there is no host or the host predates the
+   * call, like `speak`; and with a `TypeError` for a command JSON cannot hold
+   * (`NaN`, `Infinity`, `undefined` in a list) before anything is sent.
+   */
+  proposeCommand(
+    key: string,
+    command: object | string,
+    reason: string
+  ): Promise<CommandOfferResult>;
 }
 
 /** The live state a context reads through to. Implemented by `Plugin`. */
@@ -378,6 +430,18 @@ export class PluginContextImpl implements PluginContext {
       throw predates("requestSettingsChange", "RequestSettingsChange");
     }
     return host.requestSettingsChange(changes, reason);
+  }
+
+  async proposeCommand(
+    key: string,
+    command: object | string,
+    reason: string
+  ): Promise<CommandOfferResult> {
+    const host = this.need("proposeCommand");
+    if (typeof host.proposeCommand !== "function") {
+      throw predates("proposeCommand", "ProposeCommand");
+    }
+    return host.proposeCommand(key, command, reason);
   }
 
   async setThemeContribution(theme: ThemeContribution): Promise<void> {

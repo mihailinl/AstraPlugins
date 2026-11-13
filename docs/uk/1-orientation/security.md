@@ -117,7 +117,7 @@ construction, exactly as an unsigned one is.
 ## Що робить шлюз дозволів
 
 Демон застосовує `[permissions]` в одному місці: `require_permission`, на
-одинадцяти з п'ятнадцяти RPC `PluginHostService`. Решта чотирьох — `Register`,
+дванадцяти з шістнадцяти RPC `PluginHostService`. Решта чотирьох — `Register`,
 `GetPluginSelfConfig`, `PluginLog` і `GetDaemonInfo` — **дозволені завжди** і
 взагалі не проходять перевірку дозволів; у таблиці демона
 `HOST_RPC_PERMISSIONS` вони — `(…, None)`, і в їхніх тілах немає виклику
@@ -150,9 +150,9 @@ construction, exactly as an unsigned one is.
 перезапусками — аж до всього словника. Це ще одна причина, чому режим
 розробника — інструмент розробника, а не шлях встановлення.
 
-Сім дозволів високоризикові, і в кожного свій чекбокс згоди:
+Вісім дозволів високоризикові, і в кожного свій чекбокс згоди:
 `send_chat_message`, `push_to_ui`, `set_theme_contribution`, `dom_access`,
-`client`, `speak`, `receive_attachments`. `dom_access` отримує другий екран. Подробиці, включно з тим, як
+`client`, `speak`, `receive_attachments`, `propose_commands`. `dom_access` отримує другий екран. Подробиці, включно з тим, як
 написати `reason`, який варто прочитати:
 [дозволи](../3-reference/permissions.md).
 

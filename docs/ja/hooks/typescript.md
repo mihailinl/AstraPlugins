@@ -76,6 +76,7 @@
 | `StopSpeaking` | `core` | `speak` | optional | unary | stable | このプラグインが言わせようとしたもの — 鳴っているものもキューにあるものも — をすべて止め、Astra が話している他のものは何も止めません。 |
 | `GetUserIdentity` | `core` | `read_user_identity` | optional | unary | stable | このインストールとサインイン中のアカウントの、このプラグイン専用に作られた仮名 ID。アカウント自身の id、名前、メールアドレス、ハードウェアのシリアル番号であることは決してありません。 |
 | `RequestSettingsChange` | `core` | `request_settings_change` | optional | unary | stable | Astra の設定の一部を変えるよう、本人が応答するカードで頼みます — 頼めるのはアシスタント自身が変更できる設定だけ。本人が許可しない限り何も変わりません。 |
+| `ProposeCommand` | `core` | `propose_commands` | optional | unary | stable | 持ち運べるコマンドを 1 つ、このプラグイン自身のキーで本人に「提案」します。本人がそれを残せるのは Astra の Workshop のシートからだけで、そこにはすべてのトリガーと手順が表示されます。 |
 | `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | unary | stable | アクティブな Astra テーマに色、壁紙、シェーダーを提供します。 |
 
 ## ギャップ

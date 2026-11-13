@@ -187,3 +187,13 @@ settings_change_max_changes: 8
 # characters: it is shown on the card whole, so a longer one is REFUSED, never
 # cut (`plugins::settings_request::REASON_MAX_CHARS`).
 settings_change_reason_max_chars: 140
+
+# The most JSON one `host.proposeCommand()` may carry, in bytes (1 MiB): a
+# Workshop command artefact's own bound, past which it is REFUSED with
+# `too_large` (`plugins::command_proposal::MAX_BYTES`).
+propose_command_max_bytes: 1_048_576
+
+# The longest reason one `host.proposeCommand()` may give the person, in
+# characters: it is shown on the card whole, so a longer one is REFUSED, never
+# cut (`plugins::command_proposal::REASON_MAX_CHARS`).
+propose_command_reason_max_chars: 140

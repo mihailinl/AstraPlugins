@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 828036790246a89f8e263a625d33317aba58cada5b92eb7ff6d0dfc2760af8bd
+// surface-sha256: 52fb82747b2a7a5f767b1d6eab6a39c8f13157ec3453553126b68030f7a83842
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -2503,6 +2503,17 @@ message CommandDefinition {
     // Set only on a LIST/GET answer, for a Workshop command a withdrawal disarmed and the
     // Workshop later released, which is still switched off (W37). Read only; unset otherwise.
     CommandReleaseNote release_note = 18;
+
+    // The plugin that offered this command (`PluginHostService.ProposeCommand`) and its key for
+    // it. Set only when that offer is kept; a request never sets it, and an export drops it.
+    // Unset for any other command.
+    PluginSourceMarker plugin_source = 19;
+}
+
+// Where a command a plugin offered came from: the plugin's id and its own key for the command.
+message PluginSourceMarker {
+    string plugin_id = 1;
+    string key = 2;
 }
 
 // The Workshop released a withdrawal from an installed command that stays OFF (the safer side):
@@ -4855,6 +4866,23 @@ service PluginHostService {
     // until they answer or the card expires (Astra's confirmation timeout,
     // at least 30 s). The current values are never returned.
     rpc RequestSettingsChange(PluginSettingsChangeRequest) returns (PluginSettingsChangeResponse);
+
+    // OFFER the person a command to keep: one portable command (a
+    // `.command.json` object, AstraPlugins' portable-command-v1), read exactly
+    // as a Workshop command's bytes are — strictly, known action and trigger
+    // types only, its local members (id, switch, folder, where it came from)
+    // dropped. It may use this plugin's own actions and triggers and no other
+    // plugin's. Gated by `propose_commands` (high risk: a kept command runs
+    // later, on its triggers, with Astra's authority) and an account that
+    // opens Astra, in an Astra built with the `plugin-requests` feature. The
+    // person sees a card naming this plugin, reads the command's sheet — every
+    // trigger and every step, with what each may do — and keeps it, switched
+    // on or off, or declines; nothing is kept without that. The same `key`
+    // offered again is an update of the command kept under it (asked again);
+    // the very command kept under it is UNCHANGED, nobody asked. The call
+    // lasts until they answer or the card expires (Astra's confirmation
+    // timeout, at least 30 s).
+    rpc ProposeCommand(PluginProposeCommandRequest) returns (PluginProposeCommandResponse);
 }
 
 // ============ Plugin Capability Service (plugin exposes, daemon calls) ============
@@ -6461,6 +6489,66 @@ enum PluginSettingsChangeOutcome {
     PLUGIN_SETTINGS_CHANGE_OUTCOME_REFUSED = 5;
 }
 
+message PluginProposeCommandRequest {
+    // This plugin's own name for the command: 1-64 characters of `a-z`,
+    // `A-Z`, `0-9`, `.`, `_` and `-`. The same key offered again is the same
+    // command, updated.
+    string key = 1;
+
+    // One portable command as JSON, at most 1 MiB
+    // (`propose_command_max_bytes` in AstraPlugins' spec/limits.yaml).
+    string command_json = 2;
+
+    // Why, in the plugin's own words, shown on the card: at most 140
+    // characters (`propose_command_reason_max_chars`), refused past that,
+    // never cut.
+    string reason = 3;
+}
+
+// What became of one `ProposeCommand`.
+enum PluginProposeCommandOutcome {
+    PLUGIN_PROPOSE_COMMAND_OUTCOME_UNSPECIFIED = 0;
+
+    // The person kept it; `enabled` says whether they switched it on.
+    PLUGIN_PROPOSE_COMMAND_OUTCOME_SAVED = 1;
+
+    // This very command is what is kept under this key already. Nobody was
+    // asked.
+    PLUGIN_PROPOSE_COMMAND_OUTCOME_UNCHANGED = 2;
+
+    // The person said no — now, or to this very command before (until Astra
+    // restarts). Do not offer it again unasked.
+    PLUGIN_PROPOSE_COMMAND_OUTCOME_DECLINED = 3;
+
+    // Nobody answered before the card expired (no window open counts).
+    PLUGIN_PROPOSE_COMMAND_OUTCOME_TIMED_OUT = 4;
+
+    // Not asked, or not kept: `code` says why — `not_compiled` (this Astra
+    // takes no offers), `locked`, `invalid_key`, `reason_too_long`,
+    // `too_large`, `invalid_command` (`error.message` leads with the
+    // Workshop's own code: `E_COMMAND_FORMAT`, `E_COMMAND_UNKNOWN_ACTION`, …),
+    // `foreign_plugin` (it uses another plugin's action or trigger), `busy`
+    // (one of this plugin's offers is already waiting), `rate_limited` (with
+    // `error.retry_after_ms`), `stopped` (this plugin's authority ended
+    // first), `stale` (the command it updates changed or went while the card
+    // was up), `write_refused`.
+    PLUGIN_PROPOSE_COMMAND_OUTCOME_REFUSED = 5;
+}
+
+message PluginProposeCommandResponse {
+    PluginProposeCommandOutcome outcome = 1;
+
+    // With `SAVED`: whether the person switched the command on.
+    bool enabled = 2;
+
+    // With `REFUSED`: why, as one of the words listed on the enum.
+    string code = 3;
+
+    // With `REFUSED`: the same as a `PluginError` — a sentence, and
+    // `retry_after_ms` for `rate_limited`.
+    PluginError error = 4;
+}
+
 message PluginSettingsChangeResponse {
     PluginSettingsChangeOutcome outcome = 1;
 
@@ -7325,6 +7413,10 @@ message RunActionConfirmationEvent {
     // a plugin asks to change the person's settings (`PluginHostService.RequestSettingsChange`) —
     // there is no run, `initiator` names the plugin, `action_label` says what it wants and
     // `description` lists each setting as it is and as it would be, then the plugin's reason.
+    // `plugin_commands`: a plugin offers a command to keep (`PluginHostService.ProposeCommand`) —
+    // no run, `initiator` names the plugin, `description` names the command and the plugin's
+    // reason, and the command is kept only from its sheet (`CommandService.GetPluginProposalSheet`
+    // / `AcceptPluginProposal`), never by the card's Allow.
     string subject = 11;
 }
 

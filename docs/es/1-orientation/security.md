@@ -122,7 +122,7 @@ ninguna que pueda filtrarse.
 ## Qué hace la puerta de permisos
 
 El daemon aplica `[permissions]` en un solo lugar: `require_permission`, en
-once de las quince RPC de `PluginHostService`. Las otras cuatro — `Register`,
+doce de las dieciséis RPC de `PluginHostService`. Las otras cuatro — `Register`,
 `GetPluginSelfConfig`, `PluginLog` y `GetDaemonInfo` — están **siempre
 permitidas** y no ejecutan ninguna comprobación de permisos; son `(…, None)`
 en la tabla `HOST_RPC_PERMISSIONS` del daemon, y no hay ninguna llamada a
@@ -158,9 +158,9 @@ sus propios permisos editando su propio `plugin.toml` entre reinicios, hasta
 todo el vocabulario. Esa es una razón más por la que el modo desarrollador es
 una herramienta de desarrollo y no una vía de instalación.
 
-Siete permisos son de alto riesgo y cada uno recibe su propia casilla de
+Ocho permisos son de alto riesgo y cada uno recibe su propia casilla de
 consentimiento: `send_chat_message`, `push_to_ui`, `set_theme_contribution`,
-`dom_access`, `client`, `speak`, `receive_attachments`. `dom_access` recibe una segunda pantalla. Detalles,
+`dom_access`, `client`, `speak`, `receive_attachments`, `propose_commands`. `dom_access` recibe una segunda pantalla. Detalles,
 incluyendo cómo escribir un `reason` que valga la pena leer:
 [permisos](../3-reference/permissions.md).
 

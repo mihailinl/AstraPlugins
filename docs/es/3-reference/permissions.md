@@ -43,7 +43,7 @@ Tres propiedades, todas las cuales sorprenden a alguien tarde o temprano:
 
    <!-- doctest: output from="astra-plugin check --strict ." unrun="needs a plugin project in the working directory; re-run it in your own plugin" -->
    ```
-     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings, speak, read_user_identity, receive_attachments, request_settings_change
+     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings, speak, read_user_identity, receive_attachments, request_settings_change, propose_commands
      FAILED: 1 warning(s), and --strict treats warnings as errors
    ```
 
@@ -64,7 +64,7 @@ Que `GetDaemonInfo` sea gratis es una decisión, no un descuido: una casilla
 que no protege nada es la forma en que los usuarios aprenden a marcar
 casillas sin pensar.
 
-## Los trece ids
+## Los catorce ids
 
 | Id | Bloquea | Casilla propia | Rechazado en importación local | Qué te permite hacer |
 |---|---|---|---|---|
@@ -81,6 +81,7 @@ casillas sin pensar.
 | `read_user_identity` | `GetUserIdentity` | no | no | Leer seudónimos de esta instalación y de la cuenta con sesión iniciada, creados solo para tu plugin |
 | `receive_attachments` | — (una entrega) | **sí** | no | Recibir las imágenes que adjuntó la persona, en una herramienta que las pide |
 | `request_settings_change` | `RequestSettingsChange` | no | no | Pedir a la persona que cambie un ajuste que el asistente puede cambiar, en una tarjeta que ella responde |
+| `propose_commands` | `ProposeCommand` | **sí** | no | Ofrecer a la persona un comando para conservar, que ella conserva desde la hoja del Workshop de Astra |
 
 `dom_access` y `client` no bloquean ningún RPC, y ese es el punto: son
 **superficies**. `dom_access` decide si una contribución de UI se renderiza
@@ -207,7 +208,7 @@ Una llamada puede traer hasta 20 MiB de imágenes, más que el límite de recepc
 
 ## Pedir a la persona que cambie un ajuste
 
-Un plugin con una razón real para querer cambiar uno de los ajustes de Astra — un modelo para el que están afinadas sus herramientas, una voz que le va — lo **pide**, y la persona decide en una tarjeta. Nunca escribas tú el `settings.json` de Astra, y nunca tomes prestada la propia sesión de Astra para hacerlo: eso cambia el Astra de la persona a sus espaldas, y la revisión humana al publicar lo busca. Declara `request_settings_change` y llama a `RequestSettingsChange` (`request_settings_change(changes, reason)` en Rust y Python, `ctx.requestSettingsChange(changes, reason)` en TypeScript). **Ninguna versión publicada de Astra lo atiende todavía:** el daemon acepta solicitudes solo cuando está compilado con la característica de compilación `plugin-requests`; cualquier otro Astra responde `REFUSED` con el código `not_compiled`.
+Un plugin con una razón real para querer cambiar uno de los ajustes de Astra — un modelo para el que están afinadas sus herramientas, una voz que le va — lo **pide**, y la persona decide en una tarjeta. Nunca escribas tú el `settings.json` de Astra, y nunca tomes prestada la propia sesión de Astra para hacerlo: eso cambia el Astra de la persona a sus espaldas, y la revisión humana al publicar lo busca. Declara `request_settings_change` y llama a `RequestSettingsChange` (`request_settings_change(changes, reason)` en Rust y Python, `ctx.requestSettingsChange(changes, reason)` en TypeScript). **Ninguna versión publicada de Astra lo atiende todavía.** Un Astra compilado con la característica de compilación `plugin-requests` acepta solicitudes; un Astra más nuevo compilado sin ella responde `REFUSED` con el código `not_compiled`; en uno más antiguo — hoy, todas las versiones publicadas — la llamada falla con `UNIMPLEMENTED`, un error, no un resultado.
 
 Cada cambio es una ruta de ajuste con puntos y el valor deseado, como JSON — los SDK serializan el valor por ti. Solo se pueden pedir los ajustes que el propio asistente puede cambiar — la voz, el modelo de IA, el idioma; nunca el modo de permisos, una clave ni Tool Search —, y cada valor se comprueba exactamente igual que el cambio propio del asistente. La tarjeta nombra tu plugin, muestra cada ajuste tal como está y como quedaría, y tu `reason`, con tus palabras. Cambian todos o ninguno, y lo que cambia es exactamente lo que mostró la tarjeta.
 
@@ -229,7 +230,7 @@ Cada cambio es una ruta de ajuste con puntos y el valor deseado, como JSON — l
 | `too_many` | Más de **8** cambios (`settings_change_max_changes` en `spec/limits.yaml`) |
 | `reason_too_long` | Un motivo de más de **140 caracteres** (`settings_change_reason_max_chars`). Se muestra entero, así que se rechaza, nunca se recorta |
 | `busy` | Una de tus solicitudes ya está esperando a la persona: una tarjeta por plugin a la vez |
-| `rate_limited` | **Dos solicitudes de una vez, luego una cada dos minutos**; `error.retry_after_ms` dice cuándo vuelve a haber hueco |
+| `rate_limited` | **Una ráfaga de dos solicitudes, luego una cada dos minutos**; `error.retry_after_ms` dice cuándo vuelve a haber hueco |
 | `not_assistant_editable` | Una ruta que el asistente no puede cambiar |
 | `invalid_value`, `unknown_choice` | Un valor que el ajuste no puede contener, o una opción que no ofrece |
 | `needs_api_key`, `needs_stt_provider`, `provider_unreachable` | El cambio dejaría a Astra sin lo que necesita: una clave para ese proveedor de IA, un reconocedor de voz, un proveedor que responda |
@@ -238,6 +239,52 @@ Cada cambio es una ruta de ajuste con puntos y el valor deseado, como JSON — l
 | `write_refused` | No se pudieron escribir los ajustes |
 
 Los valores actuales nunca se devuelven: lo que tu plugin sabe es el resultado. Los límites son del daemon: los SDK exportan `SETTINGS_CHANGE_MAX_CHANGES` y `SETTINGS_CHANGE_REASON_MAX_CHARS` y no comprueban ninguno por sí mismos. Además del permiso, la llamada necesita **una cuenta que dé acceso a Astra**; un permiso que falta, o una cuenta que no da acceso a Astra, es una llamada fallida como cualquier llamada al host, no un resultado. No es de alto riesgo ni se rechaza en una importación local: cada solicitud es una tarjeta que la persona responde, así que el consentimiento se pide cada vez. Un Astra anterior a esta llamada responde `UNIMPLEMENTED`.
+
+## Ofrecer un comando a la persona
+
+Un plugin que tiene una automatización útil que dar — «léeme las noticias cuando diga buenos días», hecha con sus propias acciones — la **ofrece**, y la persona decide. Un plugin no puede escribir por sí mismo la biblioteca de comandos de la persona: `CommandService` está cerrado a la sesión de un plugin, y antes de esta llamada un plugin solo podía describir un comando en el chat y esperar que la persona lo reconstruyera. Declara `propose_commands` y llama a `ProposeCommand` (`propose_command(key, command, reason)` en Rust y Python, `ctx.proposeCommand(key, command, reason)` en TypeScript). **Ninguna versión publicada de Astra lo atiende todavía.** Un Astra compilado con la característica de compilación `plugin-requests` acepta ofertas; un Astra más nuevo compilado sin ella responde `REFUSED` con el código `not_compiled`; en uno más antiguo — hoy, todas las versiones publicadas — la llamada falla con `UNIMPLEMENTED`, un error, no un resultado.
+
+El comando es **un comando portable** — lo que contiene `commands[]` de un archivo `.astra`. La forma fácil de hacer uno es construirlo en Astra, exportarlo desde la página de Comandos y distribuir el archivo con tu plugin; cada SDK tiene una función auxiliar que divide un archivo así en sus comandos (`commands_from_astra_file` en Rust y Python, `commandsFromAstraFile` en TypeScript), cada uno sin los campos que pertenecen a una instalación concreta (`id`, `enabled`, la carpeta, la procedencia). El daemon lee el comando con el propio lector del Workshop — JSON estricto, solo tipos de acción y de disparador conocidos, esos campos locales descartados, de modo que un plugin no puede falsificar de dónde viene un comando ni activarlo — y puede usar las acciones y disparadores integrados de Astra y los **propios** de tu plugin, nunca los de otro plugin (`foreign_plugin`). Entre los integrados hay un comando de shell, pulsaciones de teclas y operaciones con archivos: la hoja muestra cada paso con lo que puede hacer, y eso es lo que acepta la persona.
+
+`key` es el nombre propio de tu plugin para el comando: de 1 a 64 caracteres de `a-z`, `A-Z`, `0-9`, `.`, `_` y `-`. La misma clave ofrecida de nuevo es el mismo comando, actualizado en su sitio — conserva su id y su carpeta — en cuanto la persona vuelve a aceptar; ofrecer exactamente el comando ya conservado bajo la clave no pregunta a nadie (`UNCHANGED`).
+
+Lo que Astra recuerda es más limitado de lo que parece, así que no ofrezcas sin más cada comando en cada arranque:
+
+- un `DECLINED` se recuerda solo hasta que Astra se reinicia — después, la misma oferta vuelve a ser una tarjeta;
+- un comando que la persona borró ya no está bajo su clave, así que ofrecerlo de nuevo es una oferta nueva — otra tarjeta;
+- un comando desactivado al desinstalar tu plugin sigue desactivado tras reinstalarlo, y la misma oferta responde `UNCHANGED`;
+- `UNCHANGED` compara tu oferta con lo que se ofreció y conservó bajo la clave, así que también es la respuesta después de que la persona editara el comando conservado.
+
+Guarda `SAVED` y `DECLINED` por clave en el estado propio de tu plugin, y al arrancar ofrece solo las claves para las que no tienes respuesta — y un comando que hayas cambiado.
+
+La persona ve una tarjeta que nombra tu plugin y el comando, con tu `reason` en tus palabras, y dos opciones: Revisar y Denegar. **El comando solo se conserva desde la hoja del Workshop de Astra** — cada disparador con su valor completo, cada paso con lo que puede hacer, y un interruptor para activarlo —, nunca con un simple Permitir, y lo que se conserva es exactamente lo que mostró la hoja. Un comando conservado lleva la marca de tu plugin; desinstalar tu plugin desactiva sus comandos.
+
+**La llamada dura hasta que la persona responde o la tarjeta caduca** — el tiempo de confirmación de Astra, al menos 30 segundos, 120 si la persona no lo cambió. Los SDK no le ponen ningún plazo propio. Nunca la esperes en un camino que deba responder rápido, y **ofrece un comando cada vez**: una segunda oferta mientras una tuya espera se rechaza como `busy`, incluso una que sería `UNCHANGED`.
+
+| Resultado | Qué significa | Qué hacer |
+|---|---|---|
+| `SAVED` | La persona lo conservó; `enabled` dice si el comando queda activado una vez conservado (Astra puede conservarlo desactivado) | Guárdalo |
+| `UNCHANGED` | Lo conservado bajo esta clave vino de esta misma oferta — también si la persona lo editó. No se preguntó a nadie | Nada |
+| `DECLINED` | La persona dijo que no — ahora, o antes a exactamente este comando (hasta que Astra se reinicie) | Guárdalo. **No lo vuelvas a ofrecer sin que te lo pidan** |
+| `TIMED_OUT` | Nadie respondió antes de que caducara la tarjeta (no tener ninguna ventana abierta también cuenta) | Ofrécelo más tarde, cuando la persona esté |
+| `REFUSED` | No se preguntó, o no se conservó: `code` dice por qué, y `error` es un `PluginError` | Lee el código abajo |
+
+| `code` | Cuándo |
+|---|---|
+| `not_compiled` | Este Astra no acepta ofertas: se compiló sin la característica `plugin-requests` |
+| `locked` | Astra está bloqueado con su código de acceso |
+| `invalid_key` | Una clave que no tiene de 1 a 64 caracteres de `a-z`, `A-Z`, `0-9`, `.`, `_` y `-` |
+| `reason_too_long` | Un motivo de más de **140 caracteres** (`propose_command_reason_max_chars` en `spec/limits.yaml`). Se muestra entero, así que se rechaza, nunca se recorta |
+| `too_large` | Más de **1 MiB** de JSON (`propose_command_max_bytes`), el límite propio de un comando del Workshop |
+| `invalid_command` | No es un comando que acepte el lector del Workshop; `error.message` suele empezar por su propio código — `E_COMMAND_FORMAT`, `E_COMMAND_UNKNOWN_ACTION`, … —, pero no cuando la propia tarjeta no se puede mostrar (el nombre del comando y tu motivo no caben en ella) |
+| `foreign_plugin` | El comando usa una acción o un disparador de otro plugin |
+| `busy` | Una de tus ofertas ya está esperando a la persona: una tarjeta por plugin a la vez |
+| `rate_limited` | **Una ráfaga de dos ofertas, luego una cada dos minutos**; `error.retry_after_ms` dice cuándo vuelve a haber hueco. Una oferta que no pregunta a nadie (`UNCHANGED`, un `DECLINED` recordado) no gasta nada |
+| `stopped` | La autoridad de tu plugin terminó antes — se detuvo, se desactivó o se retiró, o la cuenta dejó de dar acceso a Astra |
+| `stale` | El comando que actualiza cambió o desapareció mientras la tarjeta estaba abierta, así que lo que vio la persona no es lo que se escribiría. No se escribió nada |
+| `write_refused` | No se pudo guardar el comando |
+
+Los límites son del daemon: los SDK exportan `PROPOSE_COMMAND_MAX_BYTES` y `PROPOSE_COMMAND_REASON_MAX_CHARS` y no comprueban ninguno por sí mismos. Además del permiso, la llamada necesita **una cuenta que dé acceso a Astra**; un permiso que falta, o una cuenta que no da acceso a Astra, es una llamada fallida como cualquier llamada al host, no un resultado. `propose_commands` es **de alto riesgo**: un comando conservado se ejecuta más tarde, con sus propios disparadores, como un comando propio de la persona — sus pasos, incluidos los integrados como un comando de shell, se ejecutan sin volver a preguntar —, así que recibe su propia casilla de consentimiento. No se rechaza en una importación local: la hoja es la decisión, cada vez. Un Astra anterior a esta llamada responde `UNIMPLEMENTED`.
 
 ## Escribir un reason
 
@@ -344,7 +391,7 @@ Tabla completa y el razonamiento:
 
 ## Consentimiento, desde el lado del usuario
 
-Los permisos se agrupan por riesgo. Los siete de alto riesgo reciben cada
+Los permisos se agrupan por riesgo. Los ocho de alto riesgo reciben cada
 uno su propia casilla, e Instalar permanece deshabilitado hasta que todas
 estén marcadas; `dom_access` recibe una segunda pantalla. Deliberadamente
 **no hay "escribe para confirmar"**: ese es el patrón para destrucción

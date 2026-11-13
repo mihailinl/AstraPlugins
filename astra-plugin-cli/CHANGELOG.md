@@ -32,6 +32,22 @@ reads to find out how to get the tool.
 
 ### Added
 
+- **A new `[permissions]` id, `propose_commands`**, from the vendored
+  `astra-plugin-manifest` re-synced with Astra `c42d091b2` (branch
+  `feat/plugin-api-gaps`): `PluginHostService.ProposeCommand` — the plugin
+  OFFERS the person one portable command to keep, which they keep only from
+  Astra's Workshop sheet. **High-risk** (its own consent checkbox: a kept command
+  runs later as the person's own command, its steps — built-ins such as a shell
+  command included — without asking again) and not refused to a local import —
+  the sheet is the decision, each time. **In no Astra release yet:** the daemon side
+  is behind the `plugin-requests` build feature. `astra-plugin check` accepts the
+  id instead of warning that this Astra grants nothing for it, and the scaffold
+  offers it as a commented optional line. The plugin protocol follows Astra
+  `c42d091b2`: `ProposeCommand`, `PluginProposeCommandRequest`,
+  `PluginProposeCommandOutcome` and `PluginProposeCommandResponse`. The embedded
+  conformance list is unchanged: it lists the hooks a plugin serves, and this is
+  one a plugin calls.
+
 - **A new `[permissions]` id, `request_settings_change`**, from the vendored
   `astra-plugin-manifest` re-synced with Astra `8c36a7033` (branch
   `feat/plugin-api-gaps`): `PluginHostService.RequestSettingsChange` — the

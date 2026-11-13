@@ -76,8 +76,10 @@ pub struct ChatMessage {
     pub voice_enabled: bool,
 }
 
-/// The names this module accepts for a host RPC, in the spelling
-/// `spec/hooks.yaml` uses for its `permission` column.
+/// The names this module accepts for a host RPC: the [`Host`] method's name
+/// (`stop_speaking`, `propose_command`), NOT the permission that gates it
+/// (`speak`, `propose_commands`) — two RPCs can share one permission, and a
+/// failure is injected into one call.
 ///
 /// Injection is by name, and a name with a typo in it would inject nothing at
 /// all — a test that silently stops testing. Every entry point that takes one
@@ -92,6 +94,7 @@ pub const HOST_RPCS: &[&str] = &[
     "stop_speaking",
     "get_user_identity",
     "request_settings_change",
+    "propose_command",
     "set_variable",
     "push_to_ui",
     "send_chat_message",
@@ -154,6 +157,7 @@ struct Inner {
     themes: Vec<proto::PluginThemeContribution>,
     spoken: Vec<String>,
     settings_requests: Vec<proto::PluginSettingsChangeRequest>,
+    command_offers: Vec<proto::PluginProposeCommandRequest>,
 }
 
 impl Recorded {
@@ -242,6 +246,14 @@ impl Recorded {
         self.with(|i| i.settings_requests.clone())
     }
 
+    /// Every `ProposeCommand` that reached the host, in order, as the plugin
+    /// sent it — the key, the command's JSON and the reason — including one
+    /// the host then refused, because what the plugin OFFERED is the
+    /// assertion.
+    pub fn command_offers(&self) -> Vec<proto::PluginProposeCommandRequest> {
+        self.with(|i| i.command_offers.clone())
+    }
+
     /// The last value the plugin published for `name`, if any.
     pub fn variable(&self, name: &str) -> Option<String> {
         self.with(|i| {
@@ -290,6 +302,9 @@ impl Recorded {
     pub(crate) fn settings_request(&self, r: proto::PluginSettingsChangeRequest) {
         self.with(|i| i.settings_requests.push(r));
     }
+    pub(crate) fn command_offer(&self, r: proto::PluginProposeCommandRequest) {
+        self.with(|i| i.command_offers.push(r));
+    }
 }
 
 impl std::fmt::Debug for Recorded {
@@ -334,6 +349,17 @@ pub struct RecordingHost {
     speak_response: Mutex<proto::PluginSpeakResponse>,
     user_identity: Mutex<proto::PluginUserIdentity>,
     settings_change_response: Mutex<proto::PluginSettingsChangeResponse>,
+    command_offer_response: Mutex<proto::PluginProposeCommandResponse>,
+}
+
+/// What a `ProposeCommand` the person kept, switched on, answers: the default
+/// of [`RecordingHost::set_command_offer_response`] and of the mock daemon.
+pub(crate) fn kept() -> proto::PluginProposeCommandResponse {
+    proto::PluginProposeCommandResponse {
+        outcome: proto::PluginProposeCommandOutcome::Saved as i32,
+        enabled: true,
+        ..Default::default()
+    }
 }
 
 /// What a `RequestSettingsChange` the person allowed answers: the default of
@@ -368,6 +394,7 @@ impl RecordingHost {
             speak_response: Mutex::new(heard()),
             user_identity: Mutex::new(proto::PluginUserIdentity::default()),
             settings_change_response: Mutex::new(allowed()),
+            command_offer_response: Mutex::new(kept()),
         })
     }
 
@@ -487,6 +514,35 @@ impl RecordingHost {
     /// Every `request_settings_change()`, in order.
     pub fn settings_change_requests(&self) -> Vec<proto::PluginSettingsChangeRequest> {
         self.recorded.settings_change_requests()
+    }
+
+    /// What `propose_command()` answers. Saved and switched on (the person
+    /// kept it with Enable on) until told otherwise; stage another outcome to
+    /// test the branch an unchanged, declined, timed-out or refused offer
+    /// takes:
+    ///
+    /// ```no_run
+    /// # use astra_plugin_sdk::{proto, testing::RecordingHost};
+    /// let host = RecordingHost::new("news");
+    /// host.set_command_offer_response(proto::PluginProposeCommandResponse {
+    ///     outcome: proto::PluginProposeCommandOutcome::Declined as i32,
+    ///     ..Default::default()
+    /// });
+    /// ```
+    ///
+    /// The offer is recorded either way ([`Recorded::command_offers`]). A
+    /// refusal by the daemon's gates (no `propose_commands` grant) is
+    /// [`deny`](Self::deny)`("propose_command")`, an `Err`, not an outcome.
+    pub fn set_command_offer_response(&self, response: proto::PluginProposeCommandResponse) {
+        *self
+            .command_offer_response
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = response;
+    }
+
+    /// Every `propose_command()`, in order.
+    pub fn command_offers(&self) -> Vec<proto::PluginProposeCommandRequest> {
+        self.recorded.command_offers()
     }
 
     /// What `send_chat_message()` streams back, one chunk per string.
@@ -698,6 +754,29 @@ impl Host for RecordingHost {
             });
         Ok(self
             .settings_change_response
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone())
+    }
+
+    async fn propose_command(
+        &self,
+        key: &str,
+        command_json: &str,
+        reason: &str,
+    ) -> Result<proto::PluginProposeCommandResponse> {
+        self.recorded.note("propose_command");
+        if let Some(e) = self.staged("propose_command", "ProposeCommand") {
+            return Err(e);
+        }
+        self.recorded
+            .command_offer(proto::PluginProposeCommandRequest {
+                key: key.to_string(),
+                command_json: command_json.to_string(),
+                reason: reason.to_string(),
+            });
+        Ok(self
+            .command_offer_response
             .lock()
             .unwrap_or_else(|e| e.into_inner())
             .clone())

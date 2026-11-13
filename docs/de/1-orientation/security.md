@@ -126,7 +126,7 @@ Zugangsdaten zu speichern und keine, die durchsickern könnten.
 ## Was das Permission-Gate tut
 
 Der Daemon setzt `[permissions]` an genau einer Stelle durch:
-`require_permission`, bei elf der fünfzehn `PluginHostService`-RPCs. Die
+`require_permission`, bei zwölf der sechzehn `PluginHostService`-RPCs. Die
 anderen vier — `Register`, `GetPluginSelfConfig`, `PluginLog` und
 `GetDaemonInfo` — sind **immer erlaubt** und laufen ohne jede
 Berechtigungsprüfung; sie sind `(…, None)` in der Tabelle
@@ -163,9 +163,10 @@ Bearbeiten seiner eigenen `plugin.toml` zwischen Neustarts erweitern, bis hin
 zum gesamten Vokabular. Das ist ein weiterer Grund, warum der Entwicklermodus
 ein Entwicklerwerkzeug ist und kein Installationsweg.
 
-Sieben Permissions sind hochriskant und bekommen jeweils eine eigene
+Acht Permissions sind hochriskant und bekommen jeweils eine eigene
 Zustimmungs-Checkbox: `send_chat_message`, `push_to_ui`,
-`set_theme_contribution`, `dom_access`, `client`, `speak`, `receive_attachments`. `dom_access` bekommt einen
+`set_theme_contribution`, `dom_access`, `client`, `speak`, `receive_attachments`,
+`propose_commands`. `dom_access` bekommt einen
 zweiten Bildschirm. Details, einschließlich wie man einen `reason` schreibt,
 der sich zu lesen lohnt: [Permissions](../3-reference/permissions.md).
 

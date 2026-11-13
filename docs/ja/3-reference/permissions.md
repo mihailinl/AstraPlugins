@@ -44,7 +44,7 @@ RPC を述べます。2 つの問い、2 つのセクション; ケーパビリ�
 
    <!-- doctest: output from="astra-plugin check --strict ." unrun="needs a plugin project in the working directory; re-run it in your own plugin" -->
    ```
-     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings, speak, read_user_identity, receive_attachments, request_settings_change
+     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings, speak, read_user_identity, receive_attachments, request_settings_change, propose_commands
      FAILED: 1 warning(s), and --strict treats warnings as errors
    ```
 
@@ -65,7 +65,7 @@ RPC を述べます。2 つの問い、2 つのセクション; ケーパビリ�
 何も守らないチェックボックスは、ユーザーがチェックボックスにチェックを
 入れることを学習してしまう原因です。
 
-## 13 個の id
+## 14 個の id
 
 | Id | ゲートする対象 | 専用チェックボックス | ローカルインポートで拒否される | 何ができるようになるか |
 |---|---|---|---|---|
@@ -82,6 +82,7 @@ RPC を述べます。2 つの問い、2 つのセクション; ケーパビリ�
 | `read_user_identity` | `GetUserIdentity` | なし | なし | このインストールとサインイン中のアカウントの、自分のプラグイン専用に作られた仮名 ID を読む |
 | `receive_attachments` | — (配送) | **あり** | なし | 求めるツールの中で、人が添付した画像を受け取る |
 | `request_settings_change` | `RequestSettingsChange` | なし | なし | 本人が応答するカードで、アシスタントが変更できる設定の変更を頼む |
+| `propose_commands` | `ProposeCommand` | **あり** | なし | 残してもらうコマンドを本人に提案する。本人はそれを Astra の Workshop のシートから残す |
 
 `dom_access` と `client` はどの RPC もゲートしません。それがまさに
 ポイントです: これらは**サーフェス**です。`dom_access` は、UI コントリビュー
@@ -210,7 +211,7 @@ Astra が呼び出しに画像を渡すのは、次のすべてが成り立つ�
 
 ## 設定の変更を本人に頼む
 
-Astra の設定のどれかを変えてほしい本当の理由がある — ツールの調整先のモデル、そのプラグインに合う声 — プラグインは、それを**頼み**、本人がカードで決めます。Astra の `settings.json` を自分で書き換えてはいけませんし、そのために Astra 自身のセッションを借りてもいけません: 本人の知らないところで本人の Astra を変えることになり、公開時の人によるレビューはまさにそれを探します。`request_settings_change` を宣言し、`RequestSettingsChange` を呼び出します(Rust と Python では `request_settings_change(changes, reason)`、TypeScript では `ctx.requestSettingsChange(changes, reason)`)。**まだどの Astra リリースもこれに応えません:** デーモンがリクエストを受け付けるのは `plugin-requests` ビルド機能付きでビルドされたときだけで、それ以外の Astra はコード `not_compiled` の `REFUSED` を返します。
+Astra の設定のどれかを変えてほしい本当の理由がある — ツールの調整先のモデル、そのプラグインに合う声 — プラグインは、それを**頼み**、本人がカードで決めます。Astra の `settings.json` を自分で書き換えてはいけませんし、そのために Astra 自身のセッションを借りてもいけません: 本人の知らないところで本人の Astra を変えることになり、公開時の人によるレビューはまさにそれを探します。`request_settings_change` を宣言し、`RequestSettingsChange` を呼び出します(Rust と Python では `request_settings_change(changes, reason)`、TypeScript では `ctx.requestSettingsChange(changes, reason)`)。**まだどの Astra リリースもこれに応えません。** `plugin-requests` ビルド機能付きでビルドされた Astra はリクエストを受け付けます。それなしでビルドされた新しい Astra はコード `not_compiled` の `REFUSED` を返し、古い Astra — 今日のすべてのリリース — では呼び出しが `UNIMPLEMENTED` で失敗します。これはエラーであり、結果ではありません。
 
 各変更は、ドット区切りの設定パスと、望む値を JSON にしたものです — 値は SDK が JSON にしてくれます。頼めるのはアシスタント自身が変更できる設定だけ — 声、AI モデル、言語。パーミッションモード、キー、Tool Search は決して頼めません — で、各値はアシスタント自身の変更とまったく同じように検査されます。カードはあなたのプラグインの名前、各設定の今の値と変更後の値、そしてあなたの言葉での `reason` を見せます。すべて変わるか、何も変わらないかのどちらかで、変わるのはカードが見せたものそのものです。
 
@@ -232,7 +233,7 @@ Astra の設定のどれかを変えてほしい本当の理由がある — ツ
 | `too_many` | **8** 件を超える変更(`spec/limits.yaml` の `settings_change_max_changes`) |
 | `reason_too_long` | **140 文字**を超える理由(`settings_change_reason_max_chars`)。全体が表示されるので、切り詰められずに拒否される |
 | `busy` | あなたのリクエストの 1 つがすでに本人を待っている: カードはプラグインごとに同時に 1 枚 |
-| `rate_limited` | **一度に 2 件、その後は 2 分に 1 件**。`error.retry_after_ms` が次に空く時を示す |
+| `rate_limited` | **まとめて 2 件まで、その後は 2 分に 1 件**。`error.retry_after_ms` が次に空く時を示す |
 | `not_assistant_editable` | アシスタントが変更できないパス |
 | `invalid_value`, `unknown_choice` | その設定が持てない値、または設定が提供していない選択肢 |
 | `needs_api_key`, `needs_stt_provider`, `provider_unreachable` | 変更すると Astra に必要なものがなくなる: その AI プロバイダーのキー、音声認識、応答するプロバイダー |
@@ -241,6 +242,52 @@ Astra の設定のどれかを変えてほしい本当の理由がある — ツ
 | `write_refused` | 設定を書き込めなかった |
 
 現在の値は決して返されません: プラグインが知るのは結果だけです。上限はデーモンのものです: SDK は `SETTINGS_CHANGE_MAX_CHANGES` と `SETTINGS_CHANGE_REASON_MAX_CHARS` をエクスポートしますが、自分ではどちらも検査しません。許可に加えて、呼び出しには **Astra を利用できるアカウント** が必要です。許可がない、またはアカウントが Astra を利用できない場合は、他のホスト呼び出しと同じく失敗した呼び出しになり、結果ではありません。高リスクではなく、ローカルインポートでも拒否されません: リクエストのたびに本人が応答するカードが出るので、同意は毎回求められます。この呼び出しより古い Astra は `UNIMPLEMENTED` を返します。
+
+## コマンドを本人に提案する
+
+役に立つ自動化を渡せるプラグイン — 自分のアクションで組んだ「おはようと言ったらニュースを読み上げて」のようなもの — は、それを**提案し**、本人が決めます。プラグインが本人のコマンドライブラリを自分で書き込むことはできません: `CommandService` はプラグインのセッションには閉じられており、この呼び出しができる前は、プラグインはチャットでコマンドを説明し、本人が組み直してくれることを願うしかありませんでした。`propose_commands` を宣言し、`ProposeCommand` を呼び出します(Rust と Python では `propose_command(key, command, reason)`、TypeScript では `ctx.proposeCommand(key, command, reason)`)。**まだどの Astra リリースもこれに応えません。** `plugin-requests` ビルド機能付きでビルドされた Astra は提案を受け付けます。それなしでビルドされた新しい Astra はコード `not_compiled` の `REFUSED` を返し、古い Astra — 今日のすべてのリリース — では呼び出しが `UNIMPLEMENTED` で失敗します。これはエラーであり、結果ではありません。
+
+コマンドは **1 つのポータブルなコマンド** — `.astra` ファイルの `commands[]` に入っているもの — です。いちばん簡単な作り方は、Astra で組み立て、コマンドのページからエクスポートし、そのファイルをプラグインと一緒に配ることです。どの SDK にも、そうしたファイルをコマンドごとに分けるヘルパーがあります(Rust と Python では `commands_from_astra_file`、TypeScript では `commandsFromAstraFile`)。分けられた各コマンドからは、1 つのインストールに属するフィールド(`id`、`enabled`、フォルダー、出所)が取り除かれます。デーモンはコマンドを Workshop 自身のリーダーで読みます — 厳密な JSON、既知のアクションとトリガーの型だけ、そうしたローカルなフィールドは捨てられるので、プラグインはコマンドの出所を偽ることも、コマンドを有効にすることもできません — そしてコマンドが使えるのは Astra の組み込みのアクションとトリガー、そして**あなたのプラグイン自身の**ものだけで、他のプラグインのものは決して使えません(`foreign_plugin`)。組み込みのものにはシェルコマンド、キー入力、ファイル操作も含まれます: シートはすべての手順をそれができることと共に見せ、本人が同意するのはそれです。
+
+`key` は、そのコマンドに対するあなたのプラグイン自身の名前です: `a-z`、`A-Z`、`0-9`、`.`、`_`、`-` の 1〜64 文字。同じキーをもう一度提案すると同じコマンドで、本人が再び同意すればその場で更新されます — id とフォルダーはそのまま。そのキーで既に残されているまさにそのコマンドを提案しても誰にも尋ねません(`UNCHANGED`)。
+
+Astra が覚えていることは見た目より狭いので、起動のたびにすべてのコマンドをそのまま提案しないでください:
+
+- `DECLINED` が覚えられているのは Astra が再起動するまでだけ — その後は同じ提案が再びカードになる;
+- 本人が削除したコマンドはもうそのキーの下にないので、もう一度提案すると新しい提案になる — 再びカード;
+- あなたのプラグインがアンインストールされたときに無効にされたコマンドは、再インストール後も無効のままで、同じ提案には `UNCHANGED` が返る;
+- `UNCHANGED` はあなたの提案を、そのキーで提案され残されたものと比べるので、本人が残されたコマンドを編集した後もその答えになる。
+
+`SAVED` と `DECLINED` をキーごとにプラグイン自身の状態に記録し、起動時には答えのないキー — と、あなたが変更したコマンド — だけを提案してください。
+
+本人には、あなたのプラグインとコマンドの名前、あなたの言葉での `reason`、そして「確認」と「拒否」の 2 つの選択肢があるカードが見えます。**コマンドが残されるのは Astra の Workshop のシートからだけです** — すべてのトリガーを完全な値で、すべての手順をそれができることと共に見せ、有効にするスイッチがあります — 単なる「許可」で残されることは決してなく、残されるのはシートが見せたものそのものです。残されたコマンドにはあなたのプラグインの印が付き、あなたのプラグインをアンインストールするとそのコマンドは無効になります。
+
+**呼び出しは、本人が応答するかカードが期限切れになるまで続きます** — Astra の確認タイムアウトで、最短 30 秒、本人が変えていなければ 120 秒。SDK は独自の期限を付けません。すぐに応答しなければならない経路では決して await せず、**コマンドは 1 つずつ提案してください**: あなたの提案の 1 つが待っている間の 2 つ目の提案は、`UNCHANGED` になるはずのものでも `busy` として拒否されます。
+
+| 結果 | 意味 | どうするか |
+|---|---|---|
+| `SAVED` | 本人が残した。`enabled` は残された後にコマンドが有効かどうかを示す(Astra が無効のまま残すこともある) | 記録する |
+| `UNCHANGED` | このキーで残されているものは、まさにこの提案から来たもの — 本人が編集した後も同じ。誰にも尋ねていない | 何もしない |
+| `DECLINED` | 本人が断った — 今、または以前にまさにこのコマンドを(Astra が再起動するまで) | 記録する。**頼まれもしないのに再び提案しない** |
+| `TIMED_OUT` | カードが期限切れになる前に誰も応答しなかった(ウィンドウが 1 つも開いていなかった場合も含む) | 本人がいるときに、後で提案する |
+| `REFUSED` | 尋ねなかった、または残さなかった: `code` が理由を示し、`error` は `PluginError` | 下のコードを読む |
+
+| `code` | いつ |
+|---|---|
+| `not_compiled` | この Astra は提案を受け付けない: `plugin-requests` 機能なしでビルドされた |
+| `locked` | Astra がパスコードでロックされている |
+| `invalid_key` | `a-z`、`A-Z`、`0-9`、`.`、`_`、`-` の 1〜64 文字ではないキー |
+| `reason_too_long` | **140 文字**を超える理由(`spec/limits.yaml` の `propose_command_reason_max_chars`)。全体が表示されるので、切り詰められずに拒否される |
+| `too_large` | **1 MiB** を超える JSON(`propose_command_max_bytes`)。Workshop のコマンド自身の上限 |
+| `invalid_command` | Workshop のリーダーが受け付けるコマンドではない。`error.message` はたいていそのリーダー自身のコードで始まる — `E_COMMAND_FORMAT`、`E_COMMAND_UNKNOWN_ACTION`、… — が、カード自体を表示できないとき(コマンドの名前とあなたの理由がカードに収まらないとき)はそうではない |
+| `foreign_plugin` | コマンドが他のプラグインのアクションかトリガーを使っている |
+| `busy` | あなたの提案の 1 つがすでに本人を待っている: カードはプラグインごとに同時に 1 枚 |
+| `rate_limited` | **まとめて 2 件まで、その後は 2 分に 1 件**。`error.retry_after_ms` が次に空く時を示す。誰にも尋ねない提案(`UNCHANGED`、覚えられている `DECLINED`)は何も消費しない |
+| `stopped` | あなたのプラグインの権限が先に終わった — 停止された、無効にされた、取り下げられた、またはアカウントが Astra を利用できなくなった |
+| `stale` | 更新対象のコマンドが、カードが出ている間に変わったか消えたので、本人が見たものと書き込まれるものが一致しない。何も書き込まれていない |
+| `write_refused` | コマンドを保存できなかった |
+
+上限はデーモンのものです: SDK は `PROPOSE_COMMAND_MAX_BYTES` と `PROPOSE_COMMAND_REASON_MAX_CHARS` をエクスポートしますが、自分ではどちらも検査しません。許可に加えて、呼び出しには **Astra を利用できるアカウント** が必要です。許可がない、またはアカウントが Astra を利用できない場合は、他のホスト呼び出しと同じく失敗した呼び出しになり、結果ではありません。`propose_commands` は**高リスク**です — 残されたコマンドは後で、そのトリガーによって、本人自身のコマンドとして実行され、その手順はシェルコマンドのような組み込みのものも含めて改めて尋ねることなく実行されます — ので、専用の同意チェックボックスを持ちます。ローカルインポートでは拒否されません: 毎回のシートそのものが決定だからです。この呼び出しより古い Astra は `UNIMPLEMENTED` を返します。
 
 ## reason を書く
 
@@ -348,7 +395,7 @@ mod tests {
 
 ## 同意、ユーザー側の視点から
 
-パーミッションはリスクによってグループ化されています。7 つの高リスクな
+パーミッションはリスクによってグループ化されています。8 つの高リスクな
 ものはそれぞれ独自のチェックボックスを持ち、そのすべてにチェックが入る
 までインストールは無効のままです; `dom_access` には 2 つ目の画面が
 あります。意図的に**タイプして確認**というパターンは**ありません**: それは

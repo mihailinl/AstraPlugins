@@ -123,6 +123,13 @@ pub enum Permission {
     /// consent, each time, and a plugin that rewrote `settings.json` instead
     /// asked nobody.
     RequestSettingsChange,
+    /// `PluginHostService.ProposeCommand` — OFFER the person a command to keep
+    /// (a portable command, read as a Workshop command is). Every offer is a
+    /// card, and the command is kept only from its sheet, which shows every
+    /// trigger and every step. **High risk:** a kept command runs later, on its
+    /// triggers, with Astra's authority — worth its own checkbox at install.
+    /// Not refused at Tier 2: the sheet is the decision, each time.
+    ProposeCommands,
 }
 
 /// Every permission id, in [`Permission`]'s declaration order.
@@ -145,11 +152,14 @@ pub const PERMISSION_NAMES: &[&str] = &[
     "read_user_identity",
     "receive_attachments",
     "request_settings_change",
+    "propose_commands",
 ];
 
 /// The five §5.6 marks *"high-risk, each its own consent checkbox"*, `speak`
-/// (2026-11-12): a plugin's words heard in Astra's voice, and
-/// `receive_attachments` (2026-11-12): a person's photos in a plugin's hands.
+/// (2026-11-12): a plugin's words heard in Astra's voice,
+/// `receive_attachments` (2026-11-12): a person's photos in a plugin's hands,
+/// and `propose_commands` (2026-11-13): commands that run with Astra's
+/// authority.
 ///
 /// §4.3 spells four checkboxes and omits `push_to_ui`; §5.6 lists five. This is
 /// the union, because the disagreement is between a UI paragraph and the
@@ -164,6 +174,7 @@ pub const HIGH_RISK_PERMISSIONS: &[Permission] = &[
     Permission::Client,
     Permission::Speak,
     Permission::ReceiveAttachments,
+    Permission::ProposeCommands,
 ];
 
 /// The four §5.5 refuses **outright** to a Tier-2 import — *"refused outright,
@@ -201,6 +212,7 @@ impl Permission {
             Permission::ReadUserIdentity => "read_user_identity",
             Permission::ReceiveAttachments => "receive_attachments",
             Permission::RequestSettingsChange => "request_settings_change",
+            Permission::ProposeCommands => "propose_commands",
         }
     }
 
@@ -237,6 +249,7 @@ pub const ALL_PERMISSIONS: &[Permission] = &[
     Permission::ReadUserIdentity,
     Permission::ReceiveAttachments,
     Permission::RequestSettingsChange,
+    Permission::ProposeCommands,
 ];
 
 /// What an author wrote for one permission id.
@@ -450,7 +463,7 @@ mod tests {
                 p.id()
             );
         }
-        assert_eq!(HIGH_RISK_PERMISSIONS.len(), 7);
+        assert_eq!(HIGH_RISK_PERMISSIONS.len(), 8);
         assert_eq!(TIER2_REFUSED_PERMISSIONS.len(), 4);
         // Reading the chat's endpoint is the honest alternative to reading
         // `settings.json`; a checkbox or a Tier-2 refusal would price the
@@ -470,6 +483,10 @@ mod tests {
         // Each request is its own card: the consent is asked every time.
         assert!(!Permission::RequestSettingsChange.is_high_risk());
         assert!(!Permission::RequestSettingsChange.refused_at_tier2());
+        // A kept command runs with Astra's authority: a checkbox of its own, and
+        // the sheet each time — not a refusal to an import.
+        assert!(Permission::ProposeCommands.is_high_risk());
+        assert!(!Permission::ProposeCommands.refused_at_tier2());
     }
 
     /// The section as §5.6 writes it, parsed.

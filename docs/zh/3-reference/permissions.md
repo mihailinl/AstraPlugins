@@ -37,7 +37,7 @@
 
    <!-- doctest: output from="astra-plugin check --strict ." unrun="needs a plugin project in the working directory; re-run it in your own plugin" -->
    ```
-     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings, speak, read_user_identity, receive_attachments, request_settings_change
+     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings, speak, read_user_identity, receive_attachments, request_settings_change, propose_commands
      FAILED: 1 warning(s), and --strict treats warnings as errors
    ```
 
@@ -56,7 +56,7 @@
 `GetDaemonInfo` 是免费的，这是一个决定，不是疏漏：一个什么都保护不了的
 勾选框，只会教会用户去随手勾选各种框。
 
-## 十三个 id
+## 十四个 id
 
 | Id | 限制哪个调用 | 有独立的勾选框 | 在本地导入时被拒绝 | 它能让你做什么 |
 |---|---|---|---|---|
@@ -73,6 +73,7 @@
 | `read_user_identity` | `GetUserIdentity` | 否 | 否 | 读取这次安装和已登录账号的假名 id，专为你的插件生成 |
 | `receive_attachments` | —（一种投递） | **是** | 否 | 在请求它的工具里收到本人附上的图片 |
 | `request_settings_change` | `RequestSettingsChange` | 否 | 否 | 在一张由本人作答的卡片上，请本人更改助手可以更改的某项设置 |
+| `propose_commands` | `ProposeCommand` | **是** | 否 | 向本人提供一条命令供其保留，本人在 Astra 的 Workshop 表单中保留它 |
 
 `dom_access` 和 `client` 不限制任何 RPC，这正是关键所在：它们是
 **界面层(surface)**。`dom_access` 决定一个 UI 贡献是被渲染为 Astra
@@ -198,7 +199,7 @@ fire_trigger = { reason = "Fires meeting_summarised when a summary is ready" }
 
 ## 请本人更改某项设置
 
-插件如果确有理由希望 Astra 的某项设置被更改——它的工具所适配的模型、适合它的声音——就去**请求**，由本人在一张卡片上决定。绝不要自己去写 Astra 的 `settings.json`，也绝不要为此借用 Astra 自己的会话：那是在本人背后改动本人的 Astra，而发布时的人工审核正是要找这种行为。声明 `request_settings_change` 并调用 `RequestSettingsChange`（Rust 和 Python 中为 `request_settings_change(changes, reason)`，TypeScript 中为 `ctx.requestSettingsChange(changes, reason)`）。**目前还没有任何 Astra 发布版本会响应它：**只有以 `plugin-requests` 构建功能构建的守护进程才接受请求；其他任何 Astra 都会返回带代码 `not_compiled` 的 `REFUSED`。
+插件如果确有理由希望 Astra 的某项设置被更改——它的工具所适配的模型、适合它的声音——就去**请求**，由本人在一张卡片上决定。绝不要自己去写 Astra 的 `settings.json`，也绝不要为此借用 Astra 自己的会话：那是在本人背后改动本人的 Astra，而发布时的人工审核正是要找这种行为。声明 `request_settings_change` 并调用 `RequestSettingsChange`（Rust 和 Python 中为 `request_settings_change(changes, reason)`，TypeScript 中为 `ctx.requestSettingsChange(changes, reason)`）。**目前还没有任何 Astra 发布版本会响应它。**以 `plugin-requests` 构建功能构建的 Astra 接受请求；不带该功能构建的较新 Astra 会返回带代码 `not_compiled` 的 `REFUSED`；较旧的 Astra——也就是今天的所有发布版本——会让调用以 `UNIMPLEMENTED` 失败，这是一个错误，而不是一个结果。
 
 每项更改是一个以点分隔的设置路径和想要的值（JSON 形式）——SDK 会替你把值序列化。只能请求更改助手自己可以更改的那些设置——声音、AI 模型、语言；绝不包括权限模式、密钥或 Tool Search——而且每个值都会像助手自己的更改一样接受完全相同的检查。卡片会写明你的插件，显示每项设置现在的值和将要变成的值，以及你用自己的话写的 `reason`。要么全部更改，要么全不更改，而被更改的正是卡片上显示的内容。
 
@@ -220,7 +221,7 @@ fire_trigger = { reason = "Fires meeting_summarised when a summary is ready" }
 | `too_many` | 超过 **8** 项更改（`spec/limits.yaml` 中的 `settings_change_max_changes`） |
 | `reason_too_long` | 理由超过 **140 个字符**（`settings_change_reason_max_chars`）。理由会完整显示，所以超长会被拒绝，绝不截断 |
 | `busy` | 你的某个请求已在等待本人作答：每个插件同一时间只有一张卡片 |
-| `rate_limited` | **一次最多两个请求，之后每两分钟一个**；`error.retry_after_ms` 说明何时会再有空位 |
+| `rate_limited` | **先可连续两个请求，之后每两分钟一个**；`error.retry_after_ms` 说明何时会再有空位 |
 | `not_assistant_editable` | 助手不能更改的路径 |
 | `invalid_value`, `unknown_choice` | 该设置无法容纳的值，或它不提供的选项 |
 | `needs_api_key`, `needs_stt_provider`, `provider_unreachable` | 这项更改会让 Astra 缺少它所需要的东西：该 AI 提供商的密钥、语音识别器、能够响应的提供商 |
@@ -229,6 +230,52 @@ fire_trigger = { reason = "Fires meeting_summarised when a summary is ready" }
 | `write_refused` | 无法写入设置 |
 
 当前值永远不会被返回：你的插件得知的只是结果。限制由守护进程掌握：SDK 导出 `SETTINGS_CHANGE_MAX_CHANGES` 和 `SETTINGS_CHANGE_REASON_MAX_CHARS`，自己不检查其中任何一个。除了授予之外，调用还需要**一个有权使用 Astra 的账号**；缺少授予，或账号无权使用 Astra，都和任何 host 调用一样是一次失败的调用，而不是一个结果。它既不属于高风险，在本地导入时也不会被拒绝：每个请求都是一张由本人作答的卡片，所以每次都会征求同意。早于这个调用的 Astra 会返回 `UNIMPLEMENTED`。
+
+## 向本人提供一条命令
+
+插件如果有一个有用的自动化可以给——比如用它自己的动作搭成的“我说早上好时给我读新闻”——就去**提供**它，由本人决定。插件不能自己写入本人的命令库：`CommandService` 对插件的会话是关闭的，而在有这个调用之前，插件只能在聊天里描述一条命令，然后指望本人自己重新搭出来。声明 `propose_commands` 并调用 `ProposeCommand`（Rust 和 Python 中为 `propose_command(key, command, reason)`，TypeScript 中为 `ctx.proposeCommand(key, command, reason)`）。**目前还没有任何 Astra 发布版本会响应它。**以 `plugin-requests` 构建功能构建的 Astra 接受提供；不带该功能构建的较新 Astra 会返回带代码 `not_compiled` 的 `REFUSED`；较旧的 Astra——也就是今天的所有发布版本——会让调用以 `UNIMPLEMENTED` 失败，这是一个错误，而不是一个结果。
+
+命令是**一条可移植的命令**——也就是 `.astra` 文件的 `commands[]` 里装的东西。最简单的做法是在 Astra 里搭好它，从“命令”页面导出，再把文件随插件一起分发；每个 SDK 都有一个辅助函数，把这样的文件拆成一条条命令（Rust 和 Python 中为 `commands_from_astra_file`，TypeScript 中为 `commandsFromAstraFile`），每条都去掉了属于某一次安装的字段（`id`、`enabled`、所在文件夹、来源）。守护进程用 Workshop 自己的读取器读取命令——严格的 JSON，只接受已知的动作和触发器类型，去掉上述本地字段，因此插件既不能伪造命令的来源，也不能把它启用——而且命令可以使用 Astra 的内置动作和触发器以及**你的插件自己的**，绝不能使用其他插件的（`foreign_plugin`）。内置的包括 shell 命令、按键和文件操作：表单会列出每个步骤及其可做的事，本人同意的正是这些。
+
+`key` 是你的插件给这条命令起的名字：1 到 64 个 `a-z`、`A-Z`、`0-9`、`.`、`_` 和 `-` 字符。同一个键名再次提供就是同一条命令，在本人再次同意后就地更新——保留它的 id 和文件夹；再次提供该键名下已经保留的正是这条命令则不会询问任何人（`UNCHANGED`）。
+
+Astra 记住的东西比看上去要少，所以不要在每次启动时简单地把每条命令都提供一遍：
+
+- `DECLINED` 只会被记住到 Astra 重启为止——之后同样的提供又会是一张卡片；
+- 本人删除的命令已不在它的键名下，所以再次提供就是一次新的提供——又是一张卡片；
+- 卸载你的插件时被关闭的命令，在重新安装后仍保持关闭，而同样的提供会返回 `UNCHANGED`；
+- `UNCHANGED` 是把你的提供与该键名下提供并保留过的内容相比较，所以本人编辑过保留的命令之后，答案也是它。
+
+在插件自己的状态里按键名记录 `SAVED` 和 `DECLINED`，启动时只提供你还没有得到答复的键名——以及你修改过的命令。
+
+本人会看到一张卡片，写明你的插件和这条命令，附上你用自己的话写的 `reason`，并给出两个选择：“查看”和“拒绝”。**命令只能从 Astra 的 Workshop 表单中保留**——表单列出每个触发器的完整值、每个步骤及其可做的事，还有一个启用开关——绝不能靠一个简单的“允许”保留，被保留的正是表单显示的内容。被保留的命令带有你的插件的标记；卸载你的插件会关闭它的命令。
+
+**调用会一直持续到本人作答或卡片过期**——即 Astra 的确认超时，至少 30 秒，本人未改动时为 120 秒。SDK 不会为它设置自己的截止时间。绝不要在必须快速作答的路径上等待它，并且**一次只提供一条命令**：在你的某个提供还在等待时发出的第二个提供会被以 `busy` 拒绝，即使它本来会是 `UNCHANGED`。
+
+| 结果 | 含义 | 该怎么做 |
+|---|---|---|
+| `SAVED` | 本人保留了它；`enabled` 说明保留后命令是否处于启用状态（Astra 可能将它保留为关闭） | 记录下来 |
+| `UNCHANGED` | 该键名下保留的内容正来自这次提供——本人编辑过之后也是如此。没有询问任何人 | 什么都不用做 |
+| `DECLINED` | 本人拒绝了——现在拒绝，或以前就拒绝过正是这条命令（直到 Astra 重启） | 记录下来。**不要在没人要求时再次提供** |
+| `TIMED_OUT` | 卡片过期前没有人作答（没有打开任何窗口也算在内） | 等本人在场时再提供 |
+| `REFUSED` | 没有询问，或没有保留：`code` 说明原因，`error` 是一个 `PluginError` | 查看下面的代码 |
+
+| `code` | 何时 |
+|---|---|
+| `not_compiled` | 这个 Astra 不接受提供：它在构建时没有启用 `plugin-requests` 功能 |
+| `locked` | Astra 被其密码锁定 |
+| `invalid_key` | 键名不是 1 到 64 个 `a-z`、`A-Z`、`0-9`、`.`、`_` 和 `-` 字符 |
+| `reason_too_long` | 理由超过 **140 个字符**（`spec/limits.yaml` 中的 `propose_command_reason_max_chars`）。理由会完整显示，所以超长会被拒绝，绝不截断 |
+| `too_large` | 超过 **1 MiB** 的 JSON（`propose_command_max_bytes`），这是 Workshop 命令自己的上限 |
+| `invalid_command` | 不是 Workshop 读取器接受的命令；`error.message` 通常以它自己的代码开头——`E_COMMAND_FORMAT`、`E_COMMAND_UNKNOWN_ACTION`……——但当卡片本身无法显示时（命令的名称和你的理由太长，卡片放不下）则不是 |
+| `foreign_plugin` | 命令使用了其他插件的动作或触发器 |
+| `busy` | 你的某个提供已在等待本人作答：每个插件同一时间只有一张卡片 |
+| `rate_limited` | **先可连续两个提供，之后每两分钟一个**；`error.retry_after_ms` 说明何时会再有空位。不询问任何人的提供（`UNCHANGED`、被记住的 `DECLINED`）不消耗额度 |
+| `stopped` | 你的插件的权限先结束了——它被停止、被禁用或被撤下，或者账号不再有权使用 Astra |
+| `stale` | 卡片显示期间，它要更新的那条命令被改动或已不存在，因此本人看到的内容与将要写入的内容不同。什么都没有写入 |
+| `write_refused` | 无法保存命令 |
+
+限制由守护进程掌握：SDK 导出 `PROPOSE_COMMAND_MAX_BYTES` 和 `PROPOSE_COMMAND_REASON_MAX_CHARS`，自己不检查其中任何一个。除了授予之外，调用还需要**一个有权使用 Astra 的账号**；缺少授予，或账号无权使用 Astra，都和任何 host 调用一样是一次失败的调用，而不是一个结果。`propose_commands` 属于**高风险**——被保留的命令以后会按自己的触发器、作为本人自己的命令运行，它的步骤（包括 shell 命令这类内置步骤）都不会再次询问——所以它有自己的同意勾选框。在本地导入时它不会被拒绝：每一次的表单本身就是决定。早于这个调用的 Astra 会返回 `UNIMPLEMENTED`。
 
 ## 编写 reason
 
@@ -331,7 +378,7 @@ mod tests {
 
 ## 从用户的角度看同意机制
 
-权限按风险分组。七种高风险权限各自有独立的勾选框，只要还有一个没被
+权限按风险分组。八种高风险权限各自有独立的勾选框，只要还有一个没被
 勾选，"安装"按钮就保持禁用；`dom_access` 还会有第二个界面。这里刻意
 **没有"输入以确认"**这种设计：那是用于不可逆的破坏性操作的模式，让用户
 习惯于打字敲过去，只会摧毁勾选框本应承载的那个信号。

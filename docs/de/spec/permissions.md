@@ -25,7 +25,7 @@ durch bloße Deklaration selbst gewährte.
 
 ## 1. Das Vokabular
 
-Dreizehn IDs, eine geschlossene Menge (`astra-plugin-manifest/src/permissions.rs`,
+Vierzehn IDs, eine geschlossene Menge (`astra-plugin-manifest/src/permissions.rs`,
 `PERMISSION_NAMES`, per Test an das Enum gepinnt). Die Registry
 validiert die IDs eines Listings gegen diese Liste, und Astras
 lokalisierte Label-Tabelle ist danach indexiert, eine an einer Stelle
@@ -47,8 +47,9 @@ leere Zeile.
 | `read_user_identity` | `GetUserIdentity` | Pseudonyme für diese Installation und das angemeldete Konto lesen, nur für das aufrufende Plugin erzeugt — nie die eigene ID des Kontos, ein Name, eine E-Mail-Adresse oder eine Hardware-Seriennummer | |
 | `receive_attachments` | *kein RPC* — eine **Zustellung** | in einem Tool, das `wants_attachments` deklariert hat, die Bilder übergeben bekommen, die die Person an die Nachricht angehängt hat, die ein Aufruf beantwortet (`PluginCallToolRequest.attachments`) | ● |
 | `request_settings_change` | `RequestSettingsChange` | die Person auf einer Karte, die sie beantwortet, bitten, einige Einstellungen von Astra zu ändern — nur die, die der Assistent selbst ändern darf; ohne ihr Erlauben ändert sich nichts. Braucht außerdem ein Konto, das Astra freischaltet | |
+| `propose_commands` | `ProposeCommand` | der Person einen portablen Befehl zum Behalten anbieten, gelesen wie ein Workshop-Befehl und mit den eingebauten Aktionen und Auslösern von Astra und den eigenen des aufrufenden Plugins — nie denen eines anderen Plugins (`foreign_plugin`); behalten wird er nur über das Workshop-Blatt, das jeden Auslöser und jeden Schritt zeigt. Braucht außerdem ein Konto, das Astra freischaltet | ● |
 
-**Die sieben mit ● markierten sind hochriskant** (`HIGH_RISK_PERMISSIONS`)
+**Die acht mit ● markierten sind hochriskant** (`HIGH_RISK_PERMISSIONS`)
 und bekommen jeweils eine eigene Zustimmungs-Checkbox. §4.3 des Plans
 buchstabiert vier Checkboxen aus und lässt `push_to_ui` weg; §5.6
 listet fünf. Die Implementierung nimmt die **Vereinigung**, weil die
@@ -60,6 +61,16 @@ gehört. Es wird einem Stufe-2-Import nicht verweigert (§5) — eine Ansage
 ist etwas Gewöhnliches, das ein Plugin wollen kann, und die Checkbox ist
 die Entscheidung. `receive_attachments` kam am selben Tag zu denselben
 Bedingungen dazu: Die Fotos einer Person erreichen Code von Dritten.
+`propose_commands` kam am 2026-11-13 dazu: Ein Befehl, den die Person
+behält, läuft später, auf seine eigenen Auslöser hin, als eigener Befehl der
+Person, lange nach dem Angebot, das ihn brachte — seine Schritte, eingebaute wie
+ein Shell-Befehl eingeschlossen, laufen, ohne noch einmal zu fragen. Auch er wird einem
+Stufe-2-Import nicht verweigert — jedes Angebot ist eine Karte, und der
+Befehl wird nur über das Workshop-Blatt behalten, das jeden Auslöser mit
+seinem vollen Wert und jeden Schritt mit dem zeigt, was er tun darf; das
+Blatt ist die Entscheidung, jedes Mal. Der Daemon beantwortet ihn nur, wenn
+er mit dem Build-Feature `plugin-requests` gebaut ist (noch in keinem
+Release), und lehnt ihn sonst als `not_compiled` ab.
 
 `speak` ist die eine ID, die zwei RPCs sperrt: Die eigene Sprachausgabe
 anzuhalten gehört zum Sprechen. `read_ai_settings` und `read_user_identity`
@@ -173,6 +184,7 @@ neues RPC ein Testfehlschlag ist statt eine stille Auslassung:
 | `StopSpeaking` | `speak` |
 | `GetUserIdentity` | `read_user_identity` |
 | `RequestSettingsChange` | `request_settings_change` |
+| `ProposeCommand` | `propose_commands` |
 
 `GetDaemonInfo` ist die eine Ergänzung zur Dreier-Liste des Plans, und
 das ist eine Entscheidung statt eine Auslassung: es gibt `version`,
@@ -299,12 +311,12 @@ Eine Permission wird nur honoriert, wenn **beide** gelten:
 2. die **Obergrenze** — eine pro Provenienz geltende Regel, die kein
    Record überkaufen kann.
 
-`require_permission` fragt das erste für die elf Host-RPCs, die eine
+`require_permission` fragt das erste für die zwölf Host-RPCs, die eine
 Permission sperren — `SubscribeEvents`, `SendChatMessage`,
 `FireTrigger`, `SetVariable`, `SetThemeContribution`, `PushToUi`, `GetAiSettings`,
-`Speak`, `StopSpeaking`, `GetUserIdentity`, `RequestSettingsChange` (`Speak` und
-`RequestSettingsChange` brauchen zusätzlich ein Konto, das Astra freischaltet,
-`require_authorized_plugin`). Die
+`Speak`, `StopSpeaking`, `GetUserIdentity`, `RequestSettingsChange`,
+`ProposeCommand` (`SendChatMessage`, `FireTrigger`, `Speak`,
+`RequestSettingsChange` und `ProposeCommand` brauchen zusätzlich ein Konto, das Astra freischaltet, `require_authorized_plugin`). Die
 verbleibenden vier (`Register`, `GetPluginSelfConfig`, `PluginLog`,
 `GetDaemonInfo`) tragen `None` in `HOST_RPC_PERMISSIONS` und sind
 immer erlaubt; §2 hat die Tabelle und die Begründung.
@@ -342,8 +354,8 @@ er jemandem geschickt hat, rückwirkend aufheben wird.
 
 Die Stufe-2-Ablehnungsliste ist `TIER2_REFUSED_PERMISSIONS` — absichtlich
 **nicht** dieselbe Liste wie `HIGH_RISK_PERMISSIONS`: `push_to_ui`,
-`speak` und `receive_attachments` sind eine Checkbox wert und nicht wert, eine Datei abzulehnen,
-die der Nutzer zum Import ausgewählt hat. Die vier sind aus §5.5 zitiert, nicht
+`speak`, `receive_attachments` und `propose_commands` sind eine Checkbox wert und nicht wert, eine Datei abzulehnen,
+die der Nutzer zum Import ausgewählt hat. Die vier abgelehnten sind aus §5.5 zitiert, nicht
 abgeleitet.
 
 **Stufe 3 ist nicht Stufe 2 mit einem netteren Abzeichen.** Die

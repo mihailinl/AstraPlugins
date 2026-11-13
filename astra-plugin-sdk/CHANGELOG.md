@@ -16,8 +16,8 @@ are removable in.
 
 ## [0.7.5] — unreleased
 
-Proto re-synced to Astra `8c36a7033` (branch `feat/plugin-api-gaps`, not on Astra's `main` yet). Between `sdk-v0.7.4` and this release the protocol gained 68 fields on
-33 messages that already existed, 37 new messages and 12 new rpcs (`tools/check-protocol-counts.py --count sdk-v0.7.4`);
+Proto re-synced to Astra `c42d091b2` (branch `feat/plugin-api-gaps`, not on Astra's `main` yet). Between `sdk-v0.7.4` and this release the protocol gained 69 fields on
+33 messages that already existed, 40 new messages and 13 new rpcs (`tools/check-protocol-counts.py --count sdk-v0.7.4`);
 nothing was removed, retyped or changed in place.
 
 ### Added
@@ -135,9 +135,10 @@ nothing was removed, retyped or changed in place.
   `docs/en/image-provider-plugins.md`.
 
 - **A plugin can ask the person to change a setting** (Astra `8c36a7033`,
-  branch `feat/plugin-api-gaps`; **in no Astra release yet** — the daemon takes
-  requests only when built with the `plugin-requests` build feature, and any
-  other answers `Refused` with the code `not_compiled`):
+  branch `feat/plugin-api-gaps`; **in no Astra release yet** — an Astra built
+  with the `plugin-requests` build feature takes requests, a newer one without it
+  answers `Refused` with the code `not_compiled`, and an older one fails the call
+  with `UNIMPLEMENTED`):
   `Host::request_settings_change(changes, reason)` /
   `HostClient::request_settings_change(..)` → `proto::PluginSettingsChangeResponse`.
   `changes` is `&[proto::PluginSettingChange]`, built with the new
@@ -151,8 +152,8 @@ nothing was removed, retyped or changed in place.
   `reason_too_long`, `busy`, `rate_limited`, `not_assistant_editable`,
   `invalid_value`, `unknown_choice`, `needs_api_key`, `needs_stt_provider`,
   `provider_unreachable`, `stale`, `stopped`, `write_refused`), `refused_path`
-  and `error: Some(PluginError)` — `retry_after_ms` with `rate_limited` (two
-  requests at once, then one every two minutes). The current values are never
+  and `error: Some(PluginError)` — `retry_after_ms` with `rate_limited` (a burst of two
+  requests, then one every two minutes). The current values are never
   returned. **The call lasts until the person answers or the card expires**
   (Astra's confirmation timeout, at least 30 s, 120 s by default); the SDK puts
   no deadline on it. At most `limits::SETTINGS_CHANGE_MAX_CHANGES` (8) changes
@@ -170,6 +171,57 @@ nothing was removed, retyped or changed in place.
   `Recorded::settings_change_requests()`;
   `MockDaemon::set_settings_change_response(..)` and `settings_change_requests()`.
   `HOST_RPCS` gained `request_settings_change`.
+
+- **A plugin can offer the person a command to keep** (Astra `c42d091b2`, branch
+  `feat/plugin-api-gaps`; **in no Astra release yet** — an Astra built with the
+  `plugin-requests` build feature takes offers, a newer one without it answers
+  `Refused` with the code `not_compiled`, and an older one fails the call with
+  `UNIMPLEMENTED`): `Host::propose_command(key, command_json, reason)` /
+  `HostClient::propose_command(..)` → `proto::PluginProposeCommandResponse`.
+  `command_json` is ONE portable command as JSON, read by the Workshop's own
+  reader (strict JSON, known action and trigger types, the local members
+  dropped) and allowed to use Astra's built-in actions and triggers and this
+  plugin's own — never another plugin's (`foreign_plugin`); `key` is the
+  plugin's own name for it (1-64 of `a-z A-Z 0-9 . _ -`), and the same key
+  offered again updates the same command. The person sees a card naming the
+  plugin and the command with `reason`, and keeps it only from Astra's Workshop
+  sheet — every trigger and step shown, an Enable switch. Read `outcome()`:
+  `PluginProposeCommandOutcome::Saved` (with `enabled`: whether the command is
+  on after it was kept), `Unchanged` (what is kept under the key came from this
+  very offer, also after the person edited it; nobody was asked), `Declined`
+  (now, or this very command before, until Astra restarts — record it and do not
+  offer it again unasked), `TimedOut`, or `Refused` with `code` (`not_compiled`,
+  `locked`, `invalid_key`, `reason_too_long`, `too_large`, `invalid_command` —
+  its `error.message` usually leads with the Workshop's `E_COMMAND_*` code —,
+  `foreign_plugin`, `busy`, `rate_limited`, `stopped`, `stale`, `write_refused`)
+  and `error: Some(PluginError)` — `retry_after_ms` with `rate_limited` (a burst
+  of two offers, then one every two minutes; an offer that asks nobody spends
+  nothing). **The call lasts until the person answers or the card expires**; the
+  SDK puts no deadline on it. Offer one command at a time: a second offer while
+  one waits is `busy`. At most `limits::PROPOSE_COMMAND_MAX_BYTES` (1 MiB) of
+  JSON and a reason of `limits::PROPOSE_COMMAND_REASON_MAX_CHARS` (140)
+  characters, both new rows of `spec/limits.yaml` — the SDK checks neither; the
+  daemon is the authority, refuses past them and never cuts. Needs the new
+  **`propose_commands`** permission (**high-risk**: its own consent checkbox,
+  because a kept command runs later as the person's own command, its steps —
+  built-ins such as a shell command included — without asking again; not refused
+  to a local import — the sheet is the decision) and an account that opens
+  Astra. A DEFAULT `Host` method, like `request_settings_change`: the scoping
+  wrapper, `HostClient` and both testing hosts override it, and
+  `tests::the_scoping_wrapper_forwards_command_offers` /
+  `…every_in_repo_host_answers_command_offers_without_the_default` fail for one
+  that forgets. New helper **`commands_from_astra_file(text)`** →
+  `Vec<serde_json::Value>`: the commands of a `.astra` file Astra exported
+  (`"astra-commands"` or `"astra-group"`, `version` a number), each without
+  `source_id` and the portable command's local members (`id`, `created_at`,
+  `updated_at`, `group_id`, `enabled`, `marketplace_source`, `catalogue_source`,
+  `plugin_source`); any other shape is an error naming what is wrong. Held to
+  `testdata/astra-file/vectors.json`, which the Python and TypeScript SDKs read
+  too. Testing: `RecordingHost::set_command_offer_response(..)` (saved and
+  switched on by default) and `command_offers()`; `Recorded::command_offers()`;
+  `MockDaemon::set_command_offer_response(..)` and `command_offers()`.
+  `HOST_RPCS` gained `propose_command`.
+
 ### Changed (Astra `d6fc58808`, no SDK change needed)
 
 - **`auth_changed` is narrowed.** A plugin granted the event used to receive the

@@ -224,6 +224,7 @@ reconocida discreparía con las otras dos sobre qué se firmó.
 | `read_user_identity` | `GetUserIdentity` | no | no | Seudónimos de esta instalación y de la cuenta con sesión iniciada, creados solo para este plugin (nunca el id propio de la cuenta, un nombre ni un número de serie del hardware). |
 | `receive_attachments` | — | **sí** | no | Las imágenes que la persona adjuntó al mensaje que responde un turno, entregadas a las herramientas de este plugin que declaran `wants_attachments` (`PluginCallToolRequest.attachments`). |
 | `request_settings_change` | `RequestSettingsChange` | no | no | PEDIR a la persona que cambie algunos ajustes de Astra (solo los que el propio asistente puede cambiar). |
+| `propose_commands` | `ProposeCommand` | **sí** | no | OFRECER a la persona un comando para conservar (un comando portable, leído como un comando del Workshop). |
 
 *Bloquea* es el RPC del host que el daemon rechaza sin el permiso, de
 [`spec/hooks.yaml`](../../../spec/hooks.yaml); la regla de paridad R6
@@ -309,6 +310,8 @@ chat, su propia sesión). **Alto riesgo.**
 **`receive_attachments`.** Las imágenes que la persona adjuntó al mensaje que responde un turno, entregadas a las herramientas de este plugin que declaran `wants_attachments` (`PluginCallToolRequest.attachments`). No es un RPC del host: el daemon las envía, y solo en una llamada que causó una conversación. **Alto riesgo:** las fotos de una persona llegan a código de terceros. No se rechaza en el nivel 2: la casilla es la decisión, como con `speak`.
 
 **`request_settings_change`.** `PluginHostService.RequestSettingsChange` — PEDIR a la persona que cambie algunos ajustes de Astra (solo los que el propio asistente puede cambiar). Cada solicitud es una tarjeta que ella responde, con cada ajuste, lo que vale y lo que valdría, y el motivo del plugin; nada cambia sin su Permitir. No es de alto riesgo y no se rechaza en el nivel 2: la tarjeta es el consentimiento, cada vez, y un plugin que reescribía `settings.json` en su lugar no le preguntaba a nadie.
+
+**`propose_commands`.** `PluginHostService.ProposeCommand` — OFRECER a la persona un comando para conservar (un comando portable, leído como un comando del Workshop). Cada oferta es una tarjeta, y el comando solo se conserva desde su hoja, que muestra cada disparador y cada paso. **Alto riesgo:** un comando conservado se ejecuta más tarde, con sus disparadores, con la autoridad de Astra — merece su propia casilla al instalar. No se rechaza en el nivel 2: la hoja es la decisión, cada vez.
 
 ## `[config]`
 

@@ -2,12 +2,12 @@
 
 # 协议参考手册
 
-协议世代 **1**。10 个服务，200 个 RPC。来源：
+协议世代 **1**。10 个服务，201 个 RPC。来源：
 [`proto/plugin.proto`](../../../proto/plugin.proto)，从 Astra 的
-`astra.proto` 生成出的一部分（`surface-sha256: 828036790246a89f…`，
+`astra.proto` 生成出的一部分（`surface-sha256: 52fb82747b2a7a5f…`，
 即本页所讲述的面向插件主体的摘要），由
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) 固定为
-`sha256:97a23c6a59ad86f8…`。三个 SDK 中每一份 vendor 的拷贝都携带同样
+`sha256:d8d9f6fdc58b5c67…`。三个 SDK 中每一份 vendor 的拷贝都携带同样
 的哈希值；`tools/check-proto.sh` 就是用来确认这一点的。
 
 ## 三个面向插件的服务
@@ -15,7 +15,7 @@
 | 服务 | 方向 | RPC 数 | 由谁提供 |
 |---|---|---|---|
 | [`PluginCapabilityService`](#plugincapabilityservice) | 守护进程 → 插件 | 33 | 你的插件 |
-| [`PluginHostService`](#pluginhostservice) | 插件 → 守护进程 | 15 | 守护进程 |
+| [`PluginHostService`](#pluginhostservice) | 插件 → 守护进程 | 16 | 守护进程 |
 | [`PluginService`](#pluginservice) | UI → 守护进程 | 23 | 守护进程 |
 
 协议世代就是那份契约。插件会在
@@ -90,6 +90,7 @@
 | `StopSpeaking` | `speak` | `Empty` | `Empty` | unary | live | Stop everything this plugin asked to be said, sounding and queued, and nothing else Astra is saying. |
 | `GetUserIdentity` | `read_user_identity` | `Empty` | `PluginUserIdentity` | unary | live | Pseudonyms for this installation and the signed-in account, made for this plugin alone; never the account's own id, a name, an email or a hardware serial. |
 | `RequestSettingsChange` | `request_settings_change` | `PluginSettingsChangeRequest` | `PluginSettingsChangeResponse` | unary | live | Ask the person to change some of Astra's settings — only the ones the assistant itself may change — on a card they answer; nothing changes without their Allow. |
+| `ProposeCommand` | `propose_commands` | `PluginProposeCommandRequest` | `PluginProposeCommandResponse` | unary | live | Offer the person one portable command to keep, under this plugin's own key; they keep it only from Astra's Workshop sheet, which shows every trigger and step. |
 | `GetAiSettings` | `read_ai_settings` | `GetAiSettingsRequest` | `PluginAiSettings` | unary | live | The user's chat provider, model and endpoint (never a key), so a plugin never reads Astra's files for them. |
 
 `none` 意味着任何插件随时都可以调用它——这是引导集合，守护进程对它

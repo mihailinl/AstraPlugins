@@ -22,6 +22,7 @@ import { Readable } from "node:stream";
 import type * as grpc from "@grpc/grpc-js";
 import type {
   AiSettings,
+  CommandOfferResult,
   Host,
   DaemonInfo,
   SettingChange,
@@ -29,7 +30,7 @@ import type {
   SpeakResult,
   UserIdentity,
 } from "../host.js";
-import { settingValueJson } from "../host-client.js";
+import { commandJson, settingValueJson } from "../host-client.js";
 import type { ChatChunk, ThemeContribution } from "../types.js";
 
 /**
@@ -38,6 +39,15 @@ import type { ChatChunk, ThemeContribution } from "../types.js";
  */
 export interface RecordedSettingsChange {
   changes: SettingChange[];
+  reason: string;
+}
+/**
+ * One `proposeCommand` — the command as the daemon would read it (the JSON the
+ * real client sends, as text, exactly), the key and the reason as written.
+ */
+export interface RecordedCommandOffer {
+  key: string;
+  commandJson: string;
   reason: string;
 }
 /** One line the plugin logged. */
@@ -85,6 +95,7 @@ export type HostRpc =
   | "stopSpeaking"
   | "getUserIdentity"
   | "requestSettingsChange"
+  | "proposeCommand"
   | "setVariable"
   | "pushToUi"
   | "setThemeContribution"
@@ -109,6 +120,7 @@ export class RecordingHost implements Host {
   private readonly spokenTexts: string[] = [];
   private stops = 0;
   private readonly settingsRequests: RecordedSettingsChange[] = [];
+  private readonly offers: RecordedCommandOffer[] = [];
   private readonly streams: Readable[] = [];
   /** RPC -> the error to throw, and how many more times to throw it. */
   private readonly failures = new Map<HostRpc, { error: Error; times: number }>();
@@ -222,6 +234,13 @@ export class RecordingHost implements Host {
   settingsChangeRequests(): readonly RecordedSettingsChange[] {
     return this.settingsRequests;
   }
+  /**
+   * Every `proposeCommand()`, in order — including one `commandOfferResult`
+   * then refused, because what the plugin OFFERED is the assertion.
+   */
+  commandOffers(): readonly RecordedCommandOffer[] {
+    return this.offers;
+  }
   /** Forget everything recorded. Failure injections are kept. */
   clear(): void {
     this.triggers.length = 0;
@@ -233,6 +252,7 @@ export class RecordingHost implements Host {
     this.spokenTexts.length = 0;
     this.stops = 0;
     this.settingsRequests.length = 0;
+    this.offers.length = 0;
   }
 
   /** Chunks the next `sendChatMessage` will stream back. */
@@ -275,6 +295,20 @@ export class RecordingHost implements Host {
    * `fail("requestSettingsChange", …)` — a rejection, not an outcome.
    */
   settingsChangeResult: SettingsChangeResult = { outcome: "APPLIED", code: "", refusedPath: "" };
+
+  /**
+   * What `proposeCommand()` answers: saved and switched on — the person kept
+   * it with Enable on — until told otherwise. Stage another outcome to test
+   * the branch an unchanged, declined, timed-out or refused offer takes:
+   *
+   * ```ts
+   * host.commandOfferResult = { outcome: "DECLINED", enabled: false, code: "" };
+   * ```
+   *
+   * A refusal by the daemon's gates (no `propose_commands` grant) is
+   * `fail("proposeCommand", …)` — a rejection, not an outcome.
+   */
+  commandOfferResult: CommandOfferResult = { outcome: "SAVED", enabled: true, code: "" };
 
   /** Push one event to every open `subscribeEvents` stream. */
   emitEvent(eventType: string, payload: Record<string, unknown> = {}): void {
@@ -346,6 +380,19 @@ export class RecordingHost implements Host {
       reason,
     });
     return this.settingsChangeResult;
+  }
+
+  async proposeCommand(
+    key: string,
+    command: object | string,
+    reason: string
+  ): Promise<CommandOfferResult> {
+    this.check("proposeCommand");
+    // Serialised the way the real client serialises it, so a command JSON
+    // cannot hold throws here too, and what is recorded is what the daemon
+    // would read.
+    this.offers.push({ key, commandJson: commandJson(command), reason });
+    return this.commandOfferResult;
   }
 
   async setVariable(name: string, value: string, scope = "session"): Promise<void> {

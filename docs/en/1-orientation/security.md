@@ -112,8 +112,8 @@ a repository and a tag, so there is no credential to store and none to leak.
 
 ## What the permission gate does
 
-The daemon enforces `[permissions]` at one place: `require_permission`, on eleven
-of the fifteen `PluginHostService` RPCs. The other four — `Register`,
+The daemon enforces `[permissions]` at one place: `require_permission`, on twelve
+of the sixteen `PluginHostService` RPCs. The other four — `Register`,
 `GetPluginSelfConfig`, `PluginLog` and `GetDaemonInfo` — are **always allowed**
 and run no permission check at all; they are `(…, None)` in the daemon's
 `HOST_RPC_PERMISSIONS` table and there is no `require_permission` call in their
@@ -145,9 +145,9 @@ its own permissions by editing its own `plugin.toml` between restarts, up to the
 whole vocabulary. That is one more reason Developer Mode is a developer tool and
 not an install path.
 
-Seven permissions are high-risk and each gets its own consent checkbox:
+Eight permissions are high-risk and each gets its own consent checkbox:
 `send_chat_message`, `push_to_ui`, `set_theme_contribution`, `dom_access`,
-`client`, `speak`, `receive_attachments`. `dom_access` gets a second screen. Details, including how to write a
+`client`, `speak`, `receive_attachments`, `propose_commands`. `dom_access` gets a second screen. Details, including how to write a
 `reason` that is worth reading: [permissions](../3-reference/permissions.md).
 
 ## Where a plugin came from decides its ceiling

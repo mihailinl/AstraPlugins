@@ -588,3 +588,127 @@ async fn without_the_grant_a_settings_request_is_refused_at_the_gate() {
     );
     assert!(harness.daemon().settings_change_requests().is_empty());
 }
+
+// ── a command offer, from inside a leased call ──────────────────────────────
+//
+// `ProposeCommand` is a DEFAULTED `Host` method like `RequestSettingsChange`,
+// so the same whole chain runs for it: leased `CallTool`, scoped context,
+// wrapper, client, session token, mock daemon.
+
+use astra_plugin_sdk::proto::PluginProposeCommandOutcome;
+
+/// `offer` offers the first command of the `.astra` file in its arguments
+/// under the key `morning` and reports what Astra answered:
+/// `outcome|enabled|code|retry_after_ms`.
+struct Offerer;
+
+#[async_trait::async_trait]
+impl PluginCapability for Offerer {
+    type Config = NoConfig;
+
+    async fn list_tools(&self) -> Vec<ToolDef> {
+        vec![ToolDef::new("offer", "Offer a command")]
+    }
+
+    async fn call_tool(
+        &self,
+        ctx: &PluginContext,
+        _name: &str,
+        args: &str,
+    ) -> Result<String, ToolError> {
+        let commands = astra_plugin_sdk::commands_from_astra_file(args)?;
+        let command = serde_json::to_string(&commands[0])?;
+        let offered = ctx
+            .host()
+            .propose_command("morning", &command, "reads you the news")
+            .await?;
+        let outcome = match offered.outcome() {
+            PluginProposeCommandOutcome::Saved => "saved",
+            PluginProposeCommandOutcome::Unchanged => "unchanged",
+            PluginProposeCommandOutcome::Declined => "declined",
+            PluginProposeCommandOutcome::TimedOut => "timed_out",
+            PluginProposeCommandOutcome::Refused => "refused",
+            _ => "unspecified",
+        };
+        let wait = offered.error.map(|e| e.retry_after_ms).unwrap_or_default();
+        Ok(format!(
+            "{outcome}|{}|{}|{wait}",
+            offered.enabled, offered.code
+        ))
+    }
+}
+
+const MORNING_FILE: &str = r#"{"format":"astra-commands","version":1,"commands":[
+    {"name":"Good morning","triggers":[{"type":"text","phrases":["good morning"]}],
+     "actions":[],"enabled":true,"source_id":"6f1c2a9e"}]}"#;
+
+/// The offer reaches the daemon through the scoped host, with the session
+/// token, exactly as the plugin built it — the file's local members gone, the
+/// rest whole. Offering is not a fire, so nothing about it spends or carries
+/// the lease.
+#[tokio::test]
+async fn a_command_offer_from_a_leased_call_reaches_the_daemon() {
+    let harness = WireHarness::start(Offerer).await.unwrap();
+
+    let resp = announce(&harness, "offer", MORNING_FILE).await;
+    assert!(resp.success, "{}", resp.error);
+    assert_eq!(resp.result, "saved|true||0");
+    let offered = harness.daemon().command_offers();
+    assert_eq!(offered.len(), 1);
+    assert_eq!(offered[0].key, "morning");
+    assert_eq!(offered[0].reason, "reads you the news");
+    let sent: serde_json::Value = serde_json::from_str(&offered[0].command_json).unwrap();
+    assert_eq!(
+        sent,
+        serde_json::json!({
+            "name": "Good morning",
+            "triggers": [{"type": "text", "phrases": ["good morning"]}],
+            "actions": [],
+        })
+    );
+    assert!(harness.daemon().unauthenticated_calls().is_empty());
+    assert!(harness.fired_triggers().is_empty());
+}
+
+/// `Refused` is an ANSWER, not an error: the handler gets the code word and
+/// the wait, and decides.
+#[tokio::test]
+async fn a_refused_command_offer_reaches_the_handler_with_its_code_and_wait() {
+    let harness = WireHarness::start(Offerer).await.unwrap();
+    harness.daemon().set_command_offer_response(
+        astra_plugin_sdk::proto::PluginProposeCommandResponse {
+            outcome: PluginProposeCommandOutcome::Refused as i32,
+            code: "rate_limited".into(),
+            error: Some(astra_plugin_sdk::proto::PluginError {
+                code: PluginErrorCode::PluginErrorRateLimited as i32,
+                message: "too many command offers".into(),
+                retry_after_ms: 120_000,
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+    );
+
+    let resp = announce(&harness, "offer", MORNING_FILE).await;
+    assert!(resp.success, "{}", resp.error);
+    assert_eq!(resp.result, "refused|false|rate_limited|120000");
+    // What the plugin offered is still on the record.
+    assert_eq!(harness.daemon().command_offers().len(), 1);
+}
+
+/// Without the grant the offer is refused at the gate, as `Unauthorized`,
+/// which a handler's `?` passes on with its kind intact — and nothing reaches
+/// the card.
+#[tokio::test]
+async fn without_the_grant_a_command_offer_is_refused_at_the_gate() {
+    let harness = WireHarness::start(Offerer).await.unwrap();
+    harness.daemon().revoke("propose_command");
+
+    let resp = announce(&harness, "offer", MORNING_FILE).await;
+    assert!(!resp.success);
+    assert_eq!(
+        resp.error_detail.expect("a coded refusal").code(),
+        PluginErrorCode::PluginErrorUnauthorized
+    );
+    assert!(harness.daemon().command_offers().is_empty());
+}

@@ -36,7 +36,7 @@ Three properties, all of which surprise someone eventually:
 
    <!-- doctest: output from="astra-plugin check --strict ." unrun="needs a plugin project in the working directory; re-run it in your own plugin" -->
    ```
-     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings, speak, read_user_identity, receive_attachments, request_settings_change
+     WARN: Unknown permission 'read_the_users_mail'. This Astra grants nothing for it. Valid: fire_trigger, subscribe_events, set_variable, send_chat_message, push_to_ui, set_theme_contribution, dom_access, client, read_ai_settings, speak, read_user_identity, receive_attachments, request_settings_change, propose_commands
      FAILED: 1 warning(s), and --strict treats warnings as errors
    ```
 
@@ -56,7 +56,7 @@ Three properties, all of which surprise someone eventually:
 `GetDaemonInfo` being free is a decision, not an oversight: a checkbox that
 protects nothing is how users learn to tick boxes.
 
-## The thirteen ids
+## The fourteen ids
 
 | Id | Gates | Own checkbox | Refused to a local import | What it lets you do |
 |---|---|---|---|---|
@@ -73,6 +73,7 @@ protects nothing is how users learn to tick boxes.
 | `read_user_identity` | `GetUserIdentity` | no | no | Read pseudonyms for this installation and the signed-in account, made for your plugin alone |
 | `receive_attachments` | — (a delivery) | **yes** | no | Be handed the pictures the person attached, in a tool that asks for them |
 | `request_settings_change` | `RequestSettingsChange` | no | no | Ask the person to change a setting the assistant may change, on a card they answer |
+| `propose_commands` | `ProposeCommand` | **yes** | no | Offer the person a command to keep, which they keep from Astra's Workshop sheet |
 
 `dom_access` and `client` gate no RPC and that is the point: they are
 **surfaces**. `dom_access` decides whether a UI contribution is rendered as a
@@ -236,9 +237,10 @@ session to do it: that changes the person's Astra behind their back, and human
 review at publication looks for it. Declare `request_settings_change` and call
 `RequestSettingsChange` (`request_settings_change(changes, reason)` in Rust and
 Python, `ctx.requestSettingsChange(changes, reason)` in TypeScript). **No Astra
-release answers it yet:** the daemon takes requests only when it is built with
-the `plugin-requests` build feature; any other Astra answers `REFUSED` with the
-code `not_compiled`.
+release answers it yet.** An Astra built with the `plugin-requests` build feature
+takes requests; a newer Astra built without it answers `REFUSED` with the code
+`not_compiled`; an older one — every release today — fails the call with
+`UNIMPLEMENTED`, an error, not an outcome.
 
 Each change is a dotted settings path and the value wanted, as JSON — the SDKs
 serialise the value for you. Only the settings the assistant itself may change
@@ -269,7 +271,7 @@ answer quickly, such as a tool call the model is waiting on.
 | `too_many` | More than **8** changes (`settings_change_max_changes` in `spec/limits.yaml`) |
 | `reason_too_long` | A reason longer than **140 characters** (`settings_change_reason_max_chars`). It is shown whole, so it is refused, never cut |
 | `busy` | One of your requests is already waiting for the person: one card per plugin at a time |
-| `rate_limited` | **Two requests at once, then one every two minutes**; `error.retry_after_ms` says when there is room again |
+| `rate_limited` | **A burst of two requests, then one every two minutes**; `error.retry_after_ms` says when there is room again |
 | `not_assistant_editable` | A path the assistant may not change |
 | `invalid_value`, `unknown_choice` | A value the setting cannot hold, or a choice it does not offer |
 | `needs_api_key`, `needs_stt_provider`, `provider_unreachable` | The change would leave Astra without what it needs: a key for that AI provider, a speech recogniser, a provider that answers |
@@ -286,6 +288,101 @@ outcome. It is neither
 high-risk nor refused to a local import: each request is a card the person
 answers, so the consent is asked every time. An Astra older than this call
 answers `UNIMPLEMENTED`.
+
+## Offering the person a command
+
+A plugin that has a useful automation to give — "read me the news when I say good
+morning", built on its own actions — **offers** it, and the person decides. A
+plugin cannot write the person's command library itself: `CommandService` is
+closed to a plugin's session, and before this call a plugin could only describe a
+command in chat and hope the person rebuilt it. Declare `propose_commands` and call
+`ProposeCommand` (`propose_command(key, command, reason)` in Rust and Python,
+`ctx.proposeCommand(key, command, reason)` in TypeScript). **No Astra release
+answers it yet.** An Astra built with the `plugin-requests` build feature takes
+offers; a newer Astra built without it answers `REFUSED` with the code
+`not_compiled`; an older one — every release today — fails the call with
+`UNIMPLEMENTED`, an error, not an outcome.
+
+The command is **one portable command** — what a `.astra` file's `commands[]`
+holds. The easy way to make one is to build it in Astra, export it from the
+Commands page and ship the file with your plugin; each SDK has a helper that
+splits such a file into its commands (`commands_from_astra_file` in Rust and
+Python, `commandsFromAstraFile` in TypeScript), each without the members that
+belong to one installation (`id`, `enabled`, the folder, the provenance). The
+daemon reads the command with the Workshop's own reader — strict JSON, known
+action and trigger types only, those local members dropped, so a plugin can
+neither forge where a command came from nor switch it on — and it may use Astra's
+built-in actions and triggers and **your plugin's own**, never another plugin's
+(`foreign_plugin`). Built-ins include a shell command, key presses and file
+operations: the sheet shows each step with what it may do, and that is what the
+person agrees to.
+
+`key` is your plugin's own name for the command: 1 to 64 characters of `a-z`,
+`A-Z`, `0-9`, `.`, `_` and `-`. The same key offered again is the same command,
+updated in place — its id and folder kept — once the person agrees again; offering
+the very command already kept under the key asks nobody (`UNCHANGED`).
+
+What Astra remembers is narrower than it looks, so do not simply offer every
+command at every start:
+
+- a `DECLINED` is remembered only until Astra restarts — after that the same
+  offer is a card again;
+- a command the person deleted is no longer under its key, so offering it again
+  is a new offer — a card again;
+- a command switched off when your plugin was uninstalled stays off after a
+  reinstall, and the same offer answers `UNCHANGED`;
+- `UNCHANGED` compares your offer with what was offered and kept under the key,
+  so it is also the answer after the person edited the kept command.
+
+Record `SAVED` and `DECLINED` per key in your plugin's own state, and at start
+offer only the keys you have no answer for — and a command you changed.
+
+The person sees a card naming your plugin and the command, with your `reason` in
+your words, and two choices: Review and Deny. **The command is kept only from
+Astra's Workshop sheet** — every trigger by its full value, every step with what
+it may do, and an Enable switch — never by a bare Allow, and what is kept is
+exactly what the sheet showed. A kept command carries your plugin's mark;
+uninstalling your plugin switches its commands off.
+
+**The call lasts until the person answers or the card expires** — Astra's
+confirmation timeout, at least 30 seconds, 120 unless the person changed it. The
+SDKs put no deadline of their own on it. Never await it on a path that must
+answer quickly, and **offer one command at a time**: a second offer while one of
+yours is waiting is refused as `busy`, even one that would be `UNCHANGED`.
+
+| Outcome | What it means | What to do |
+|---|---|---|
+| `SAVED` | The person kept it; `enabled` says whether the command is on after it was kept (Astra may keep it switched off) | Record it |
+| `UNCHANGED` | What is kept under this key came from this very offer — also after the person edited it. Nobody was asked | Nothing |
+| `DECLINED` | The person said no — now, or to this very command before (until Astra restarts) | Record it. **Do not offer it again unasked** |
+| `TIMED_OUT` | Nobody answered before the card expired (no window open counts) | Offer it later, when the person is there |
+| `REFUSED` | Not asked, or not kept: `code` says why, and `error` is a `PluginError` | Read the code below |
+
+| `code` | When |
+|---|---|
+| `not_compiled` | This Astra takes no offers: it was built without the `plugin-requests` feature |
+| `locked` | Astra is locked by its passcode |
+| `invalid_key` | A key that is not 1 to 64 characters of `a-z`, `A-Z`, `0-9`, `.`, `_` and `-` |
+| `reason_too_long` | A reason longer than **140 characters** (`propose_command_reason_max_chars` in `spec/limits.yaml`). It is shown whole, so it is refused, never cut |
+| `too_large` | More than **1 MiB** of JSON (`propose_command_max_bytes`), a Workshop command's own bound |
+| `invalid_command` | Not a command the Workshop's reader takes; `error.message` usually leads with its own code — `E_COMMAND_FORMAT`, `E_COMMAND_UNKNOWN_ACTION`, … — but not when the card itself cannot be shown (the command's name and your reason too long for it) |
+| `foreign_plugin` | The command uses another plugin's action or trigger |
+| `busy` | One of your offers is already waiting for the person: one card per plugin at a time |
+| `rate_limited` | **A burst of two offers, then one every two minutes**; `error.retry_after_ms` says when there is room again. An offer that asks nobody (`UNCHANGED`, a `DECLINED` remembered) spends nothing |
+| `stopped` | Your plugin's authority ended first — it was stopped, disabled or withdrawn, or the account stopped opening Astra |
+| `stale` | The command this updates changed or went while the card was up, so what the person saw is not what would be written. Nothing was |
+| `write_refused` | The command could not be saved |
+
+The limits are the daemon's: the SDKs export `PROPOSE_COMMAND_MAX_BYTES` and
+`PROPOSE_COMMAND_REASON_MAX_CHARS` and check neither themselves. Besides the grant
+the call needs **an account that opens Astra**; a missing grant, or an account
+that does not open Astra, is a failed call like every host call, not an outcome.
+`propose_commands` is **high-risk**: a kept command runs later, on its own
+triggers, as the person's own command — its steps, built-ins such as a shell
+command included, run without asking again — so it gets its own consent
+checkbox. It is not
+refused to a local import: the sheet is the decision, each time. An Astra older
+than this call answers `UNIMPLEMENTED`.
 
 ## Sending a chat message
 
@@ -562,7 +659,7 @@ Full table and the reasoning: [`spec/permissions.md` §4](../spec/permissions.md
 
 ## Consent, from the user's side
 
-Permissions are grouped by risk. The seven high-risk ones each get their own
+Permissions are grouped by risk. The eight high-risk ones each get their own
 checkbox and Install stays disabled until every one is ticked; `dom_access` gets
 a second screen. There is deliberately **no type-to-confirm**: that is the
 pattern for irreversible destruction, and habituating users to type through it

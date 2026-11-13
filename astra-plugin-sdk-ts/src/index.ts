@@ -98,7 +98,10 @@ export type {
   SettingChange,
   SettingsChangeOutcome,
   SettingsChangeResult,
+  CommandOfferOutcome,
+  CommandOfferResult,
 } from "./host.js";
+export { commandsFromAstraFile } from "./command-offer.js";
 export { HostClient, RegistrationError } from "./host-client.js";
 export type { RegisterResponse, RegisterErrorDetail } from "./host-client.js";
 export {

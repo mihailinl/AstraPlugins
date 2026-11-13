@@ -77,7 +77,7 @@ está equivocada.
 | [CLI](reference/cli.md) | las definiciones de `clap`, ejecutando `astra-plugin --help` |
 | [Protocolo](reference/protocol.md) | `proto/plugin.proto` |
 | [Errores](reference/errors.md) | la taxonomía de errores en los tres SDK |
-| [Paridad de hooks](reference/parity.md) | `spec/hooks.yaml` — los 48 hooks en los tres SDK |
+| [Paridad de hooks](reference/parity.md) | `spec/hooks.yaml` — los 49 hooks en los tres SDK |
 | [Permisos](3-reference/permissions.md) | escrito a mano: cada permiso, qué otorga, cómo escribir un motivo |
 | [Campos de configuración](3-reference/config-fields.md) | escrito a mano: interfaz de ajustes, `[config]`, y los hooks de campo TTS/STT |
 | [Plugins de palabra de activación](wakeword-plugins.md) | escrito a mano: integración en Voz, ajustes del plugin y el contrato de las llamadas de audio |

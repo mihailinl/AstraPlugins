@@ -62,6 +62,7 @@ The daemon implements these; you call them.
 | `StopSpeaking` | `core` | `speak` | optional | unary | stable | Stop everything this plugin asked to be said, sounding and queued, and nothing else Astra is saying. |
 | `GetUserIdentity` | `core` | `read_user_identity` | optional | unary | stable | Pseudonyms for this installation and the signed-in account, made for this plugin alone; never the account's own id, a name, an email or a hardware serial. |
 | `RequestSettingsChange` | `core` | `request_settings_change` | optional | unary | stable | Ask the person to change some of Astra's settings — only the ones the assistant itself may change — on a card they answer; nothing changes without their Allow. |
+| `ProposeCommand` | `core` | `propose_commands` | optional | unary | stable | Offer the person one portable command to keep, under this plugin's own key; they keep it only from Astra's Workshop sheet, which shows every trigger and step. |
 | `SetVariable` | `core` | `set_variable` | optional | unary | stable | Publish a variable that commands and other plugins can read. |
 | `SubscribeEvents` | `event_handlers` | `subscribe_events` | required | server | stable | The filtered daemon event stream; the whole of the event_handlers capability. |
 | `FireTrigger` | `triggers` | `fire_trigger` | required | unary | stable | Fire one of this plugin's trigger types and run whatever commands listen. |

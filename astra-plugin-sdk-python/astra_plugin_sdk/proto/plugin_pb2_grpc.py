@@ -7291,6 +7291,11 @@ class PluginHostServiceStub(object):
                 request_serializer=plugin__pb2.PluginSettingsChangeRequest.SerializeToString,
                 response_deserializer=plugin__pb2.PluginSettingsChangeResponse.FromString,
                 _registered_method=True)
+        self.ProposeCommand = channel.unary_unary(
+                '/astra.PluginHostService/ProposeCommand',
+                request_serializer=plugin__pb2.PluginProposeCommandRequest.SerializeToString,
+                response_deserializer=plugin__pb2.PluginProposeCommandResponse.FromString,
+                _registered_method=True)
 
 
 class PluginHostServiceServicer(object):
@@ -7422,6 +7427,27 @@ class PluginHostServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ProposeCommand(self, request, context):
+        """OFFER the person a command to keep: one portable command (a
+        `.command.json` object, AstraPlugins' portable-command-v1), read exactly
+        as a Workshop command's bytes are — strictly, known action and trigger
+        types only, its local members (id, switch, folder, where it came from)
+        dropped. It may use this plugin's own actions and triggers and no other
+        plugin's. Gated by `propose_commands` (high risk: a kept command runs
+        later, on its triggers, with Astra's authority) and an account that
+        opens Astra, in an Astra built with the `plugin-requests` feature. The
+        person sees a card naming this plugin, reads the command's sheet — every
+        trigger and every step, with what each may do — and keeps it, switched
+        on or off, or declines; nothing is kept without that. The same `key`
+        offered again is an update of the command kept under it (asked again);
+        the very command kept under it is UNCHANGED, nobody asked. The call
+        lasts until they answer or the card expires (Astra's confirmation
+        timeout, at least 30 s).
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_PluginHostServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -7499,6 +7525,11 @@ def add_PluginHostServiceServicer_to_server(servicer, server):
                     servicer.RequestSettingsChange,
                     request_deserializer=plugin__pb2.PluginSettingsChangeRequest.FromString,
                     response_serializer=plugin__pb2.PluginSettingsChangeResponse.SerializeToString,
+            ),
+            'ProposeCommand': grpc.unary_unary_rpc_method_handler(
+                    servicer.ProposeCommand,
+                    request_deserializer=plugin__pb2.PluginProposeCommandRequest.FromString,
+                    response_serializer=plugin__pb2.PluginProposeCommandResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -7908,6 +7939,33 @@ class PluginHostService(object):
             '/astra.PluginHostService/RequestSettingsChange',
             plugin__pb2.PluginSettingsChangeRequest.SerializeToString,
             plugin__pb2.PluginSettingsChangeResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ProposeCommand(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.PluginHostService/ProposeCommand',
+            plugin__pb2.PluginProposeCommandRequest.SerializeToString,
+            plugin__pb2.PluginProposeCommandResponse.FromString,
             options,
             channel_credentials,
             insecure,

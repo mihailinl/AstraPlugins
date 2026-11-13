@@ -153,6 +153,7 @@ An id this Astra does not know is kept and inert: forward compatibility, and `pe
 | `read_user_identity` | `GetUserIdentity` | no | no | Pseudonyms for this installation and the signed-in account, made for this plugin alone (never the account's own id, a name or a hardware serial). |
 | `receive_attachments` | — | **yes** | no | The pictures the person attached to the message a turn answers, handed to this plugin's tools that declare `wants_attachments` (`PluginCallToolRequest.attachments`). |
 | `request_settings_change` | `RequestSettingsChange` | no | no | ASK the person to change some of Astra's settings (only the ones the assistant itself may change). |
+| `propose_commands` | `ProposeCommand` | **yes** | no | OFFER the person a command to keep (a portable command, read as a Workshop command is). |
 
 *Gates* is the host RPC the daemon refuses without the permission, from [`spec/hooks.yaml`](../../../spec/hooks.yaml); parity rule R6 checks that column against the daemon's own `HOST_RPC_PERMISSIONS`, the table `require_permission` reads. An empty cell is a permission that gates no RPC: `dom_access` decides how a UI contribution is rendered, `client` is a capability ceiling, and `receive_attachments` decides what the daemon sends a tool (`PluginCallToolRequest.attachments`).
 
@@ -201,6 +202,8 @@ Carries an argument: [`PermissionRequest::types`] is the **allowlist** of event 
 **`receive_attachments`.** The pictures the person attached to the message a turn answers, handed to this plugin's tools that declare `wants_attachments` (`PluginCallToolRequest.attachments`). Not a host RPC: the daemon sends them, and only on a call a conversation caused. **High risk:** a person's photos reach third-party code. Not refused at Tier 2: the checkbox is the decision, as for `speak`.
 
 **`request_settings_change`.** `PluginHostService.RequestSettingsChange` — ASK the person to change some of Astra's settings (only the ones the assistant itself may change). Every request is a card they answer, showing each setting, what it is and what it would become, and the plugin's reason; nothing changes without their Allow. Not high-risk and not refused at Tier 2: the card is the consent, each time, and a plugin that rewrote `settings.json` instead asked nobody.
+
+**`propose_commands`.** `PluginHostService.ProposeCommand` — OFFER the person a command to keep (a portable command, read as a Workshop command is). Every offer is a card, and the command is kept only from its sheet, which shows every trigger and every step. **High risk:** a kept command runs later, on its triggers, with Astra's authority — worth its own checkbox at install. Not refused at Tier 2: the sheet is the decision, each time.
 
 ## `[config]`
 

@@ -107,7 +107,7 @@ ZIP 内的这对签名是一个正在被淘汰的格式特性；这个命令以�
 ## 权限门(permission gate)做的事
 
 守护进程只在一个地方强制执行 `[permissions]`：`require_permission`，
-作用于 `PluginHostService` 十五个 RPC 中的十一个。另外四个 —— `Register`、
+作用于 `PluginHostService` 十六个 RPC 中的十二个。另外四个 —— `Register`、
 `GetPluginSelfConfig`、`PluginLog` 和 `GetDaemonInfo` —— **永远被
 允许**，完全不做任何权限检查；在守护进程的 `HOST_RPC_PERMISSIONS`
 表里它们对应 `(…, None)`，它们的函数体里也没有 `require_permission`
@@ -137,8 +137,9 @@ ZIP 内的这对签名是一个正在被淘汰的格式特性；这个命令以�
 `plugin.toml` 来扩大自己的权限，直到拥有整个权限词汇表。这也是为什么
 开发者模式是一个开发工具，而不是一条安装途径的又一个原因。
 
-有七种权限被列为高风险，各自都有独立的同意勾选框：`send_chat_message`、
-`push_to_ui`、`set_theme_contribution`、`dom_access`、`client`、`speak`、`receive_attachments`。
+有八种权限被列为高风险，各自都有独立的同意勾选框：`send_chat_message`、
+`push_to_ui`、`set_theme_contribution`、`dom_access`、`client`、`speak`、`receive_attachments`、
+`propose_commands`。
 `dom_access` 还会额外出现第二个界面。更多细节，包括如何写一段值得
 让人读下去的 `reason`：见
 [权限](../3-reference/permissions.md)。

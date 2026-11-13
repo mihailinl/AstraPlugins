@@ -16,7 +16,7 @@
 //! One rule beats a per-key type table that can drift on its own.
 
 /// SHA-256 of the `spec/limits.yaml` these constants were generated from.
-pub const SPEC_SHA256: &str = "947a19862bfbe6c189e66ad6699c212e5c2c020ca23d5512ab8a18da4d934501";
+pub const SPEC_SHA256: &str = "52fc7ea1404c048bb56b333142726c48a340742ff059672065f06051a4c95f33";
 
 /// Capacity of the audio channel that carries streaming-STT chunks from the
 /// daemon's voice pipeline into the plugin process, in chunks.
@@ -161,3 +161,13 @@ pub const SETTINGS_CHANGE_MAX_CHANGES: u64 = 8;
 /// characters: it is shown on the card whole, so a longer one is REFUSED, never
 /// cut (`plugins::settings_request::REASON_MAX_CHARS`).
 pub const SETTINGS_CHANGE_REASON_MAX_CHARS: u64 = 140;
+
+/// The most JSON one `host.proposeCommand()` may carry, in bytes (1 MiB): a
+/// Workshop command artefact's own bound, past which it is REFUSED with
+/// `too_large` (`plugins::command_proposal::MAX_BYTES`).
+pub const PROPOSE_COMMAND_MAX_BYTES: u64 = 1_048_576;
+
+/// The longest reason one `host.proposeCommand()` may give the person, in
+/// characters: it is shown on the card whole, so a longer one is REFUSED, never
+/// cut (`plugins::command_proposal::REASON_MAX_CHARS`).
+pub const PROPOSE_COMMAND_REASON_MAX_CHARS: u64 = 140;

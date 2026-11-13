@@ -137,7 +137,9 @@ async fn roll(&self, ctx: &PluginContext, args: Roll) -> Result<String, ToolErro
 > `Host::get_user_identity` (permission `read_user_identity`) is who is using it.
 > `Host::request_settings_change` (permission `request_settings_change`) asks the
 > person to change one of Astra's settings on a card they answer — never write
-> Astra's `settings.json` yourself.
+> Astra's `settings.json` yourself. `Host::propose_command` (permission
+> `propose_commands`) offers the person a command to keep, from Astra's Workshop
+> sheet — split an exported `.astra` file with `commands_from_astra_file`.
 
 **Every one of those calls is default-deny.** A manifest with no `[permissions]`
 section may call `Register`, `PluginLog`, `GetPluginSelfConfig` and

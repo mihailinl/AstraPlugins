@@ -152,7 +152,7 @@ export interface SettingsChangeResult {
    * `too_many` (more than `limits.SETTINGS_CHANGE_MAX_CHANGES`),
    * `reason_too_long` (more than `limits.SETTINGS_CHANGE_REASON_MAX_CHARS`
    * characters — refused, never cut), `busy` (one of this plugin's requests is
-   * already waiting), `rate_limited` (two at once, then one every two minutes;
+   * already waiting), `rate_limited` (a burst of two, then one every two minutes;
    * `error.retryAfterMs` says when), `not_assistant_editable`,
    * `invalid_value`, `unknown_choice`, `needs_api_key`, `needs_stt_provider`,
    * `provider_unreachable`, `stale` (the settings changed while the card was
@@ -162,6 +162,65 @@ export interface SettingsChangeResult {
   code: string;
   /** With `"REFUSED"`: the setting the refusal is about, when it is about one; `""` otherwise. */
   refusedPath: string;
+  /**
+   * With `"REFUSED"`, when the daemon sent one: the same `PluginErrorDetail` a
+   * chat chunk's `errorDetail` carries — a sentence, and `retryAfterMs` for
+   * `rate_limited`. Absent otherwise.
+   */
+  error?: PluginErrorDetail;
+}
+
+/**
+ * What became of one `proposeCommand` — `PluginProposeCommandOutcome`, without
+ * its prefix.
+ *
+ * - `"SAVED"` — the person kept it; `CommandOfferResult.enabled` says whether
+ *   the command is on after it was kept (Astra may keep it switched off).
+ *   Record it.
+ * - `"UNCHANGED"` — what is kept under this key came from this very offer —
+ *   also after the person edited it. Nobody was asked.
+ * - `"DECLINED"` — the person said no, now or to this very command before
+ *   (until Astra restarts). Record it: **do not offer it again unasked.**
+ *   Astra's own memory of a no ends at a restart, and a command the person
+ *   deleted is offered as new.
+ * - `"TIMED_OUT"` — nobody answered before the card expired (no window open
+ *   counts).
+ * - `"REFUSED"` — not asked, or not kept; `CommandOfferResult.code` says why.
+ * - `"UNSPECIFIED"` — an outcome this SDK does not know (a newer Astra), or
+ *   none at all. Never invented as one of the above.
+ */
+export type CommandOfferOutcome =
+  | "SAVED"
+  | "UNCHANGED"
+  | "DECLINED"
+  | "TIMED_OUT"
+  | "REFUSED"
+  | "UNSPECIFIED";
+
+/** The answer of `ProposeCommand`: `PluginProposeCommandResponse`. */
+export interface CommandOfferResult {
+  outcome: CommandOfferOutcome;
+  /**
+   * With `"SAVED"`: whether the command is on after it was kept (Astra may keep
+   * it switched off). `false` otherwise.
+   */
+  enabled: boolean;
+  /**
+   * With `"REFUSED"`: why, as one word — `not_compiled` (this Astra was built
+   * without the `plugin-requests` feature), `locked`, `invalid_key`,
+   * `reason_too_long` (more than `limits.PROPOSE_COMMAND_REASON_MAX_CHARS`
+   * characters — refused, never cut), `too_large` (more than
+   * `limits.PROPOSE_COMMAND_MAX_BYTES` bytes of JSON), `invalid_command`
+   * (`error.message` usually leads with the Workshop's own code:
+   * `E_COMMAND_FORMAT`, `E_COMMAND_UNKNOWN_ACTION`, … — not when the card
+   * itself cannot be shown), `foreign_plugin` (it uses another plugin's action
+   * or trigger), `busy` (one of this plugin's offers is already waiting),
+   * `rate_limited` (a burst of two, then one every two minutes;
+   * `error.retryAfterMs` says when), `stopped` (this plugin's
+   * authority ended first), `stale` (the command it updates changed or went
+   * while the card was up), `write_refused`. `""` otherwise.
+   */
+  code: string;
   /**
    * With `"REFUSED"`, when the daemon sent one: the same `PluginErrorDetail` a
    * chat chunk's `errorDetail` carries — a sentence, and `retryAfterMs` for
@@ -236,6 +295,24 @@ export interface Host {
    * Optional, like `speak`; plugin code calls `ctx.requestSettingsChange()`.
    */
   requestSettingsChange?(changes: SettingChange[], reason: string): Promise<SettingsChangeResult>;
+
+  /**
+   * OFFER the person one portable command to keep, under this plugin's own
+   * `key`, on a card they answer; they keep it only from Astra's Workshop
+   * sheet. Resolves with what became of it (`CommandOfferResult`). `command`
+   * is the command as an object or as its JSON text. Needs `propose_commands`
+   * (high-risk) and an account that opens Astra; a missing grant, an account
+   * that does not open Astra, or an Astra older than this RPC
+   * (`UNIMPLEMENTED`) rejects like every host call. Lasts until the person
+   * answers or the card expires.
+   *
+   * Optional, like `speak`; plugin code calls `ctx.proposeCommand()`.
+   */
+  proposeCommand?(
+    key: string,
+    command: object | string,
+    reason: string
+  ): Promise<CommandOfferResult>;
 
   /** Publish a variable commands and other plugins can read. Needs `set_variable`. */
   setVariable(name: string, value: string, scope?: string): Promise<void>;

@@ -133,6 +133,7 @@ Convenience methods on `Plugin` — `self.log_info`, `self.log_warn`,
 | `stop_speaking()` — stop everything this plugin asked to be said | `speak` |
 | `get_user_identity()` — pseudonyms for this installation and the signed-in account | `read_user_identity` |
 | `request_settings_change(changes, reason)` — ask the person to change some of Astra's settings, on a card they answer | `request_settings_change` |
+| `propose_command(key, command, reason)` — offer the person a command to keep, from Astra's Workshop sheet | `propose_commands` (high-risk) |
 | `fire_trigger(type, payload_json)` | `fire_trigger` |
 | `set_variable(name, value, scope="session")` | `set_variable` |
 | `subscribe_events(types, exclude_source_id="")` | `subscribe_events` |
@@ -165,11 +166,45 @@ so never await it on a path that must answer quickly. A value JSON cannot hold
 (`NaN`) raises before anything is sent; nothing else is checked client-side — at
 most `limits.SETTINGS_CHANGE_MAX_CHANGES` (8) changes and a reason of
 `limits.SETTINGS_CHANGE_REASON_MAX_CHARS` (140) characters, and the daemon refuses
-more. It needs Astra built with the `plugin-requests` feature (else `…_REFUSED`,
-`not_compiled`) — no release has it yet.
+more. **No Astra release answers it yet**: an Astra built without the
+`plugin-requests` feature answers `…_REFUSED` / `not_compiled`, and one older
+than 2026-11-13 — every release today — fails the call with `UNIMPLEMENTED`, an
+error, not an outcome.
 [Permissions](../3-reference/permissions.md#asking-the-person-to-change-a-setting)
 has the whole contract. In a test, `RecordingHost.settings_change_response`
 stages the answer and `settings_change_requests()` lists what was asked for.
+
+`propose_command("morning", command, "why")` offers the person one portable
+command to keep under your plugin's own `key` (1-64 of `a-z A-Z 0-9 . _ -`; the
+same key again updates the same command). They keep it only from Astra's
+Workshop sheet, which shows every trigger and step. The command may use Astra's
+built-in actions and triggers — a shell command, key presses, file operations —
+and your plugin's own, never another plugin's (`foreign_plugin`); once kept, its
+steps run as the person's own command, without asking again. `command` is a
+dict, or a str that is already its JSON; build the command in Astra, export it,
+ship the `.astra` file, and split it with `commands_from_astra_file(text)` (from
+`astra_plugin_sdk`) — each command comes back as a dict without the members that
+belong to one installation (`id`, `enabled`, the folder, the provenance); a file
+of another shape raises `ValueError`. It returns the daemon's
+`PluginProposeCommandResponse`: `outcome` is
+`PLUGIN_PROPOSE_COMMAND_OUTCOME_SAVED` (with `enabled`: whether the command is
+on after it was kept), `…_UNCHANGED` (what is kept under the key came from this
+very offer, also after the person edited it; nobody was asked), `…_DECLINED`
+(record it; **do not offer it again unasked**), `…_TIMED_OUT`, or `…_REFUSED`
+with `code` (`foreign_plugin`, `invalid_command`, `rate_limited`, `busy`, …) and
+`error.retry_after_ms`. **The call lasts until the person answers or the card
+expires**, and the SDK puts no deadline on it; offer one command at a time — a
+second offer while one waits is `busy`. A dict JSON cannot hold (`NaN`) raises
+before anything is sent; nothing else is checked client-side — at most
+`limits.PROPOSE_COMMAND_MAX_BYTES` (1 MiB) of JSON and a reason of
+`limits.PROPOSE_COMMAND_REASON_MAX_CHARS` (140) characters, and the daemon
+refuses more. **No Astra release answers it yet**: an Astra built without the
+`plugin-requests` feature answers `…_REFUSED` / `not_compiled`, and one older
+than 2026-11-13 — every release today — fails the call with `UNIMPLEMENTED`, an
+error, not an outcome.
+[Permissions](../3-reference/permissions.md#offering-the-person-a-command) has
+the whole contract. In a test, `RecordingHost.command_offer_response` stages the
+answer and `command_offers()` lists what was offered.
 
 > **`DaemonClient` is deprecated** (0.6.5; constructing one warns) **because it
 > does not work today, for any plugin.** The daemon registers

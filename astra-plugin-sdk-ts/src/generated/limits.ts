@@ -15,7 +15,7 @@
  */
 
 /** SHA-256 of the `spec/limits.yaml` these constants were generated from. */
-export const SPEC_SHA256 = "947a19862bfbe6c189e66ad6699c212e5c2c020ca23d5512ab8a18da4d934501";
+export const SPEC_SHA256 = "52fc7ea1404c048bb56b333142726c48a340742ff059672065f06051a4c95f33";
 
 /**
  * Capacity of the audio channel that carries streaming-STT chunks from the
@@ -196,3 +196,17 @@ export const SETTINGS_CHANGE_MAX_CHANGES = 8;
  * cut (`plugins::settings_request::REASON_MAX_CHARS`).
  */
 export const SETTINGS_CHANGE_REASON_MAX_CHARS = 140;
+
+/**
+ * The most JSON one `host.proposeCommand()` may carry, in bytes (1 MiB): a
+ * Workshop command artefact's own bound, past which it is REFUSED with
+ * `too_large` (`plugins::command_proposal::MAX_BYTES`).
+ */
+export const PROPOSE_COMMAND_MAX_BYTES = 1048576;
+
+/**
+ * The longest reason one `host.proposeCommand()` may give the person, in
+ * characters: it is shown on the card whole, so a longer one is REFUSED, never
+ * cut (`plugins::command_proposal::REASON_MAX_CHARS`).
+ */
+export const PROPOSE_COMMAND_REASON_MAX_CHARS = 140;

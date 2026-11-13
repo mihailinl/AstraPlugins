@@ -35,6 +35,8 @@ import {
 import type { ChatChunk, ThemeContribution } from "./types.js";
 import type {
   AiSettings,
+  CommandOfferOutcome,
+  CommandOfferResult,
   DaemonInfo,
   Host,
   SettingChange,
@@ -178,6 +180,96 @@ export function settingsChangeRequestToWire(
 }
 
 /**
+ * `PluginProposeCommandOutcome` as the loader delivers it, to the short name
+ * `CommandOfferResult` carries. Anything else is `"UNSPECIFIED"`, as for
+ * speech.
+ */
+const COMMAND_OFFER_OUTCOMES: Readonly<Record<string, CommandOfferOutcome>> = {
+  PLUGIN_PROPOSE_COMMAND_OUTCOME_SAVED: "SAVED",
+  PLUGIN_PROPOSE_COMMAND_OUTCOME_UNCHANGED: "UNCHANGED",
+  PLUGIN_PROPOSE_COMMAND_OUTCOME_DECLINED: "DECLINED",
+  PLUGIN_PROPOSE_COMMAND_OUTCOME_TIMED_OUT: "TIMED_OUT",
+  PLUGIN_PROPOSE_COMMAND_OUTCOME_REFUSED: "REFUSED",
+  "1": "SAVED",
+  "2": "UNCHANGED",
+  "3": "DECLINED",
+  "4": "TIMED_OUT",
+  "5": "REFUSED",
+};
+
+/** `PluginProposeCommandResponse` off the wire, as the loader hands it over. */
+interface WireCommandOfferResponse {
+  outcome?: string | number;
+  enabled?: boolean;
+  code?: string;
+  /** `null` when unset (`defaults: true`). */
+  error?: Partial<PluginErrorDetail> | null;
+}
+
+/**
+ * The wire answer of `ProposeCommand` as a `CommandOfferResult`. Exported for
+ * the SDK's own tests; `error` is present only when the daemon sent one, field
+ * for field.
+ */
+export function commandOfferResultFromWire(res: WireCommandOfferResponse): CommandOfferResult {
+  const result: CommandOfferResult = {
+    outcome: COMMAND_OFFER_OUTCOMES[String(res.outcome ?? "")] ?? "UNSPECIFIED",
+    enabled: res.enabled === true,
+    code: res.code ?? "",
+  };
+  if (res.error) result.error = errorDetailFromWire(res.error);
+  return result;
+}
+
+/**
+ * One command as `PluginProposeCommandRequest.command_json`. A string is
+ * already its JSON and goes as it is. An object is what `JSON.stringify`
+ * writes — except that a number JSON cannot hold (`NaN`, `Infinity`, which it
+ * would quietly turn into `null`) or a value with no JSON text inside an array
+ * (`undefined`, a function, a symbol, which it would turn into `null` there)
+ * throws a `TypeError`, before anything is sent; a `BigInt` throws
+ * `JSON.stringify`'s own. Anything but a plain object or a string (an array, a
+ * `.astra` file's `commands` list, `undefined`) throws a `TypeError` too.
+ * Exported for the SDK's own tests and `RecordingHost`.
+ */
+export function commandJson(command: unknown): string {
+  if (typeof command === "string") return command;
+  if (typeof command !== "object" || command === null || Array.isArray(command)) {
+    throw new TypeError(
+      `a command is one portable command — an object, or a string of its JSON — not ${
+        Array.isArray(command) ? "an array" : command === null ? "null" : `a ${typeof command}`
+      } (a whole .astra file is split with commandsFromAstraFile)`
+    );
+  }
+  return JSON.stringify(command, function (this: unknown, key: string, v: unknown) {
+    if (typeof v === "number" && !Number.isFinite(v)) {
+      throw new TypeError(`command: ${key ? `"${key}"` : "a value"} is ${v}, not a JSON number`);
+    }
+    if (
+      Array.isArray(this) &&
+      (v === undefined || typeof v === "function" || typeof v === "symbol")
+    ) {
+      throw new TypeError(`command: element ${key} of a list is ${typeof v}, not a JSON value`);
+    }
+    return v;
+  });
+}
+
+/**
+ * The `PluginProposeCommandRequest` `proposeCommand` sends, in the loader's
+ * field names. Nothing but the command's JSON is checked: the key, the size
+ * and the reason's length are the daemon's to judge (`REFUSED`), so this
+ * client can never disagree with the Astra it talks to.
+ */
+export function proposeCommandRequestToWire(
+  key: string,
+  command: unknown,
+  reason: string
+): { key: string; commandJson: string; reason: string } {
+  return { key, commandJson: commandJson(command), reason };
+}
+
+/**
  * A gRPC readable stream as an `AsyncIterable`.
  *
  * grpc-js streams are Node `Readable`s, which are already async-iterable — but
@@ -240,6 +332,7 @@ const REQUIRED_METHODS = [
   "StopSpeaking",
   "GetUserIdentity",
   "RequestSettingsChange",
+  "ProposeCommand",
   "SetVariable",
   "PushToUi",
   "SendChatMessage",
@@ -474,6 +567,32 @@ export class HostClient implements Host {
       await this.unary<WireSettingsChangeResponse>(
         "RequestSettingsChange",
         settingsChangeRequestToWire(changes, reason)
+      )
+    );
+  }
+
+  /**
+   * Offer the person one command to keep, on a card, and resolve with what
+   * became of it (`CommandOfferResult`). Needs `propose_commands`
+   * (high-risk). An object command goes out as JSON (`commandJson`), a string
+   * as it is; the daemon is the authority on the limits — a key of 1 to 64
+   * plain characters, at most `limits.PROPOSE_COMMAND_MAX_BYTES` bytes of
+   * JSON and a reason of at most `limits.PROPOSE_COMMAND_REASON_MAX_CHARS`
+   * characters, refused rather than cut — so this client checks none of them.
+   *
+   * No deadline: the call lasts until the person answers or the card expires
+   * (Astra's confirmation timeout, at least 30 s, and the person may set it
+   * far longer); a deadline here would cut an offer the person was reading.
+   */
+  async proposeCommand(
+    key: string,
+    command: object | string,
+    reason: string
+  ): Promise<CommandOfferResult> {
+    return commandOfferResultFromWire(
+      await this.unary<WireCommandOfferResponse>(
+        "ProposeCommand",
+        proposeCommandRequestToWire(key, command, reason)
       )
     );
   }

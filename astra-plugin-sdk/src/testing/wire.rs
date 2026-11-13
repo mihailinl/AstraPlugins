@@ -30,7 +30,7 @@ use tokio::task::JoinHandle;
 
 use super::host::{
     ChatMessage, FiredTrigger, LogLine, Recorded, SDK_HOST_RPCS, UiPush, Variable, allowed,
-    check_any_rpc, heard,
+    check_any_rpc, heard, kept,
 };
 use crate::capability::PluginCapability;
 use crate::proto;
@@ -65,6 +65,8 @@ struct DaemonState {
     user_identity: Mutex<proto::PluginUserIdentity>,
     /// What `RequestSettingsChange` answers once it has passed the gates.
     settings_change_response: Mutex<proto::PluginSettingsChangeResponse>,
+    /// What `ProposeCommand` answers once it has passed the gates.
+    command_offer_response: Mutex<proto::PluginProposeCommandResponse>,
 }
 
 /// A stand-in for the Astra daemon, serving `PluginHostService` on loopback.
@@ -129,6 +131,9 @@ impl MockDaemon {
             // The person allowed it: the answer a plugin that asks is written
             // for. Stage the others with `set_settings_change_response`.
             settings_change_response: Mutex::new(allowed()),
+            // The person kept it, switched on. Stage the others with
+            // `set_command_offer_response`.
+            command_offer_response: Mutex::new(kept()),
         });
 
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
@@ -245,6 +250,25 @@ impl MockDaemon {
         *self
             .state
             .settings_change_response
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = response;
+    }
+
+    /// Every `ProposeCommand` that passed the gates, in order, as the plugin
+    /// sent it.
+    pub fn command_offers(&self) -> Vec<proto::PluginProposeCommandRequest> {
+        self.state.recorded.command_offers()
+    }
+
+    /// What `ProposeCommand` answers once it has passed the gates. Saved and
+    /// switched on (the person kept it with Enable on) until told otherwise —
+    /// stage `Unchanged`, `Declined`, `TimedOut` or a `Refused` with its
+    /// `code` and `PluginError` to drive those branches over the wire. The
+    /// mock answers at once; the real daemon answers when the person does.
+    pub fn set_command_offer_response(&self, response: proto::PluginProposeCommandResponse) {
+        *self
+            .state
+            .command_offer_response
             .lock()
             .unwrap_or_else(|e| e.into_inner()) = response;
     }
@@ -542,6 +566,21 @@ impl PluginHostService for HostService {
         Ok(tonic::Response::new(
             self.state
                 .settings_change_response
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .clone(),
+        ))
+    }
+
+    async fn propose_command(
+        &self,
+        req: tonic::Request<proto::PluginProposeCommandRequest>,
+    ) -> Result<tonic::Response<proto::PluginProposeCommandResponse>, tonic::Status> {
+        self.gate(&req, "propose_command")?;
+        self.state.recorded.command_offer(req.into_inner());
+        Ok(tonic::Response::new(
+            self.state
+                .command_offer_response
                 .lock()
                 .unwrap_or_else(|e| e.into_inner())
                 .clone(),

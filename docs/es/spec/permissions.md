@@ -25,7 +25,7 @@ plugin se concedía a sí mismo con solo declararla.
 
 ## 1. El vocabulario
 
-Trece ids, un conjunto cerrado (`astra-plugin-manifest/src/permissions.rs`,
+Catorce ids, un conjunto cerrado (`astra-plugin-manifest/src/permissions.rs`,
 `PERMISSION_NAMES`, anclado al enum mediante una prueba). El registro
 valida los ids de un listado contra esta lista, y la tabla de etiquetas
 localizadas de Astra está indexada por ella, así que un id añadido en
@@ -46,8 +46,9 @@ un sitio y no en los otros se renderiza como una fila en blanco.
 | `read_user_identity` | `GetUserIdentity` | leer seudónimos de esta instalación y de la cuenta con sesión iniciada, creados solo para el plugin que llama — nunca el id propio de la cuenta, un nombre, un correo electrónico ni un número de serie del hardware | |
 | `receive_attachments` | *ningún RPC* — una **entrega** | recibir, en una herramienta que declaró `wants_attachments`, las imágenes que la persona adjuntó al mensaje que responde una llamada (`PluginCallToolRequest.attachments`) | ● |
 | `request_settings_change` | `RequestSettingsChange` | pedir a la persona, en una tarjeta que ella responde, que cambie algunos ajustes de Astra — solo los que el propio asistente puede cambiar; nada cambia sin su Permitir. Además necesita una cuenta que dé acceso a Astra | |
+| `propose_commands` | `ProposeCommand` | ofrecer a la persona un comando portable para conservar, leído como un comando del Workshop y usando las acciones y disparadores integrados de Astra y los propios del plugin que llama — nunca los de otro plugin (`foreign_plugin`); solo se conserva desde la hoja del Workshop, que muestra cada disparador y cada paso. También necesita una cuenta que dé acceso a Astra | ● |
 
-**Los siete marcados con ● son de alto riesgo** (`HIGH_RISK_PERMISSIONS`)
+**Los ocho marcados con ● son de alto riesgo** (`HIGH_RISK_PERMISSIONS`)
 y cada uno recibe su propia casilla de consentimiento. El §4.3 del plan
 detalla cuatro casillas y omite `push_to_ui`; el §5.6 lista cinco. La
 implementación toma la **unión**, porque el desacuerdo es entre un
@@ -58,6 +59,16 @@ si fueran de Astra. No se rechaza a una importación de nivel 2 (§5) — un
 aviso es algo corriente que un plugin puede querer, y la casilla es la
 decisión. `receive_attachments` se unió el mismo día, en los mismos términos:
 las fotos de una persona llegan a código de terceros.
+`propose_commands` se unió el 2026-11-13: un comando que la persona conserva
+se ejecuta más tarde, con sus propios disparadores, como un comando propio de
+la persona, mucho después de la oferta que lo trajo — sus pasos, incluidos los
+integrados como un comando de shell, se ejecutan sin volver a preguntar. Tampoco se rechaza a una
+importación de nivel 2 — cada oferta es una tarjeta, y el comando solo se
+conserva desde la hoja del Workshop, que muestra cada disparador con su
+valor completo y cada paso con lo que puede hacer; la hoja es la decisión,
+cada vez. El daemon solo lo atiende cuando está compilado con la
+característica de compilación `plugin-requests` (aún en ninguna versión), y
+si no lo rechaza como `not_compiled`.
 
 `speak` es el único id que bloquea dos RPC: detener tu propia voz forma
 parte de hablar. `read_ai_settings` y `read_user_identity` no son, a
@@ -168,6 +179,7 @@ condicionar es un fallo de prueba en lugar de una omisión silenciosa:
 | `StopSpeaking` | `speak` |
 | `GetUserIdentity` | `read_user_identity` |
 | `RequestSettingsChange` | `request_settings_change` |
+| `ProposeCommand` | `propose_commands` |
 
 `GetDaemonInfo` es la única adición a la lista de tres del plan, y es
 una decisión y no una omisión: devuelve `version`, `state`,
@@ -290,12 +302,12 @@ Un permiso se honra solo cuando se cumplen **ambas**:
 2. el **techo** — una regla por procedencia que ningún registro puede
    comprar de más.
 
-`require_permission` pregunta la primera para las once RPC del host
+`require_permission` pregunta la primera para las doce RPC del host
 que bloquea un permiso — `SubscribeEvents`, `SendChatMessage`,
 `FireTrigger`, `SetVariable`, `SetThemeContribution`, `PushToUi`, `GetAiSettings`,
-`Speak`, `StopSpeaking`, `GetUserIdentity`, `RequestSettingsChange` (`Speak` y
-`RequestSettingsChange` además necesitan una cuenta que dé acceso a Astra,
-`require_authorized_plugin`). Las
+`Speak`, `StopSpeaking`, `GetUserIdentity`, `RequestSettingsChange`,
+`ProposeCommand` (`SendChatMessage`, `FireTrigger`, `Speak`,
+`RequestSettingsChange` y `ProposeCommand` además necesitan una cuenta que dé acceso a Astra, `require_authorized_plugin`). Las
 cuatro restantes (`Register`, `GetPluginSelfConfig`, `PluginLog`,
 `GetDaemonInfo`) llevan `None` en `HOST_RPC_PERMISSIONS` y siempre
 están permitidas; el §2 tiene la tabla y el razonamiento.
@@ -333,8 +345,8 @@ archivo que le envió a alguien por correo.
 
 La lista de rechazo del nivel 2 es `TIER2_REFUSED_PERMISSIONS` —
 deliberadamente **no** la misma lista que `HIGH_RISK_PERMISSIONS`:
-`push_to_ui`, `speak` y `receive_attachments` valen una casilla y no vale la pena rechazar un
-archivo que el usuario eligió importar. Los cuatro están citados del §5.5, no
+`push_to_ui`, `speak`, `receive_attachments` y `propose_commands` valen una casilla y no vale la pena rechazar un
+archivo que el usuario eligió importar. Los cuatro rechazados están citados del §5.5, no
 inferidos.
 
 **El nivel 3 no es el nivel 2 con una insignia más bonita.** La

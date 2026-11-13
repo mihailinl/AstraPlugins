@@ -115,9 +115,10 @@ are removable in.
   `Harness.image_models()`. Additive. Guide: `docs/en/image-provider-plugins.md`.
 
 - **A plugin can ask the person to change a setting** (Astra `8c36a7033`,
-  branch `feat/plugin-api-gaps`; **in no Astra release yet** — the daemon takes
-  requests only when built with the `plugin-requests` build feature, and any
-  other answers `REFUSED` with the code `not_compiled`):
+  branch `feat/plugin-api-gaps`; **in no Astra release yet** — an Astra built
+  with the `plugin-requests` build feature takes requests, a newer one without it
+  answers `REFUSED` with the code `not_compiled`, and an older one fails the call
+  with `UNIMPLEMENTED`):
   `HostClient.request_settings_change(changes, reason)` →
   `PluginSettingsChangeResponse`. `changes` is `{path: value}` or `(path, value)`
   pairs, each value any JSON value, serialised into `value_json` by the new
@@ -132,7 +133,7 @@ are removable in.
   `reason_too_long`, `busy`, `rate_limited`, `not_assistant_editable`,
   `invalid_value`, `unknown_choice`, `needs_api_key`, `needs_stt_provider`,
   `provider_unreachable`, `stale`, `stopped`, `write_refused`), `refused_path`
-  and `error` — `retry_after_ms` with `rate_limited` (two requests at once, then
+  and `error` — `retry_after_ms` with `rate_limited` (a burst of two requests, then
   one every two minutes). The current values are never returned. **The call
   lasts until the person answers or the card expires** (Astra's confirmation
   timeout, at least 30 s, 120 s by default); the SDK puts no deadline on it. At
@@ -145,6 +146,48 @@ are removable in.
   `RecordingHost.settings_change_response` (applied by default) and
   `settings_change_requests()`; `MockDaemon.settings_change_response` and
   `settings_change_requests()`. Additive.
+
+- **A plugin can offer the person a command to keep** (Astra `c42d091b2`, branch
+  `feat/plugin-api-gaps`; **in no Astra release yet** — an Astra built with the
+  `plugin-requests` build feature takes offers, a newer one without it answers
+  `REFUSED` with the code `not_compiled`, and an older one fails the call with
+  `UNIMPLEMENTED`): `HostClient.propose_command(key, command, reason)` →
+  `PluginProposeCommandResponse`. `command` is ONE portable command — a dict,
+  serialised compactly by the new `host_client.propose_command_request(..)` (a
+  value JSON cannot hold, `NaN` or infinity, raises before anything is sent), or
+  a str that is already its JSON, sent as it is. The daemon reads it with the
+  Workshop's own reader and allows Astra's built-in actions and triggers and
+  this plugin's own — never another plugin's (`foreign_plugin`); `key` is the
+  plugin's own name for it (1-64 of `a-z A-Z 0-9 . _ -`), and the same key
+  offered again updates the same command. The person keeps it only from Astra's
+  Workshop sheet — every trigger and step shown, an Enable switch. `outcome` is
+  `PLUGIN_PROPOSE_COMMAND_OUTCOME_SAVED` (with `enabled`: whether the command is
+  on after it was kept), `…_UNCHANGED` (what is kept under the key came from
+  this very offer, also after the person edited it; nobody was asked),
+  `…_DECLINED` (now, or this very command before, until Astra restarts — record
+  it and do not offer it again unasked), `…_TIMED_OUT`, or `…_REFUSED` with
+  `code` (`not_compiled`, `locked`, `invalid_key`, `reason_too_long`,
+  `too_large`, `invalid_command`, `foreign_plugin`, `busy`, `rate_limited`,
+  `stopped`, `stale`, `write_refused`) and `error` — `retry_after_ms` with
+  `rate_limited` (a burst of two offers, then one every two minutes). **The call
+  lasts until the person answers or the card expires**; the SDK puts no deadline
+  on it. Offer one command at a time: a second offer while one waits is `busy`.
+  At most `limits.PROPOSE_COMMAND_MAX_BYTES` (1 MiB) of JSON and a reason of
+  `limits.PROPOSE_COMMAND_REASON_MAX_CHARS` (140) characters, both new rows of
+  `spec/limits.yaml` — the SDK checks neither. Needs the new
+  **`propose_commands`** permission (**high-risk**: its own consent checkbox,
+  because a kept command runs later as the person's own command, its steps —
+  built-ins such as a shell command included — without asking again; not refused
+  to a local import) and an account that opens Astra. New helper
+  **`commands_from_astra_file(text)`** (exported from `astra_plugin_sdk`) → a
+  list of dicts: the commands of a `.astra` file Astra exported
+  (`"astra-commands"` or `"astra-group"`, `version` a number), each without
+  `source_id` and the portable command's local members; any other shape raises
+  `ValueError`. Held to `testdata/astra-file/vectors.json`, shared with the Rust
+  and TypeScript SDKs (`tests/test_command_offer.py`). Testing:
+  `RecordingHost.command_offer_response` (saved and switched on by default) and
+  `command_offers()`; `MockDaemon.command_offer_response` and
+  `command_offers()`. Additive.
 ### Changed (Astra `d6fc58808`, no SDK change needed)
 
 - **`auth_changed` is narrowed.** A plugin granted the event used to receive the

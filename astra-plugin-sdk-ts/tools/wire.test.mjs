@@ -16,7 +16,7 @@ import { after, test } from "node:test";
 
 const require = createRequire(import.meta.url);
 
-const { plugin, tool, s } = require("../dist/index.js");
+const { plugin, tool, s, commandsFromAstraFile } = require("../dist/index.js");
 const { MockDaemon, utteranceChunks, totalBytes } = require("../dist/testing/index.js");
 const { PROTOCOL_VERSION, SDK_NAME, SDK_VERSION } = require("../dist/protocol.js");
 const { PLUGIN_IMAGE_REQUEST_MAX_BYTES, PLUGIN_MAX_MESSAGE_BYTES } = require("../dist/generated/limits.js");
@@ -228,8 +228,8 @@ test("requestSettingsChange from a leased call reaches the daemon with the token
       reason: "tuned for this model",
     },
   ]);
-  // Asking is not a fire: nothing here spends the lease.
-  assert.deepEqual(d.firedTriggers(), []);
+  // Asking is not a fire: made inside a leased call, it carries no lease.
+  assert.equal(d.callsTo("RequestSettingsChange")[0].causedBy, undefined);
 });
 
 test("a REFUSED settings answer crosses the wire with its code, path and PluginError whole", async () => {
@@ -308,6 +308,137 @@ test("setting values go out as JSON of any kind; a value JSON cannot hold throws
       { path: "b", valueJson: "1" },
       { path: "a", valueJson: "2" },
     ],
+    reason: "r",
+  });
+});
+
+/** Offers the first command of the `.astra` file it is given, then reports what Astra answered. */
+function offerer() {
+  return plugin({
+    tools: {
+      offer: tool({
+        description: "Offer a command.",
+        input: s.object({ file: s.string() }),
+        run: async ({ file }, ctx) => {
+          const [command] = commandsFromAstraFile(file);
+          const offered = await ctx.proposeCommand("morning", command, "reads you the news");
+          return JSON.stringify(offered);
+        },
+      }),
+    },
+  });
+}
+
+const MORNING_FILE = JSON.stringify({
+  format: "astra-commands",
+  version: 1,
+  commands: [
+    {
+      name: "Good morning",
+      triggers: [{ type: "text", phrases: ["good morning"] }],
+      actions: [],
+      enabled: true,
+      source_id: "6f1c2a9e",
+    },
+  ],
+});
+
+test("proposeCommand from a leased call reaches the daemon with the token, the file's local members gone", async () => {
+  const d = await daemon();
+  const wire = await d.launch(offerer());
+  const res = await wire.callTool("offer", { file: MORNING_FILE }, { causedBy: "lease-offer" });
+  assert.equal(res.success, true, res.error);
+  assert.deepEqual(JSON.parse(res.result), { outcome: "SAVED", enabled: true, code: "" });
+  const calls = d.callsTo("ProposeCommand");
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].sessionToken, d.sessionToken, "ProposeCommand went out without x-session-token");
+  const [sent] = d.commandOffers();
+  assert.equal(sent.key, "morning");
+  assert.equal(sent.reason, "reads you the news");
+  assert.deepEqual(JSON.parse(sent.commandJson), {
+    name: "Good morning",
+    triggers: [{ type: "text", phrases: ["good morning"] }],
+    actions: [],
+  });
+  // Offering is not a fire: made inside a leased call, it carries no lease.
+  assert.equal(calls[0].causedBy, undefined);
+});
+
+test("a REFUSED offer crosses the wire with its code and PluginError whole", async () => {
+  const d = await daemon();
+  d.commandOfferResponse = {
+    outcome: "PLUGIN_PROPOSE_COMMAND_OUTCOME_REFUSED",
+    code: "rate_limited",
+    error: {
+      code: "PLUGIN_ERROR_RATE_LIMITED",
+      message: "too many command offers",
+      retryAfterMs: 120000,
+    },
+  };
+  const wire = await d.launch(offerer());
+  const offered = await wire.plugin.ctx().proposeCommand("morning", { name: "x" }, "why");
+  assert.deepEqual(offered, {
+    outcome: "REFUSED",
+    enabled: false,
+    code: "rate_limited",
+    error: {
+      code: "PLUGIN_ERROR_RATE_LIMITED",
+      message: "too many command offers",
+      hint: "",
+      configField: "",
+      retryAfterMs: 120000,
+      docUrl: "",
+    },
+  });
+});
+
+test("no offer limit is checked client-side: the daemon's refusal is what the plugin reads", async () => {
+  const { PROPOSE_COMMAND_MAX_BYTES, PROPOSE_COMMAND_REASON_MAX_CHARS } = require("../dist/generated/limits.js");
+  const d = await daemon();
+  d.commandOfferResponse = { outcome: "PLUGIN_PROPOSE_COMMAND_OUTCOME_REFUSED", code: "too_large" };
+  const wire = await d.launch(offerer());
+  const key = "not a key / ".repeat(10);
+  const command = JSON.stringify({ name: "x".repeat(PROPOSE_COMMAND_MAX_BYTES) });
+  const reason = "é".repeat(PROPOSE_COMMAND_REASON_MAX_CHARS + 60);
+  const offered = await wire.plugin.ctx().proposeCommand(key, command, reason);
+  assert.deepEqual(offered, { outcome: "REFUSED", enabled: false, code: "too_large" });
+  const [sent] = d.commandOffers();
+  assert.equal(sent.key, key);
+  assert.equal(sent.commandJson, command, "a string command goes as it is");
+  assert.equal(sent.reason, reason);
+});
+
+test("every offer outcome maps to its short name; one this SDK does not know is UNSPECIFIED", () => {
+  const { commandOfferResultFromWire } = require("../dist/host-client.js");
+  const names = ["SAVED", "UNCHANGED", "DECLINED", "TIMED_OUT", "REFUSED"];
+  names.forEach((name, i) => {
+    const want = { outcome: name, enabled: false, code: "" };
+    assert.deepEqual(commandOfferResultFromWire({ outcome: `PLUGIN_PROPOSE_COMMAND_OUTCOME_${name}` }), want);
+    assert.deepEqual(commandOfferResultFromWire({ outcome: i + 1, error: null }), want);
+  });
+  assert.deepEqual(commandOfferResultFromWire({ outcome: 1, enabled: true }), {
+    outcome: "SAVED",
+    enabled: true,
+    code: "",
+  });
+  assert.deepEqual(commandOfferResultFromWire({ outcome: 9 }), { outcome: "UNSPECIFIED", enabled: false, code: "" });
+  assert.deepEqual(commandOfferResultFromWire({}), { outcome: "UNSPECIFIED", enabled: false, code: "" });
+});
+
+test("a command goes out as compact JSON or as the text it already is; a command JSON cannot hold throws", () => {
+  const { commandJson, proposeCommandRequestToWire } = require("../dist/host-client.js");
+  assert.equal(commandJson({ name: "Утро", actions: [], x: { a: [1, null] } }), '{"name":"Утро","actions":[],"x":{"a":[1,null]}}');
+  // An undefined MEMBER is absent, as JSON.stringify writes it: nothing is mangled.
+  assert.equal(commandJson({ name: "x", description: undefined }), '{"name":"x"}');
+  const text = '{ "name": "x" ,  "triggers": [] }';
+  assert.equal(commandJson(text), text);
+  for (const bad of [{ n: Number.NaN }, { n: [Number.NEGATIVE_INFINITY] }, { l: [undefined] }, { l: [Symbol("s")] }, [], undefined, null, 1, true]) {
+    assert.throws(() => commandJson(bad), TypeError);
+  }
+  assert.throws(() => commandJson({ n: 10n }), TypeError);
+  assert.deepEqual(proposeCommandRequestToWire("k", { name: "x" }, "r"), {
+    key: "k",
+    commandJson: '{"name":"x"}',
     reason: "r",
   });
 });

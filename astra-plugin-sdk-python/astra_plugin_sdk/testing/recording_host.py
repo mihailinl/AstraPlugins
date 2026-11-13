@@ -23,7 +23,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from astra_plugin_sdk.causality import current_cause
-from astra_plugin_sdk.host_client import settings_change_request
+from astra_plugin_sdk.host_client import propose_command_request, settings_change_request
 from astra_plugin_sdk.proto import plugin_pb2
 from astra_plugin_sdk.types import ThemeContribution
 
@@ -137,6 +137,21 @@ class RecordingHost:
             "outcome": plugin_pb2.PLUGIN_SETTINGS_CHANGE_OUTCOME_APPLIED
         }
     )
+    #: What `propose_command()` answers, as keyword arguments of
+    #: `PluginProposeCommandResponse` (`outcome`, `enabled`, `code`, `error`).
+    #: Saved and switched on — the person kept it with Enable on — until told
+    #: otherwise; stage another outcome to test the branch an unchanged,
+    #: declined or refused offer takes::
+    #:
+    #:     host.command_offer_response = {
+    #:         "outcome": plugin_pb2.PLUGIN_PROPOSE_COMMAND_OUTCOME_DECLINED,
+    #:     }
+    command_offer_response: dict[str, Any] = field(
+        default_factory=lambda: {
+            "outcome": plugin_pb2.PLUGIN_PROPOSE_COMMAND_OUTCOME_SAVED,
+            "enabled": True,
+        }
+    )
 
     _logs: list[LogLine] = field(default_factory=list)
     _triggers: list[FiredTrigger] = field(default_factory=list)
@@ -148,6 +163,7 @@ class RecordingHost:
     _spoken: list[str] = field(default_factory=list)
     _stops: int = 0
     _settings_requests: list[Any] = field(default_factory=list)
+    _command_offers: list[Any] = field(default_factory=list)
 
     _fail_next: dict[str, BaseException] = field(default_factory=dict)
     _fail_always: dict[str, BaseException] = field(default_factory=dict)
@@ -242,6 +258,13 @@ class RecordingHost:
         self._settings_requests.append(settings_change_request(changes, reason))
         return plugin_pb2.PluginSettingsChangeResponse(**self.settings_change_response)
 
+    async def propose_command(self, key: str, command, reason: str):
+        self._maybe_fail("propose_command")
+        # Built the way the real client builds it, so a value JSON cannot hold
+        # raises here too, and what is recorded is what would go on the wire.
+        self._command_offers.append(propose_command_request(key, command, reason))
+        return plugin_pb2.PluginProposeCommandResponse(**self.command_offer_response)
+
     async def subscribe_events(self, event_types: list[str] | None = None, exclude_source_id: str = ""):
         self._maybe_fail("subscribe_events")
         self._subscriptions.append(list(event_types or []))
@@ -312,6 +335,13 @@ class RecordingHost:
         as its `value_json` — including one the staged answer then refused."""
         return list(self._settings_requests)
 
+    def command_offers(self) -> list[Any]:
+        """Every `propose_command()`, in order, as the
+        `PluginProposeCommandRequest` the real client would send — the key, the
+        command as its `command_json`, the reason — including one the staged
+        answer then refused."""
+        return list(self._command_offers)
+
 
 class _EmptyStream:
     """A stream that ends immediately. `async for` over it does nothing."""
@@ -335,6 +365,7 @@ _HOST_METHODS = frozenset(
         "stop_speaking",
         "get_user_identity",
         "request_settings_change",
+        "propose_command",
         "subscribe_events",
         "push_to_ui",
         "send_chat_message",

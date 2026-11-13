@@ -327,6 +327,27 @@ export class MockDaemon {
     code?: string;
     error?: Record<string, unknown>;
   } = { outcome: "PLUGIN_SETTINGS_CHANGE_OUTCOME_APPLIED" };
+  /**
+   * What `ProposeCommand` answers, in the WIRE shape
+   * (`PluginProposeCommandResponse`): saved and switched on — the person kept
+   * it with Enable on — until told otherwise. The mock answers at once; the
+   * real daemon answers when the person does. Stage a refusal to drive the
+   * plugin's `REFUSED` branch:
+   *
+   * ```ts
+   * daemon.commandOfferResponse = {
+   *   outcome: "PLUGIN_PROPOSE_COMMAND_OUTCOME_REFUSED",
+   *   code: "rate_limited",
+   *   error: { code: "PLUGIN_ERROR_RATE_LIMITED", message: "…", retryAfterMs: 120000 },
+   * };
+   * ```
+   */
+  commandOfferResponse: {
+    outcome: string;
+    enabled?: boolean;
+    code?: string;
+    error?: Record<string, unknown>;
+  } = { outcome: "PLUGIN_PROPOSE_COMMAND_OUTCOME_SAVED", enabled: true };
   /** What `GetUserIdentity` answers: signed in, authorized, with pseudonyms. */
   userIdentity: { installId: string; signedIn: boolean; authorized: boolean; accountId: string } = {
     installId: "mock-install-pseudonym",
@@ -414,6 +435,20 @@ export class MockDaemon {
         changes: ((c.request.changes as { path?: string; valueJson?: string }[]) ?? []).map(
           (ch) => ({ path: String(ch.path ?? ""), valueJson: String(ch.valueJson ?? "") })
         ),
+        reason: String(c.request.reason ?? ""),
+      }));
+  }
+
+  /**
+   * Every `ProposeCommand` that carried the session token, in order, as it
+   * crossed the wire — the command as its `commandJson`.
+   */
+  commandOffers(): { key: string; commandJson: string; reason: string }[] {
+    return this.callsTo("ProposeCommand")
+      .filter((c) => c.sessionToken === this.sessionToken)
+      .map((c) => ({
+        key: String(c.request.key ?? ""),
+        commandJson: String(c.request.commandJson ?? ""),
         reason: String(c.request.reason ?? ""),
       }));
   }
@@ -635,6 +670,7 @@ export class MockDaemon {
       StopSpeaking: this.unary("StopSpeaking", () => ({})),
       GetUserIdentity: this.unary("GetUserIdentity", () => this.userIdentity),
       RequestSettingsChange: this.unary("RequestSettingsChange", () => this.settingsChangeResponse),
+      ProposeCommand: this.unary("ProposeCommand", () => this.commandOfferResponse),
       SetVariable: this.unary("SetVariable", () => ({ success: true, error: "" })),
       PushToUi: this.unary("PushToUi", () => ({ success: true, error: "" })),
       SetThemeContribution: this.unary("SetThemeContribution", () => ({ success: true, error: "" })),

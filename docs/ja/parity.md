@@ -2,7 +2,7 @@
 
 # フックの対応表(Hook parity)
 
-プロトコル **1** · **48** 個のフック · 正典は [`spec/hooks.yaml`](../../spec/hooks.yaml)。
+プロトコル **1** · **49** 個のフック · 正典は [`spec/hooks.yaml`](../../spec/hooks.yaml)。
 
 *フック* とは、プラグイン向けの 2 つのサービスのどちらか一方にある 1 つの
 RPC のことです。`PluginCapabilityService` は **デーモン → プラグイン**方向
@@ -90,6 +90,7 @@ RPC のことです。`PluginCapabilityService` は **デーモン → プラグ
 | `StopSpeaking` | `core` | `speak` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `GetUserIdentity` | `core` | `read_user_identity` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `RequestSettingsChange` | `core` | `request_settings_change` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
+| `ProposeCommand` | `core` | `propose_commands` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 | `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | live | unary | stable | stable | stable | `astra-daemon/src/plugins/host_service.rs` |
 
 ## ケーパビリティの実装可否
@@ -224,7 +225,8 @@ RPC のことです。`PluginCapabilityService` は **デーモン → プラグ
 - **`Speak`** — プラグイン自身の言葉を Astra の声で読み上げます。言い終えた、止められた、または拒否された時点で応答します。 speak は高リスク(専用の同意チェックボックス)。Astra を利用できるアカウントと、本人の応答音声がオンであることが必要。最大 300 文字で、超えれば拒否され、切り詰められることはない(spec/limits.yaml:speak_text_max_chars)。発話時間は一度に 450 文字、その後は毎秒 3 文字で、それを超えると NOT_SPOKEN が RATE_LIMITED と retry_after_ms を運ぶ。STOPPED はエラーではない。2026-11-12 より古い Astra は UNIMPLEMENTED を返す。
 - **`StopSpeaking`** — このプラグインが言わせようとしたもの — 鳴っているものもキューにあるものも — をすべて止め、Astra が話している他のものは何も止めません。 speak によってゲートされる。2 つのホスト rpc が共有する唯一のパーミッション。誰かがサインインしているかどうかに関係なく許可される。これが止めた各 Speak は STOPPED を返す。
 - **`GetUserIdentity`** — このインストールとサインイン中のアカウントの、このプラグイン専用に作られた仮名 ID。アカウント自身の id、名前、メールアドレス、ハードウェアのシリアル番号であることは決してありません。 account_id は authorized でなければ空で、本人がサインインするどのデバイスでも同じ。同じ値がこのプラグインの auth_changed イベントに account_id として届く。2026-11-12 より古い Astra は UNIMPLEMENTED を返す。
-- **`RequestSettingsChange`** — Astra の設定の一部を変えるよう、本人が応答するカードで頼みます — 頼めるのはアシスタント自身が変更できる設定だけ。本人が許可しない限り何も変わりません。 Astra を利用できるアカウントと、plugin-requests ビルド機能付きでビルドされた Astra が必要(そうでなければコード not_compiled の REFUSED)。変更は 1〜8 件、各パスは 1 回、すべてかゼロか。理由は最大 140 文字で、超えれば拒否され、切り詰められることはない(spec/limits.yaml:settings_change_max_changes、settings_change_reason_max_chars)。カードはプラグインごとに同時に 1 枚(busy)、リクエストは一度に 2 件、その後は 120 秒に 1 件(rate_limited と retry_after_ms)。応答は APPLIED、UNCHANGED(誰にも尋ねていない)、DECLINED(本人が以前に断った設定にも、それが別の方法で変わるか Astra が再起動するまで)、TIMED_OUT、またはコード付きの REFUSED で、現在の値は決して返さない。呼び出しは本人が応答するかカードが期限切れになるまで続く。2026-11-13 より古い Astra は UNIMPLEMENTED を返す。
+- **`RequestSettingsChange`** — Astra の設定の一部を変えるよう、本人が応答するカードで頼みます — 頼めるのはアシスタント自身が変更できる設定だけ。本人が許可しない限り何も変わりません。 Astra を利用できるアカウントと、plugin-requests ビルド機能付きでビルドされた Astra が必要(そうでなければコード not_compiled の REFUSED)。変更は 1〜8 件、各パスは 1 回、すべてかゼロか。理由は最大 140 文字で、超えれば拒否され、切り詰められることはない(spec/limits.yaml:settings_change_max_changes、settings_change_reason_max_chars)。カードはプラグインごとに同時に 1 枚(1 枚出ている間の 2 つ目のリクエストは busy)、リクエストはまとめて 2 件まで、その後は 120 秒に 1 件(rate_limited と retry_after_ms)。応答は APPLIED、UNCHANGED(誰にも尋ねていない)、DECLINED(本人が以前に断った設定にも、それが別の方法で変わるか Astra が再起動するまで)、TIMED_OUT、またはコード付きの REFUSED で、現在の値は決して返さない。呼び出しは本人が応答するかカードが期限切れになるまで続く。2026-11-13 より古い Astra は UNIMPLEMENTED を返す。
+- **`ProposeCommand`** — 持ち運べるコマンドを 1 つ、このプラグイン自身のキーで本人に「提案」します。本人がそれを残せるのは Astra の Workshop のシートからだけで、そこにはすべてのトリガーと手順が表示されます。 propose_commands は高リスク(専用の同意チェックボックス): 残されたコマンドは後で、そのトリガーによって、本人自身のコマンドとして実行される — その手順は、シェルコマンドのような組み込みのものも含め、改めて尋ねることなく実行される。Astra を利用できるアカウントと、plugin-requests ビルド機能付きでビルドされた Astra が必要(そうでなければコード not_compiled の REFUSED。2026-11-13 より古い Astra では呼び出しが UNIMPLEMENTED で失敗する)。キーは a-z A-Z 0-9 . _ - の 1〜64 文字で、同じキーをもう一度提案すると同じコマンドが更新される。コマンドは最大 1 MiB のポータブルな JSON で、Workshop 自身のリーダーが読み(ローカルなフィールドは取り除かれる)、使えるのは Astra の組み込みのアクションとトリガー、そしてこのプラグイン自身のもの — 他のプラグインのものは決して使えない(foreign_plugin)。理由は最大 140 文字で、超えれば拒否され、切り詰められることはない(spec/limits.yaml:propose_command_max_bytes、propose_command_reason_max_chars)。カードはプラグインごとに同時に 1 枚(1 枚出ている間の 2 つ目の提案は busy)、提案はまとめて 2 件まで、その後は 120 秒に 1 件(rate_limited と retry_after_ms)。応答は SAVED(enabled: 残された後にコマンドが有効かどうか)、UNCHANGED(そのキーで残されているものはまさにこの提案から来たもの — 本人が編集した後も同じ。誰にも尋ねていない)、DECLINED(以前に断られたまさにこのコマンドにも、Astra が再起動するまで)、TIMED_OUT、またはコード付きの REFUSED。呼び出しは本人が応答するかカードが期限切れになるまで続く。
   — CallFromUi の戻り経路です。今では 3 つすべてに結びつけられています。
   Python は 3 リリースの間 CallFromUi はあるが PushToUi はない状態
   だったため、Python 製の UI プラグインは呼び出されても非同期に応答

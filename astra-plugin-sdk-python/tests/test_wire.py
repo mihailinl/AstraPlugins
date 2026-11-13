@@ -10,7 +10,7 @@ import time
 import grpc
 import pytest
 
-from astra_plugin_sdk import Plugin, tool, ui_call, ui_page
+from astra_plugin_sdk import Plugin, commands_from_astra_file, tool, ui_call, ui_page
 from astra_plugin_sdk.proto import plugin_pb2, plugin_pb2_grpc
 from astra_plugin_sdk.testing import MockDaemon, WireError, WireHarness
 from astra_plugin_sdk.testing.fixtures import backpressure_burst
@@ -198,7 +198,7 @@ class _Announcer(Plugin):
 def test_speech_and_identity_from_a_leased_call_reach_the_daemon_with_the_token():
     """`Speak` and `GetUserIdentity` from inside a leased call: the session token
     goes with them, the identity round-trips field for field, and speaking is
-    not a fire, so nothing about it spends the lease."""
+    not a fire: neither call carries the lease."""
     with WireHarness(_Announcer()) as w:
         with w.lease("lease-speak"):
             out = json.loads(w.call_tool("announce", text="The kettle has boiled.").result)
@@ -213,6 +213,7 @@ def test_speech_and_identity_from_a_leased_call_reach_the_daemon_with_the_token(
             "account_id": "mock-account-pseudonym",
         }
         assert w.daemon.spoken() == ["The kettle has boiled."]
+        assert w.daemon.causes("Speak") == [None]
         assert w.daemon.stop_count() == 1
         assert w.daemon.unauthenticated_calls == []
         assert w.daemon.fired_triggers() == []
@@ -273,7 +274,7 @@ class _Tuner(Plugin):
 def test_a_settings_request_from_a_leased_call_reaches_the_daemon_with_the_token():
     """The request crosses the wire as written — the changes in order, each
     value as JSON, the reason whole — with the session token, and asking is
-    not a fire, so nothing about it spends the lease."""
+    not a fire: the call carries no lease, though it was made inside one."""
     with WireHarness(_Tuner()) as w:
         with w.lease("lease-tune"):
             out = json.loads(w.call_tool("tune", model="gpt-4.1").result)
@@ -291,7 +292,7 @@ def test_a_settings_request_from_a_leased_call_reaches_the_daemon_with_the_token
         ]
         assert asked.reason == "tuned for this model"
         assert w.daemon.unauthenticated_calls == []
-        assert w.daemon.fired_triggers() == []
+        assert w.daemon.causes("RequestSettingsChange") == [None]
 
 
 def test_a_refused_settings_request_crosses_the_wire_whole():
@@ -325,6 +326,102 @@ def test_denying_request_settings_change_refuses_the_request_at_the_gate():
     with WireHarness(_Tuner(), daemon=daemon) as w:
         assert not w.call_tool("tune", model="m").success
         assert w.daemon.settings_change_requests() == []
+
+
+# ── a command offer, over the wire ──────────────────────────────────────────
+
+
+_MORNING_FILE = json.dumps(
+    {
+        "format": "astra-commands",
+        "version": 1,
+        "commands": [
+            {
+                "name": "Good morning",
+                "triggers": [{"type": "text", "phrases": ["good morning"]}],
+                "actions": [],
+                "enabled": True,
+                "source_id": "6f1c2a9e",
+            }
+        ],
+    }
+)
+
+
+class _Offerer(Plugin):
+    @tool("Offer the first command of a .astra file, then report what Astra answered")
+    async def offer(self, file: str):
+        [command] = commands_from_astra_file(file)
+        offered = await self.host.propose_command("morning", command, "reads you the news")
+        return {
+            "outcome": plugin_pb2.PluginProposeCommandOutcome.Name(offered.outcome),
+            "enabled": offered.enabled,
+            "code": offered.code,
+            "error_code": (
+                plugin_pb2.PluginErrorCode.Name(offered.error.code)
+                if offered.HasField("error")
+                else ""
+            ),
+            "retry_after_ms": offered.error.retry_after_ms,
+        }
+
+
+def test_a_command_offer_from_a_leased_call_reaches_the_daemon_with_the_token():
+    """The offer crosses the wire as the plugin built it — the file's local
+    members gone, the rest whole — with the session token, and offering is
+    not a fire: the call carries no lease, though it was made inside one."""
+    with WireHarness(_Offerer()) as w:
+        with w.lease("lease-offer"):
+            out = json.loads(w.call_tool("offer", file=_MORNING_FILE).result)
+        assert out == {
+            "outcome": "PLUGIN_PROPOSE_COMMAND_OUTCOME_SAVED",
+            "enabled": True,
+            "code": "",
+            "error_code": "",
+            "retry_after_ms": 0,
+        }
+        [offered] = w.daemon.command_offers()
+        assert offered.key == "morning"
+        assert json.loads(offered.command_json) == {
+            "name": "Good morning",
+            "triggers": [{"type": "text", "phrases": ["good morning"]}],
+            "actions": [],
+        }
+        assert offered.reason == "reads you the news"
+        assert w.daemon.unauthenticated_calls == []
+        assert w.daemon.causes("ProposeCommand") == [None]
+
+
+def test_a_refused_command_offer_crosses_the_wire_whole():
+    """The daemon's code word and its `PluginError` arrive intact — a
+    rate-limited plugin needs the number, not a sentence."""
+    daemon = MockDaemon()
+    daemon.command_offer_response = {
+        "outcome": plugin_pb2.PLUGIN_PROPOSE_COMMAND_OUTCOME_REFUSED,
+        "code": "rate_limited",
+        "error": plugin_pb2.PluginError(
+            code=plugin_pb2.PLUGIN_ERROR_RATE_LIMITED,
+            message="too many command offers",
+            retry_after_ms=120000,
+        ),
+    }
+    with WireHarness(_Offerer(), daemon=daemon) as w:
+        out = json.loads(w.call_tool("offer", file=_MORNING_FILE).result)
+        assert out == {
+            "outcome": "PLUGIN_PROPOSE_COMMAND_OUTCOME_REFUSED",
+            "enabled": False,
+            "code": "rate_limited",
+            "error_code": "PLUGIN_ERROR_RATE_LIMITED",
+            "retry_after_ms": 120000,
+        }
+        assert len(w.daemon.command_offers()) == 1
+
+
+def test_denying_propose_commands_refuses_the_offer_at_the_gate():
+    daemon = MockDaemon(denied_permissions=["ProposeCommand"])
+    with WireHarness(_Offerer(), daemon=daemon) as w:
+        assert not w.call_tool("offer", file=_MORNING_FILE).success
+        assert w.daemon.command_offers() == []
 
 
 def test_a_refused_registration_does_not_leave_a_half_started_plugin():

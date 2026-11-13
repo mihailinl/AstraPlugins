@@ -483,6 +483,140 @@ def test_a_string_is_not_a_set_of_changes():
         settings_change_request("ai.model", "why")
 
 
+# ── a command offer ─────────────────────────────────────────────────────────
+
+
+_MORNING = {
+    "name": "Good morning",
+    "triggers": [{"type": "text", "phrases": ["good morning"]}],
+    "actions": [],
+}
+
+
+class _Offerer(Plugin):
+    @tool("Offer the morning command, then report what Astra answered")
+    async def offer(self, key: str):
+        offered = await self.host.propose_command(key, _MORNING, "reads you the news")
+        return {
+            "outcome": plugin_pb2.PluginProposeCommandOutcome.Name(offered.outcome),
+            "enabled": offered.enabled,
+            "code": offered.code,
+            "retry_after_ms": offered.error.retry_after_ms,
+        }
+
+
+def test_a_command_offer_is_recorded_and_saved_by_default():
+    with Harness(_Offerer()) as h:
+        out = h.call_tool("offer", key="morning").json
+        assert out == {
+            "outcome": "PLUGIN_PROPOSE_COMMAND_OUTCOME_SAVED",
+            "enabled": True,
+            "code": "",
+            "retry_after_ms": 0,
+        }
+        [offered] = h.host.command_offers()
+        assert offered.key == "morning"
+        assert json.loads(offered.command_json) == _MORNING
+        assert offered.reason == "reads you the news"
+
+
+def test_a_refused_command_offer_surfaces_its_code_and_wait():
+    """`REFUSED` is an answer, not an exception: the plugin reads the code
+    word and the wait, and the offer is still on the record."""
+    with Harness(_Offerer()) as h:
+        h.host.command_offer_response = {
+            "outcome": plugin_pb2.PLUGIN_PROPOSE_COMMAND_OUTCOME_REFUSED,
+            "code": "rate_limited",
+            "error": {
+                "code": plugin_pb2.PLUGIN_ERROR_RATE_LIMITED,
+                "message": "too many command offers",
+                "retry_after_ms": 120000,
+            },
+        }
+        out = h.call_tool("offer", key="morning").json
+        assert out == {
+            "outcome": "PLUGIN_PROPOSE_COMMAND_OUTCOME_REFUSED",
+            "enabled": False,
+            "code": "rate_limited",
+            "retry_after_ms": 120000,
+        }
+        assert len(h.host.command_offers()) == 1
+
+
+@pytest.mark.parametrize(
+    "outcome",
+    [
+        plugin_pb2.PLUGIN_PROPOSE_COMMAND_OUTCOME_UNCHANGED,
+        plugin_pb2.PLUGIN_PROPOSE_COMMAND_OUTCOME_DECLINED,
+        plugin_pb2.PLUGIN_PROPOSE_COMMAND_OUTCOME_TIMED_OUT,
+    ],
+)
+def test_every_other_offer_outcome_reaches_the_plugin_as_itself(outcome):
+    with Harness(_Offerer()) as h:
+        h.host.command_offer_response = {"outcome": outcome}
+        out = h.call_tool("offer", key="morning").json
+        assert out["outcome"] == plugin_pb2.PluginProposeCommandOutcome.Name(outcome)
+        assert out["code"] == ""
+        assert out["enabled"] is False
+
+
+def test_a_denied_propose_commands_grant_reaches_the_plugin_as_a_failure():
+    with Harness(_Offerer()) as h:
+        h.host.fail_always(
+            "propose_command",
+            Unavailable("permission denied: propose_commands"),
+        )
+        assert not h.call_tool("offer", key="morning").success
+        assert h.host.command_offers() == []
+
+
+def test_a_command_is_sent_as_compact_json_or_as_the_text_it_already_is():
+    from astra_plugin_sdk.host_client import propose_command_request
+
+    req = propose_command_request(
+        "morning", {"name": "Утро", "actions": [], "x": {"a": [1, None]}}, "why"
+    )
+    assert req.key == "morning"
+    assert req.command_json == '{"name":"Утро","actions":[],"x":{"a":[1,null]}}'
+    assert req.reason == "why"
+    # A string is already the command's JSON: it goes as it is, unparsed.
+    text = '{ "name": "x" ,  "triggers": [] }'
+    assert propose_command_request("k", text, "").command_json == text
+
+
+def test_no_offer_limit_is_checked_client_side():
+    """The daemon is the authority: a key it refuses, more than 1 MiB of JSON
+    and a 200-character reason go out as they are, and its `REFUSED`
+    (`invalid_key` / `too_large` / `reason_too_long`) is what the plugin
+    reads — the SDK can never disagree with the Astra it talks to."""
+    from astra_plugin_sdk.host_client import propose_command_request
+
+    key = "not a key / " * 10
+    big = {"name": "x" * (limits.PROPOSE_COMMAND_MAX_BYTES + 1)}
+    long_reason = "é" * (limits.PROPOSE_COMMAND_REASON_MAX_CHARS + 60)
+    req = propose_command_request(key, big, long_reason)
+    assert req.key == key
+    assert len(req.command_json) > limits.PROPOSE_COMMAND_MAX_BYTES
+    assert req.reason == long_reason
+
+
+@pytest.mark.parametrize(
+    "command, error",
+    [
+        ({"x": float("nan")}, ValueError),
+        ({"x": float("inf")}, ValueError),
+        ({"x": object()}, TypeError),
+        ([{"name": "x"}], TypeError),
+        (None, TypeError),
+    ],
+)
+def test_a_command_json_cannot_hold_raises_before_anything_is_sent(command, error):
+    from astra_plugin_sdk.host_client import propose_command_request
+
+    with pytest.raises(error):
+        propose_command_request("k", command, "why")
+
+
 # ── STT ─────────────────────────────────────────────────────────────────────
 
 
