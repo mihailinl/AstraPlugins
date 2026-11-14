@@ -72,7 +72,7 @@ The protocol generation is the contract. A plugin sends it in `PluginRegisterReq
 | `Register` | `none` | `PluginRegisterRequest` | `PluginRegisterResponse` | unary | live | The handshake: prove the spawn token, receive the per-plugin session token. |
 | `SubscribeEvents` | `subscribe_events` | `PluginEventFilter` | `PluginEventMsg` | server | live | The filtered daemon event stream; the whole of the event_handlers capability. |
 | `SendChatMessage` | `send_chat_message` | `PluginChatRequest` | `PluginChatChunk` | server | live | Send a chat message as this plugin and stream the assistant's reply back. |
-| `FireTrigger` | `fire_trigger` | `PluginFireTriggerRequest` | `Empty` | unary | live | Fire one of this plugin's trigger types and run whatever commands listen. |
+| `FireTrigger` | `fire_trigger` | `PluginFireTriggerRequest` | `Empty` | unary | live | Fire one of this plugin's own trigger types and run whatever commands listen; a built-in type or another plugin's trigger is refused. |
 | `GetPluginSelfConfig` | `none` | `PluginSelfIdRequest` | `PluginSelfConfigResponse` | unary | live | Read this plugin's own persisted settings. |
 | `PluginLog` | `none` | `PluginLogRequest` | `Empty` | unary | live | Write a line into the daemon log buffer the plugin's log pane reads. |
 | `GetDaemonInfo` | `none` | `Empty` | `PluginDaemonInfoResponse` | unary | live | Daemon version, state and gRPC port. |

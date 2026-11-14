@@ -1123,7 +1123,10 @@ class Plugin:
             await self.host.log("error", msg)
 
     async def fire_trigger(self, trigger_type: str, payload: dict | None = None):
-        """Fire a trigger with an optional dict payload (auto-serialized)."""
+        """Fire a trigger with an optional dict payload (auto-serialized).
+
+        A plugin fires only its own triggers: a bare name means this plugin's `plugin__<id>__<name>`, and a built-in type (`text`, `hotkey`, `reminder`, `calendar_event`, `schedule`, `random_result`) or another plugin's `plugin__<other>__…` name is refused by the daemon.
+        """
         if self.host:
             payload_json = json.dumps(payload) if payload else "{}"
             await self.host.fire_trigger(trigger_type, payload_json)

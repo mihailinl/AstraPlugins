@@ -473,6 +473,8 @@ export class HostClient implements Host {
   /**
    * Fire a trigger, carrying the lease for the daemon call it came out of.
    *
+   * A plugin fires only its own triggers: a bare name means this plugin's `plugin__<id>__<name>`, and a built-in type (`text`, `hotkey`, `reminder`, `calendar_event`, `schedule`, `random_result`) or another plugin's `plugin__<other>__…` name is refused by the daemon.
+   *
    * **This is the transport, and the read belongs here rather than one level
    * up.** Both other ways to fire — `PluginContext.fireTrigger` and the
    * `Plugin.fireTrigger` wrapper an author is most likely to write — forward to

@@ -60,9 +60,7 @@ aviso es algo corriente que un plugin puede querer, y la casilla es la
 decisión. `receive_attachments` se unió el mismo día, en los mismos términos:
 las fotos de una persona llegan a código de terceros.
 `propose_commands` se unió el 2026-11-13: un comando que la persona conserva
-se ejecuta más tarde, con sus propios disparadores, como un comando propio de
-la persona, mucho después de la oferta que lo trajo — sus pasos, incluidos los
-integrados como un comando de shell, se ejecutan sin volver a preguntar. Tampoco se rechaza a una
+se ejecuta más tarde, con sus propios disparadores, pero nunca con la plena confianza de un comando propio de la persona, mucho después de la oferta que lo trajo: Astra pregunta a la persona antes de cada acción peligrosa (un comando de shell, por ejemplo), y sus pasos de IA no son automatización de confianza. Tampoco se rechaza a una
 importación de nivel 2 — cada oferta es una tarjeta, y el comando solo se
 conserva desde la hoja del Workshop, que muestra cada disparador con su
 valor completo y cada paso con lo que puede hacer; la hoja es la decisión,

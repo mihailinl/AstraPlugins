@@ -17,6 +17,8 @@ are removable in.
 
 ## [0.6.5] — 2026-11-14
 
+**What the powers do, as Astra's `main` enforces them (Astra PR #190, 2026-11-14).** `fire_trigger` fires only the calling plugin's own triggers, a bare name meaning its own `plugin__<id>__<name>`, and a built-in type (`text`, `hotkey`, `reminder`, `calendar_event`, `schedule`, `random_result`) or another plugin's trigger is refused; a command offered with `propose_commands` and kept never runs at the person's own full trust — Astra asks before each dangerous action it takes, and its AI steps are not trusted automation; `request_settings_change` cannot ask for `ai.system_prompt`, and its card shows every value whole, a value over 2,000 characters being refused before any card. The protocol itself did not change in that PR.
+
 ### Added
 
 - `HostClient.get_ai_settings()` — the user's chat provider, model and endpoint
@@ -176,8 +178,7 @@ are removable in.
   `limits.PROPOSE_COMMAND_REASON_MAX_CHARS` (140) characters, both new rows of
   `spec/limits.yaml` — the SDK checks neither. Needs the new
   **`propose_commands`** permission (**high-risk**: its own consent checkbox,
-  because a kept command runs later as the person's own command, its steps —
-  built-ins such as a shell command included — without asking again; not refused
+  because a kept command runs later, on its triggers, never at the person's own full trust: Astra asks before each dangerous action it takes (a shell command, say); not refused
   to a local import) and an account that opens Astra. New helper
   **`commands_from_astra_file(text)`** (exported from `astra_plugin_sdk`) → a
   list of dicts: the commands of a `.astra` file Astra exported

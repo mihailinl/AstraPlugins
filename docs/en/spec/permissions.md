@@ -53,9 +53,7 @@ refused to a Tier-2 import (§5) — an announcement is an ordinary thing for a
 plugin to want, and the checkbox is the decision. `receive_attachments` joined
 them the same day, on the same terms: a person's photos reach third-party code.
 `propose_commands` joined them on 2026-11-13: a command the person keeps runs
-later, on its own triggers, as the person's own command, long after the offer
-that brought it — its steps, built-ins such as a shell command included, run
-without asking again. It is not refused to a Tier-2 import either — every offer is a card,
+later, on its own triggers, but never at the person's own full trust: Astra asks the person before each dangerous action it takes (a shell command, say), and its AI steps are not trusted automation, long after the offer that brought it. It is not refused to a Tier-2 import either — every offer is a card,
 and the command is kept only from the Workshop sheet, which shows every trigger
 by its full value and every step with what it may do; the sheet is the decision,
 each time. The daemon answers it only when built with the `plugin-requests`

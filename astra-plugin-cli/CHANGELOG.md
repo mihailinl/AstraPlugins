@@ -37,8 +37,7 @@ reads to find out how to get the tool.
   `feat/plugin-api-gaps`): `PluginHostService.ProposeCommand` — the plugin
   OFFERS the person one portable command to keep, which they keep only from
   Astra's Workshop sheet. **High-risk** (its own consent checkbox: a kept command
-  runs later as the person's own command, its steps — built-ins such as a shell
-  command included — without asking again) and not refused to a local import —
+  runs later, on its triggers, never at the person's own full trust: Astra asks before each dangerous action it takes (a shell command, say)) and not refused to a local import —
   the sheet is the decision, each time. **In no Astra release yet:** the daemon side
   is behind the `plugin-requests` build feature. `astra-plugin check` accepts the
   id instead of warning that this Astra grants nothing for it, and the scaffold

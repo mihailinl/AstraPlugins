@@ -212,8 +212,8 @@ compiles. `testing::RecordingHost::set_speak_response` / `set_user_identity`
 stage the answers, and `spoken()` lists what your plugin asked to say.
 
 `request_settings_change(&[proto::PluginSettingChange::new("ai.model", "gpt-4.1")],
-"why")` asks the person to change settings the assistant itself may change, on a
-card that shows each setting as it is and as it would be, and your reason; all of
+"why")` asks the person to change settings the assistant itself may change (never `ai.system_prompt`), on a
+card that shows each setting, whole, as it is and as it would be, and your reason; all of
 them change, or none. It returns `proto::PluginSettingsChangeResponse`: read
 `outcome()` — `Applied`, `Unchanged` (nobody was asked), `Declined` (**do not ask
 again unasked**), `TimedOut`, or `Refused` with `code` (`rate_limited`, `busy`,
@@ -237,8 +237,7 @@ the person one portable command to keep under your plugin's own `key` (1-64 of
 only from Astra's Workshop sheet, which shows every trigger and step. The
 command may use Astra's built-in actions and triggers — a shell command, key
 presses, file operations — and your plugin's own, never another plugin's
-(`foreign_plugin`); once kept, its steps run as the person's own command,
-without asking again. Build the command in Astra, export it, ship the `.astra`
+(`foreign_plugin`); once kept, it runs on its own triggers, but never at the person's own full trust: Astra asks the person before each dangerous action it takes (a shell command, say), and its AI steps are not trusted automation. Build the command in Astra, export it, ship the `.astra`
 file, and split it with `astra_plugin_sdk::commands_from_astra_file(text)?` —
 each command comes back as a `serde_json::Value` without the members that belong
 to one installation (`id`, `enabled`, the folder, the provenance); a file of
