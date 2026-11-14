@@ -307,6 +307,8 @@ class HostClient:
     async def fire_trigger(self, trigger_type: str, payload_json: str = "{}"):
         """Fire a trigger, carrying the lease for the daemon call it came out of.
 
+        A plugin fires only its own triggers: a bare name means this plugin's `plugin__<id>__<name>`, and a built-in type (`text`, `hotkey`, `reminder`, `calendar_event`, `schedule`, `random_result`) or another plugin's `plugin__<other>__…` name is refused by the daemon.
+
         **This is the transport, and the read belongs here rather than one level
         up.** Both other ways to fire — ``PluginContext.fire_trigger`` and the
         ``Plugin.fire_trigger`` wrapper an author is most likely to write —
@@ -463,10 +465,11 @@ class HostClient:
         one older than 2026-11-13 — every release today — fails the call with
         ``UNIMPLEMENTED``, an error, not an outcome. ``changes`` is ``{path: value}`` or ``(path, value)`` pairs —
         dotted settings paths the assistant itself may change (``ai.model``,
-        ``voice.tts_speed``; never the permission mode, a key or Tool Search),
+        ``voice.tts_speed``; never the permission mode, a key, Tool Search or ``ai.system_prompt``),
         each value any JSON value; ``reason`` is shown on the card in the
         plugin's own words. All of them change, or none, and what changes is
-        exactly what the card showed.
+        exactly what the card showed — every value whole, never cut; a value
+        over 2,000 characters is refused before any card.
 
         The call **lasts until the person answers or the card expires** —
         Astra's confirmation timeout, at least 30 s, 120 s unless the person
@@ -528,9 +531,7 @@ class HostClient:
         """**Offer the person a command** to keep, on a card they answer.
 
         Needs the ``propose_commands`` permission — **high-risk**: a command
-        the person keeps runs later, on its own triggers, as the person's own
-        command; its steps, built-ins such as a shell command included, run
-        without asking again — and an account that opens Astra. **No Astra
+        the person keeps runs later, on its own triggers, but never at the person's own full trust: Astra asks the person before each dangerous action it takes (a shell command, say), and its AI steps are not trusted automation — and an account that opens Astra. **No Astra
         release answers it yet**: an Astra built without the
         ``plugin-requests`` feature answers ``REFUSED`` / ``not_compiled``, and
         one older than 2026-11-13 — every release today — fails the call with

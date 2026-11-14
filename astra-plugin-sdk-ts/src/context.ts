@@ -113,7 +113,10 @@ export interface PluginContext {
   warn(message: string): Promise<void>;
   error(message: string): Promise<void>;
 
-  /** Fire one of this plugin's trigger types. Rejects if there is no host. */
+  /**
+   * Fire one of this plugin's trigger types. Rejects if there is no host.
+   * A plugin fires only its own triggers: a bare name means this plugin's `plugin__<id>__<name>`, and a built-in type (`text`, `hotkey`, `reminder`, `calendar_event`, `schedule`, `random_result`) or another plugin's `plugin__<other>__…` name is refused by the daemon.
+   */
   fireTrigger(triggerType: string, payload?: Record<string, unknown>): Promise<void>;
   setVariable(name: string, value: string, scope?: string): Promise<void>;
   pushToUi(event: string, payload?: Record<string, unknown>): Promise<void>;
@@ -199,7 +202,9 @@ export interface PluginContext {
    * and resolve with what became of it: `"APPLIED"`, `"UNCHANGED"` (nobody was
    * asked), `"DECLINED"` (do not ask again unasked), `"TIMED_OUT"`, or
    * `"REFUSED"` with `code` (and `error.retryAfterMs` for `rate_limited`).
-   * Only the settings the assistant itself may change can be asked for; all of
+   * Only the settings the assistant itself may change can be asked for — never
+   * `ai.system_prompt`, which is the persona in every turn. The card shows every
+   * value whole, and a value over 2,000 characters is refused before any card; all of
    * `changes` change, or none. Needs the `request_settings_change` permission
    * and an account that opens Astra. **No Astra release answers it yet**: an
    * Astra built without the `plugin-requests` feature resolves `"REFUSED"` with
@@ -243,9 +248,7 @@ export interface PluginContext {
    * `.astra` file with `commandsFromAstraFile`); it may use Astra's built-in
    * actions and triggers and this plugin's own — never another plugin's
    * (`foreign_plugin`). Needs the `propose_commands` permission (high-risk: a
-   * kept command runs later, on its triggers, as the person's own command —
-   * its steps, built-ins such as a shell command included, run without asking
-   * again) and an account that opens Astra. **No Astra release answers it
+   * kept command runs later, on its triggers, but never at the person's own full trust: Astra asks the person before each dangerous action it takes (a shell command, say), and its AI steps are not trusted automation) and an account that opens Astra. **No Astra release answers it
    * yet**: an Astra built without the `plugin-requests` feature resolves
    * `"REFUSED"` with `code` `not_compiled`, and one older than 2026-11-13 —
    * every release today — fails the call with `UNIMPLEMENTED`, a rejection,

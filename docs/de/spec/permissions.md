@@ -62,9 +62,7 @@ ist etwas Gewöhnliches, das ein Plugin wollen kann, und die Checkbox ist
 die Entscheidung. `receive_attachments` kam am selben Tag zu denselben
 Bedingungen dazu: Die Fotos einer Person erreichen Code von Dritten.
 `propose_commands` kam am 2026-11-13 dazu: Ein Befehl, den die Person
-behält, läuft später, auf seine eigenen Auslöser hin, als eigener Befehl der
-Person, lange nach dem Angebot, das ihn brachte — seine Schritte, eingebaute wie
-ein Shell-Befehl eingeschlossen, laufen, ohne noch einmal zu fragen. Auch er wird einem
+behält, läuft später, auf seine eigenen Auslöser hin, aber nie mit dem vollen Vertrauen eines eigenen Befehls der Person, lange nach dem Angebot, das ihn brachte: Astra fragt die Person vor jeder gefährlichen Aktion (etwa einem Shell-Befehl), und seine KI-Schritte sind keine vertrauenswürdige Automatisierung. Auch er wird einem
 Stufe-2-Import nicht verweigert — jedes Angebot ist eine Karte, und der
 Befehl wird nur über das Workshop-Blatt behalten, das jeden Auslöser mit
 seinem vollen Wert und jeden Schritt mit dem zeigt, was er tun darf; das

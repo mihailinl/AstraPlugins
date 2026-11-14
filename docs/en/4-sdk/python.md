@@ -154,8 +154,8 @@ stage the answers and `spoken()` lists what your plugin asked to say.
 
 `request_settings_change({"ai.model": "gpt-4.1"}, "why")` — a dict, or
 `(path, value)` pairs, each value any JSON value — asks the person to change
-settings the assistant itself may change, on a card that shows each setting as it
-is and as it would be, and your reason; all of them change, or none. It returns
+settings the assistant itself may change (never `ai.system_prompt`), on a card that
+shows each setting, whole, as it is and as it would be, and your reason; all of them change, or none. It returns
 the daemon's `PluginSettingsChangeResponse`: `outcome` is
 `PLUGIN_SETTINGS_CHANGE_OUTCOME_APPLIED`, `…_UNCHANGED` (nobody was asked),
 `…_DECLINED` (**do not ask again unasked**), `…_TIMED_OUT`, or `…_REFUSED` with
@@ -179,8 +179,7 @@ command to keep under your plugin's own `key` (1-64 of `a-z A-Z 0-9 . _ -`; the
 same key again updates the same command). They keep it only from Astra's
 Workshop sheet, which shows every trigger and step. The command may use Astra's
 built-in actions and triggers — a shell command, key presses, file operations —
-and your plugin's own, never another plugin's (`foreign_plugin`); once kept, its
-steps run as the person's own command, without asking again. `command` is a
+and your plugin's own, never another plugin's (`foreign_plugin`); once kept, it runs on its own triggers, but never at the person's own full trust: Astra asks the person before each dangerous action it takes (a shell command, say), and its AI steps are not trusted automation. `command` is a
 dict, or a str that is already its JSON; build the command in Astra, export it,
 ship the `.astra` file, and split it with `commands_from_astra_file(text)` (from
 `astra_plugin_sdk`) — each command comes back as a dict without the members that

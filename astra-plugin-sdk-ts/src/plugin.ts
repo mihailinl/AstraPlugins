@@ -979,7 +979,10 @@ export abstract class Plugin {
   async logWarn(msg: string): Promise<void> { if (this.host) await this.host.log("warn", msg); }
   /** Log an error message to the daemon. */
   async logError(msg: string): Promise<void> { if (this.host) await this.host.log("error", msg); }
-  /** Fire a trigger with an optional payload object (auto-serialized). */
+  /**
+   * Fire a trigger with an optional payload object (auto-serialized).
+   * A plugin fires only its own triggers: a bare name means this plugin's `plugin__<id>__<name>`, and a built-in type (`text`, `hotkey`, `reminder`, `calendar_event`, `schedule`, `random_result`) or another plugin's `plugin__<other>__…` name is refused by the daemon.
+   */
   async fireTrigger(triggerType: string, payload?: Record<string, unknown>): Promise<void> {
     if (this.host) await this.host.fireTrigger(triggerType, payload ? JSON.stringify(payload) : "{}");
   }

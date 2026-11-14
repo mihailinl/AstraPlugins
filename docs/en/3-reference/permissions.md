@@ -245,9 +245,10 @@ takes requests; a newer Astra built without it answers `REFUSED` with the code
 Each change is a dotted settings path and the value wanted, as JSON — the SDKs
 serialise the value for you. Only the settings the assistant itself may change
 can be asked for — the voice, the AI model, the language; never the permission
-mode, a key or Tool Search — and each value is checked exactly as the
-assistant's own change is. The card names your plugin, shows every setting as it
-is and as it would be, and your `reason`, in your words. All of them change, or
+mode, a key, Tool Search or `ai.system_prompt` (the persona in every turn) — and
+each value is checked exactly as the assistant's own change is. The card names
+your plugin, shows every setting as it is and as it would be, every value whole
+and never cut (a value over 2,000 characters is refused before any card), and your `reason`, in your words. All of them change, or
 none, and what changes is exactly what the card showed.
 
 **The call lasts until the person answers or the card expires** — Astra's
@@ -378,8 +379,7 @@ The limits are the daemon's: the SDKs export `PROPOSE_COMMAND_MAX_BYTES` and
 the call needs **an account that opens Astra**; a missing grant, or an account
 that does not open Astra, is a failed call like every host call, not an outcome.
 `propose_commands` is **high-risk**: a kept command runs later, on its own
-triggers, as the person's own command — its steps, built-ins such as a shell
-command included, run without asking again — so it gets its own consent
+triggers, but never at the person's own full trust: Astra asks the person before each dangerous action it takes (a shell command, say), and its AI steps are not trusted automation — so it gets its own consent
 checkbox. It is not
 refused to a local import: the sheet is the decision, each time. An Astra older
 than this call answers `UNIMPLEMENTED`.

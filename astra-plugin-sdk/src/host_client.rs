@@ -167,6 +167,8 @@ impl HostClient {
     }
 
     /// Fire a trigger (for trigger plugins). Permission: `fire_trigger`.
+    ///
+    /// A plugin fires only its own triggers: a bare name means this plugin's `plugin__<id>__<name>`, and a built-in type (`text`, `hotkey`, `reminder`, `calendar_event`, `schedule`, `random_result`) or another plugin's `plugin__<other>__…` name is refused by the daemon.
     pub async fn fire_trigger(&self, trigger_type: &str, payload_json: &str) -> Result<()> {
         self.fire_trigger_caused_by(trigger_type, payload_json, None)
             .await

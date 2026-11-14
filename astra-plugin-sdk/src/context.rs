@@ -75,6 +75,8 @@ pub trait Host: Send + Sync + 'static {
 
     /// Fire one of this plugin's trigger types. Permission: `fire_trigger`.
     ///
+    /// A plugin fires only its own triggers: a bare name means this plugin's `plugin__<id>__<name>`, and a built-in type (`text`, `hotkey`, `reminder`, `calendar_event`, `schedule`, `random_result`) or another plugin's `plugin__<other>__…` name is refused by the daemon.
+    ///
     /// Check [`PluginContext::active_triggers`] first when the payload is
     /// expensive to build — if nothing is listening, the daemon drops it.
     async fn fire_trigger(&self, trigger_type: &str, payload_json: &str) -> Result<()>;
@@ -235,10 +237,12 @@ pub trait Host: Send + Sync + 'static {
     ///
     /// Only the settings the assistant itself may change can be asked for (the
     /// voice, the AI model, the language — never the permission mode, a key or
-    /// Tool Search), each value checked exactly as the assistant's own change
-    /// is. The card names this plugin, each setting as it is and as it would
+    /// Tool Search, and not `ai.system_prompt`), each value checked exactly as
+    /// the assistant's own change is. The card names this plugin, each setting as it is and as it would
     /// be, and `reason` (the plugin's own words). What changes on Allow is
-    /// exactly what the card showed; all of `changes` change, or none.
+    /// exactly what the card showed; all of `changes` change, or none. The card
+    /// shows every value whole, never cut, and a value over 2,000 characters is
+    /// refused before any card.
     ///
     /// The call **lasts until the person answers or the card expires** —
     /// Astra's confirmation timeout, at least 30 s, 120 s unless the person
@@ -319,9 +323,7 @@ pub trait Host: Send + Sync + 'static {
 
     /// **Offer the person a command** to keep, on a card they answer.
     /// Permission: `propose_commands` (**high-risk**: a command the person
-    /// keeps runs later, on its own triggers, as the person's own command — its
-    /// steps, built-ins such as a shell command included, run without asking
-    /// again). It also needs an account that opens Astra, and **no Astra
+    /// keeps runs later, on its own triggers, but never at the person's own full trust: Astra asks the person before each dangerous action it takes (a shell command, say), and its AI steps are not trusted automation). It also needs an account that opens Astra, and **no Astra
     /// release answers it yet**: an Astra built without the `plugin-requests`
     /// feature answers `Refused` / `not_compiled`, and one older than
     /// 2026-11-13 — every release today — fails the call with `UNIMPLEMENTED`,

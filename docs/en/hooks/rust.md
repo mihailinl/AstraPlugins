@@ -65,7 +65,7 @@ The daemon implements these; you call them.
 | `ProposeCommand` | `core` | `propose_commands` | optional | unary | stable | Offer the person one portable command to keep, under this plugin's own key; they keep it only from Astra's Workshop sheet, which shows every trigger and step. |
 | `SetVariable` | `core` | `set_variable` | optional | unary | stable | Publish a variable that commands and other plugins can read. |
 | `SubscribeEvents` | `event_handlers` | `subscribe_events` | required | server | stable | The filtered daemon event stream; the whole of the event_handlers capability. |
-| `FireTrigger` | `triggers` | `fire_trigger` | required | unary | stable | Fire one of this plugin's trigger types and run whatever commands listen. |
+| `FireTrigger` | `triggers` | `fire_trigger` | required | unary | stable | Fire one of this plugin's own trigger types and run whatever commands listen; a built-in type or another plugin's trigger is refused. |
 | `SendChatMessage` | `client` | `send_chat_message` | required | server | stable | Send a chat message as this plugin and stream the assistant's reply back. |
 | `PushToUi` | `ui_contributions` | `push_to_ui` | optional | unary | stable | Push an event into this plugin's own iframes — the return path for CallFromUi. |
 | `SetThemeContribution` | `ui_contributions` | `set_theme_contribution` | optional | unary | stable | Contribute colours, wallpaper and shader to the active Astra theme. |
