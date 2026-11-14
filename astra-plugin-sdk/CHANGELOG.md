@@ -14,7 +14,7 @@ than two minors and one quarter; a deprecation note names its replacement; and a
 what replaced it. Deprecations live under `### Deprecated`, with the release they
 are removable in.
 
-## [0.7.5] — unreleased
+## [0.7.5] — 2026-11-14
 
 Proto re-synced to Astra `c42d091b2` (branch `feat/plugin-api-gaps`, not on Astra's `main` yet). Between `sdk-v0.7.4` and this release the protocol gained 69 fields on
 33 messages that already existed, 40 new messages and 13 new rpcs (`tools/check-protocol-counts.py --count sdk-v0.7.4`);
