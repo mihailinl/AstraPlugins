@@ -56,7 +56,7 @@ Astra 0.2.7 以降と CLI 0.5.1 以降が必要です（`cargo install astra-plu
 
 ## Desktop widgets (development contract)
 
-`desktop-widget` テンプレートはホストのクレイ（clay）カードとサーフェスでこの Kit を使用します。[完全なガイド](desktop-widgets.md)に正確な SDK フィールド、値のコールバック、`context.params`、トークン、ホストが開く設定ドラフト、読み取り専用プレビューを示します。ウィジェットは Astra 0.2.7 に含まれ、公開済みの SDK（Rust 0.7.4、Python 0.6.4、TypeScript 0.7.3）と CLI 0.5.1 が対応しています。 カードの表面は `WidgetHead`、`WidgetMetric`、`AstraLine`、`WidgetPlate`、`WidgetMeter`、`WidgetPlateButton` で組み立ててください。Astra 自身のウィジェットと同じ構成で、枠がそのサイズコンテナ `desktop-widget` になります。
+`desktop-widget` テンプレートはホストのクレイ（clay）カードとサーフェスでこの Kit を使用します。[完全なガイド](desktop-widgets.md)に正確な SDK フィールド、値のコールバック、`context.params`、トークン、ホストが開く設定ドラフト、読み取り専用プレビューを示します。ウィジェットは Astra 0.2.7 に含まれ、公開済みの SDK（Rust 0.7.5、Python 0.6.5、TypeScript 0.7.4）と CLI 0.5.1 が対応しています。 カードの表面は `WidgetHead`、`WidgetMetric`、`AstraLine`、`WidgetPlate`、`WidgetMeter`、`WidgetPlateButton` で組み立ててください。Astra 自身のウィジェットと同じ構成で、枠がそのサイズコンテナ `desktop-widget` になります。
 
 ## Shared scrollbars
 

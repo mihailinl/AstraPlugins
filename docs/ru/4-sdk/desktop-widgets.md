@@ -5,7 +5,7 @@
 
 Виджеты размещает пользователь в сетке «Главной». Используйте существующую capability `ui_contributions` и слот `desktop.widget`; новое разрешение и `dom_access` не нужны. Astra рисует clay-карточку, её край, шрифт и всплывающие поверхности, управляет размещением. Плагин создаёт прозрачное содержимое. Оверлей остаётся отдельной системой.
 
-Виджеты рабочего стола входят в Astra 0.2.7. Нужны CLI 0.5.1 или новее (`cargo install astra-plugin-cli`) и опубликованные SDK — Rust `astra-plugin-sdk` 0.7.4, Python 0.6.4, TypeScript 0.7.3 или новее. `astra-plugin new my-widget --template desktop-widget` создаёт работающий виджет.
+Виджеты рабочего стола входят в Astra 0.2.7. Нужны CLI 0.5.1 или новее (`cargo install astra-plugin-cli`) и опубликованные SDK — Rust `astra-plugin-sdk` 0.7.5, Python 0.6.5, TypeScript 0.7.4 или новее. `astra-plugin new my-widget --template desktop-widget` создаёт работающий виджет.
 
 <!-- doctest: cli -->
 ```bash
