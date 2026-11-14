@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 52fb82747b2a7a5f767b1d6eab6a39c8f13157ec3453553126b68030f7a83842
+// surface-sha256: b31692a82f1466d38044f6f71747a83f126d930f2bc49429952f8c097a9dabf7
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -101,7 +101,7 @@ message MoveOfferResponse {
     string edition = 2;
     string version = 3;
 
-    // How this Astra was installed ("installer" | "package" | "portable" | "steam"): only the
+    // How this Astra was installed ("installer" | "package" | "portable" | "steam" | "macapp"): only the
     // installer switches itself; a package gets `linux_command`, the rest `download_url`.
     string channel = 8;
 
@@ -290,7 +290,8 @@ message CoreStateResponse {
     // Check in any window.
     bool update_checking = 22;
 
-    // How this Astra was installed, as one of: "installer" | "portable" | "package" | "steam".
+    // How this Astra was installed, as one of: "installer" | "portable" | "package" | "steam" | "macapp".
+    // "macapp" is Astra.app on macOS, which replaces itself when `update_can_apply`.
     // One word in place of three bools (can-check, site-fallback, repo-managed):
     // the UI decides what to draw from it, the daemon decides what it is.
     // Pinned to `updates::channel::InstallChannel::as_wire` and to the union in
