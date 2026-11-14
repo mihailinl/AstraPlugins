@@ -56,7 +56,7 @@ Contribution у `settings.custom`, `ai.custom` або `voice.custom` стає с
 
 ## Desktop widgets (development contract)
 
-Шаблон `desktop-widget` використовує цей Kit у clay-картках і поверхнях host. [Повна інструкція](desktop-widgets.md) описує точні поля SDK, callbacks значень, `context.params`, token, чернетку налаштувань, відкриту редактором, і перегляд лише для читання. Віджети входять до Astra {{MIN_ASTRA_VERSION}}; їх підтримують опубліковані SDK (Rust 0.7.4, Python 0.6.4, TypeScript 0.7.3) і CLI 0.5.1. Лицьовий бік картки складайте з `WidgetHead`, `WidgetMetric`, `AstraLine`, `WidgetPlate`, `WidgetMeter` і `WidgetPlateButton` — з них побудовано вбудовані віджети Astra; рамка є для них контейнером розмірів `desktop-widget`.
+Шаблон `desktop-widget` використовує цей Kit у clay-картках і поверхнях host. [Повна інструкція](desktop-widgets.md) описує точні поля SDK, callbacks значень, `context.params`, token, чернетку налаштувань, відкриту редактором, і перегляд лише для читання. Віджети входять до Astra {{MIN_ASTRA_VERSION}}; їх підтримують опубліковані SDK (Rust 0.7.5, Python 0.6.5, TypeScript 0.7.4) і CLI 0.5.1. Лицьовий бік картки складайте з `WidgetHead`, `WidgetMetric`, `AstraLine`, `WidgetPlate`, `WidgetMeter` і `WidgetPlateButton` — з них побудовано вбудовані віджети Astra; рамка є для них контейнером розмірів `desktop-widget`.
 
 ## Shared scrollbars
 
