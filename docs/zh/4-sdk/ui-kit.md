@@ -56,7 +56,7 @@ API v1 保持导出名和签名，外观随 Astra 更新。普通页面的菜单
 
 ## Desktop widgets (development contract)
 
-`desktop-widget` 模板在主机黏土（clay）卡片和浮动界面中使用此 Kit。[完整指南](desktop-widgets.md)说明准确 SDK 字段、值回调、`context.params`、令牌、主机编辑器打开的设置草稿与只读预览。小组件已包含在 Astra 0.2.7 中；已发布的 SDK（Rust 0.7.4、Python 0.6.4、TypeScript 0.7.3）和 CLI 0.5.1 均支持。 请用 `WidgetHead`、`WidgetMetric`、`AstraLine`、`WidgetPlate`、`WidgetMeter` 和 `WidgetPlateButton` 组成卡片正面——这正是 Astra 自带小组件的结构；框架即它们的尺寸容器 `desktop-widget`。
+`desktop-widget` 模板在主机黏土（clay）卡片和浮动界面中使用此 Kit。[完整指南](desktop-widgets.md)说明准确 SDK 字段、值回调、`context.params`、令牌、主机编辑器打开的设置草稿与只读预览。小组件已包含在 Astra 0.2.7 中；已发布的 SDK（Rust 0.7.5、Python 0.6.5、TypeScript 0.7.4）和 CLI 0.5.1 均支持。 请用 `WidgetHead`、`WidgetMetric`、`AstraLine`、`WidgetPlate`、`WidgetMeter` 和 `WidgetPlateButton` 组成卡片正面——这正是 Astra 自带小组件的结构；框架即它们的尺寸容器 `desktop-widget`。
 
 ## Shared scrollbars
 

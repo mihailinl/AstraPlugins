@@ -5,7 +5,7 @@
 
 Desktop widgets are user-placed cards on Astra’s Home grid. Use the existing capability `ui_contributions` and slot `desktop.widget`; no new permission or `dom_access` is needed. Astra renders the clay card, its edge, fonts, placement and floating surfaces. The plugin renders transparent content. The overlay remains separate.
 
-Desktop widgets ship in Astra 0.2.7. Use CLI 0.5.1 or later (`cargo install astra-plugin-cli`) and the published SDKs — Rust `astra-plugin-sdk` 0.7.4, Python 0.6.4, TypeScript 0.7.3, or later. `astra-plugin new my-widget --template desktop-widget` creates a working widget.
+Desktop widgets ship in Astra 0.2.7. Use CLI 0.5.1 or later (`cargo install astra-plugin-cli`) and the published SDKs — Rust `astra-plugin-sdk` 0.7.5, Python 0.6.5, TypeScript 0.7.4, or later. `astra-plugin new my-widget --template desktop-widget` creates a working widget.
 
 <!-- doctest: cli -->
 ```bash

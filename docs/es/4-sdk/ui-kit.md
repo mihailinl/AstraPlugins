@@ -56,7 +56,7 @@ El aspecto es el Graphite de Astra: superficies de arcilla (esmeriladas si el us
 
 ## Desktop widgets (development contract)
 
-La plantilla `desktop-widget` usa este Kit en las tarjetas y superficies de arcilla (clay) del host. La [guía completa](desktop-widgets.md) explica los campos exactos, callbacks de valores, `context.params`, tokens, el borrador abierto por el editor y las vistas previas de solo lectura. Los widgets vienen en Astra 0.2.7; los SDK publicados (Rust 0.7.4, Python 0.6.4, TypeScript 0.7.3) y CLI 0.5.1 los admiten. Construya la cara de la tarjeta con `WidgetHead`, `WidgetMetric`, `AstraLine`, `WidgetPlate`, `WidgetMeter` y `WidgetPlateButton`, la anatomía de los widgets propios de Astra; el marco es su contenedor de tamaño `desktop-widget`.
+La plantilla `desktop-widget` usa este Kit en las tarjetas y superficies de arcilla (clay) del host. La [guía completa](desktop-widgets.md) explica los campos exactos, callbacks de valores, `context.params`, tokens, el borrador abierto por el editor y las vistas previas de solo lectura. Los widgets vienen en Astra 0.2.7; los SDK publicados (Rust 0.7.5, Python 0.6.5, TypeScript 0.7.4) y CLI 0.5.1 los admiten. Construya la cara de la tarjeta con `WidgetHead`, `WidgetMetric`, `AstraLine`, `WidgetPlate`, `WidgetMeter` y `WidgetPlateButton`, la anatomía de los widgets propios de Astra; el marco es su contenedor de tamaño `desktop-widget`.
 
 ## Shared scrollbars
 
