@@ -6,11 +6,12 @@ type IconButtonSize = "sm" | "md" | "lg";
 type IconButtonVariant = "ghost" | "solid" | "danger";
 export interface IconButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
     label: string;
+    title?: string;
     size?: IconButtonSize;
     variant?: IconButtonVariant;
     tone?: ControlTone;
     children: React.ReactNode;
     ref?: React.Ref<HTMLButtonElement>;
 }
-export declare function IconButton({ label, size, variant, tone, className, children, type, ref, ...rest }: IconButtonProps): import("react/jsx-runtime").JSX.Element;
+export declare function IconButton({ label, title, size, variant, tone, className, children, type, ref, ...rest }: IconButtonProps): import("react/jsx-runtime").JSX.Element;
 export {};
