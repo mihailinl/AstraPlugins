@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: aa8e8c85171601f39d4351e53a69689fd90229c2a1eba969fc3143273d411ffd
+// surface-sha256: 7769c66f1ec0730d49288f99e54ec4bccfd2de0abe2f6f2eacba538058caeadd
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -4799,6 +4799,15 @@ service PluginService {
     // Get logs from a plugin (last N lines)
     rpc GetPluginLogs(PluginLogsRequest) returns (PluginLogsResponse);
 
+    // A plugin's log, LIVE: the first message is the last N lines (the same
+    // lines GetPluginLogs answers, `backlog` set), then every line captured
+    // after them — stdout, stderr and the plugin's own `Log` RPC — exactly once.
+    // Ends when the client drops it, when the plugin's instance goes away
+    // (uninstall, a reinstall: the client re-subscribes), and with
+    // PERMISSION_DENIED when Astra locks — a log can carry what a plugin was
+    // told, and nothing crosses the lock screen.
+    rpc SubscribePluginLogs(PluginLogsRequest) returns (stream PluginLogEvent);
+
     // Everything Astra recorded about where one INSTALLED plugin came from —
     // production plan §4.2, the provenance panel.
     //
@@ -6101,6 +6110,19 @@ message PluginLogsRequest {
 
 message PluginLogsResponse {
     repeated string lines = 1;
+}
+
+// One step of SubscribePluginLogs.
+message PluginLogEvent {
+    repeated string lines = 1;
+
+    // Lines this reader missed because it fell behind the plugin (the daemon
+    // never makes a plugin wait for a log view). Shown as a marker before `lines`.
+    uint32 skipped = 2;
+
+    // The first message: `lines` are the existing tail and replace whatever the
+    // view held (a re-subscribe starts over), not lines to append.
+    bool backlog = 3;
 }
 
 message PluginUpdatesResponse {

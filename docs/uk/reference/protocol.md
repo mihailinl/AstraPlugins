@@ -4,10 +4,10 @@
 
 Покоління протоколу **1**. 10 сервісів, 201 RPC. Джерело:
 [`proto/plugin.proto`](../../../proto/plugin.proto), згенерований зріз
-`astra.proto` Astra (`surface-sha256: aa8e8c85171601f3…` — дайджест
+`astra.proto` Astra (`surface-sha256: 7769c66f1ec0730d…` — дайджест
 оберненого до плагінів тіла, про яке тут і йдеться), закріплений
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) на
-`sha256:92ecf1a0f03c302d…`. У кожної завендореної копії в трьох SDK той
+`sha256:94db34481a671a26…`. У кожної завендореної копії в трьох SDK той
 самий хеш; `tools/check-proto.sh` — те, що це підтверджує.
 
 ## Три сервіси плагіна
@@ -139,6 +139,7 @@ RPC тут — хук, який ви реалізуєте, і `UNIMPLEMENTED` �
 | `InspectPluginFile` | `InspectPluginFileRequest` | `PluginFileInspection` | unary | Read a `.astraplugin` file WITHOUT installing it, so §4.3's consent sheet can be shown on the import path too. |
 | `ResolvePendingUpdate` | `ResolvePendingUpdateRequest` | `PluginStatusMsg` | unary | §4.5/§4.6. |
 | `GetPluginLogs` | `PluginLogsRequest` | `PluginLogsResponse` | unary | Get logs from a plugin (last N lines) |
+| `SubscribePluginLogs` | `PluginLogsRequest` | `PluginLogEvent` | server | A plugin's log, LIVE: the first message is the last N lines (the same lines GetPluginLogs answers, `backlog` set), then every line captured after them — stdout, stderr and the plugin's own `Log` RPC — exactly once. |
 | `GetPluginProvenance` | `PluginProvenanceRequest` | `PluginProvenanceMsg` | unary | Everything Astra recorded about where one INSTALLED plugin came from — production plan §4.2, the provenance panel. |
 | `GetAllUiContributions` | `Empty` | `AllUiContributionsResponse` | unary | Get all UI contributions from all running plugins |
 | `GetActiveThemes` | `Empty` | `ActiveThemesResponse` | unary | Get active theme contributions from plugins |

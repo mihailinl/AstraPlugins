@@ -8279,6 +8279,11 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "requestType": "PluginLogsRequest",
               "responseType": "PluginLogsResponse"
             },
+            "SubscribePluginLogs": {
+              "requestType": "PluginLogsRequest",
+              "responseType": "PluginLogEvent",
+              "responseStream": true
+            },
             "GetPluginProvenance": {
               "requestType": "PluginProvenanceRequest",
               "responseType": "PluginProvenanceMsg"
@@ -9422,6 +9427,23 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "rule": "repeated",
               "type": "string",
               "id": 1
+            }
+          }
+        },
+        "PluginLogEvent": {
+          "fields": {
+            "lines": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 1
+            },
+            "skipped": {
+              "type": "uint32",
+              "id": 2
+            },
+            "backlog": {
+              "type": "bool",
+              "id": 3
             }
           }
         },

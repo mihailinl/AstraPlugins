@@ -4,10 +4,10 @@
 
 プロトコル世代 **1**。10 個のサービス、201 個の RPC。出典:
 [`proto/plugin.proto`](../../../proto/plugin.proto)、Astra の
-`astra.proto` から生成された一部(`surface-sha256: aa8e8c85171601f3…`
+`astra.proto` から生成された一部(`surface-sha256: 7769c66f1ec0730d…`
 — このページが説明しているプラグイン向け本体のダイジェスト)、
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION)
-によって `sha256:92ecf1a0f03c302d…` に固定されています。3 つの SDK
+によって `sha256:94db34481a671a26…` に固定されています。3 つの SDK
 それぞれに vendor されたコピーはすべて同じハッシュを持っています;
 `tools/check-proto.sh` がそれを保証します。
 
@@ -144,6 +144,7 @@ UI に提供します: インストール、インポート、アンインスト
 | `InspectPluginFile` | `InspectPluginFileRequest` | `PluginFileInspection` | unary | インストールせずに `.astraplugin` ファイルを読み、§4.3 の同意シートをインポート経路でも表示できるようにします。 |
 | `ResolvePendingUpdate` | `ResolvePendingUpdateRequest` | `PluginStatusMsg` | unary | §4.5/§4.6。 |
 | `GetPluginLogs` | `PluginLogsRequest` | `PluginLogsResponse` | unary | プラグインからログを取得します(直近 N 行) |
+| `SubscribePluginLogs` | `PluginLogsRequest` | `PluginLogEvent` | server | プラグインのログをライブで配信します。最初のメッセージは直近 N 行(GetPluginLogs と同じ行、`backlog` が設定済み)で、その後に取得された各行 — stdout、stderr、プラグイン自身の `Log` RPC — を一度ずつ送ります。 |
 | `GetPluginProvenance` | `PluginProvenanceRequest` | `PluginProvenanceMsg` | unary | インストール済みの 1 つのプラグインがどこから来たかについて Astra が記録したすべて — 本番計画 §4.2、来歴パネル。 |
 | `GetAllUiContributions` | `Empty` | `AllUiContributionsResponse` | unary | 実行中のすべてのプラグインからすべての UI コントリビューションを取得します |
 | `GetActiveThemes` | `Empty` | `ActiveThemesResponse` | unary | プラグインからアクティブなテーマコントリビューションを取得します |
