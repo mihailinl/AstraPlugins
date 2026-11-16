@@ -28,6 +28,22 @@ and `cli-v0.2.1` was pushed 47 minutes later, on 2026-08-15; the paragraph was
 not part of either commit and stayed false for eight days, in the file an author
 reads to find out how to get the tool.
 
+## [Unreleased]
+
+### Fixed
+
+- **The scaffold's UI page label is a `$key` too** (`ui.main.label`, seeded in
+  `locales/en.json`), in all three languages: `key("ui.main.label")` in Rust,
+  `"$ui.main.label"` in Python's `@ui_page` and TypeScript's `UiContrib.page`.
+  It was left literal on the grounds that the Python scaffold declares no
+  contribution for a `ui.*` key to hang off — but `@ui_page` is a class
+  decorator and IS that contribution, and Astra's `resolve_ui_contribution`
+  resolves its label like an action's or a trigger's. A scaffold that only
+  contributes the page now carries the label floor as well; for `--template ui`
+  the UI Kit's higher floor still wins, and its line now says to keep it. The
+  desktop-widget scaffold is unchanged: its labels stay literal until its
+  runtime ships with a floor to name.
+
 ## [0.5.2] — 2026-11-14
 
 ### Added

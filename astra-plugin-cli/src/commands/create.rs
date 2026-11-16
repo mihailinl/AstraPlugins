@@ -132,18 +132,27 @@ pub fn run(opts: NewOptions<'_>) -> Result<Verdict> {
     if !["vanilla", "react"].contains(&opts.ui) {
         anyhow::bail!("Supported frontends: vanilla, react");
     }
-    let mut manifest = templates::generate_manifest(name, &lang, &manifest_caps);
+    // The full list, markers included: the label floor depends on whether the
+    // frame is the page or a desktop widget. The manifest writes no marker.
+    let mut manifest = templates::generate_manifest(name, &lang, &caps);
     if manifest_caps.contains(&"ui_contributions") {
         let floor = templates::ui::minimum_version();
         if manifest
             .lines()
             .any(|line| line.starts_with("min_astra_version ="))
         {
+            // The label floor's comment above this line says to delete it if
+            // the keys go; the UI Kit floor that replaces it must not go with
+            // them, so it says so.
             manifest = manifest
                 .lines()
                 .map(|line| {
                     if line.starts_with("min_astra_version =") {
-                        format!("min_astra_version = \"{floor}\"")
+                        format!(
+                            "# The UI Kit this plugin's frame loads needs Astra {floor}, so the line\n\
+                             # stays, at that value, even if the keys go.\n\
+                             min_astra_version = \"{floor}\""
+                        )
                     } else {
                         line.to_owned()
                     }
@@ -385,12 +394,26 @@ mod tests {
                     out_dir: dir.to_str().unwrap(),
                 })
                 .unwrap();
-                let manifest: toml::Value =
-                    toml::from_str(&fs::read_to_string(dir.join("plugin.toml")).unwrap()).unwrap();
+                let manifest_text = fs::read_to_string(dir.join("plugin.toml")).unwrap();
+                let manifest: toml::Value = toml::from_str(&manifest_text).unwrap();
                 assert_eq!(
                     manifest["plugin"]["min_astra_version"].as_str().unwrap(),
                     templates::ui::minimum_version()
                 );
+                // The page label is a key, so the label floor's "delete this
+                // line" sits above the UI Kit floor — which says to keep it.
+                let en = fs::read_to_string(dir.join("locales/en.json")).unwrap();
+                assert!(en.contains("\"ui.main.label\""), "{en}");
+                assert!(
+                    manifest_text.contains("The UI Kit this plugin's frame loads needs Astra"),
+                    "{manifest_text}"
+                );
+                if backend == "typescript" {
+                    // N13 notes any TypeScript source naming `locales/` beside
+                    // an `import`; a fresh scaffold must not earn that note.
+                    let ts = fs::read_to_string(dir.join("src/index.ts")).unwrap();
+                    assert!(!ts.contains("locales/"), "{ts}");
+                }
                 assert!(dir.join("ui/index.html").is_file());
                 assert_bridge_in_head(&dir);
                 if frontend == "react" {
@@ -448,8 +471,17 @@ mod tests {
                     out_dir: dir.to_str().unwrap(),
                 })
                 .unwrap();
-                let manifest: toml::Value =
-                    toml::from_str(&fs::read_to_string(dir.join("plugin.toml")).unwrap()).unwrap();
+                let manifest_text = fs::read_to_string(dir.join("plugin.toml")).unwrap();
+                // The widget's labels are literal, so its manifest must not
+                // claim `$keys` — which it would if the marker were stripped
+                // before `generate_manifest` sees it.
+                assert!(
+                    !manifest_text.contains("`$keys`"),
+                    "{backend}/{frontend}:\n{manifest_text}"
+                );
+                let en = fs::read_to_string(dir.join("locales/en.json")).unwrap();
+                assert!(!en.contains("ui.main.label"), "{en}");
+                let manifest: toml::Value = toml::from_str(&manifest_text).unwrap();
                 let caps = manifest["capabilities"].as_table().unwrap();
                 assert_eq!(caps.len(), 1);
                 assert_eq!(caps["ui_contributions"].as_bool(), Some(true));
@@ -600,21 +632,33 @@ mod tests {
     /// cannot trace; a source with no key renders as its own name; and either
     /// without the floor installs happily on an older Astra and shows the user
     /// `$action.do_something.label` in the command editor.
+    ///
+    /// The manifest is generated from the same list `run` hands it — markers
+    /// included — because whether a frame carries `ui.main.label` depends on
+    /// whether it is the page or a desktop widget, and only the marker says so.
     #[test]
     fn a_scaffold_that_declares_keys_also_names_the_daemon_that_resolves_them() {
-        const KEYS: [&str; 2] = [
+        const KEYS: [&str; 3] = [
             "action.do_something.label",
             "trigger.something_happened.label",
+            // The one left out first time round, because searching the
+            // generated Python for `contribution` finds nothing: `@ui_page` is
+            // a class decorator, and it IS the contribution.
+            "ui.main.label",
         ];
 
         let mut with_keys = 0usize;
+        let mut seeded_by = [0usize; KEYS.len()];
         for (template, caps) in TEMPLATE_CAPABILITIES {
             let caps = caps.to_vec();
             let (en, _) = crate::templates::generate_locales("demo", &caps);
             let manifest = crate::templates::generate_manifest("demo", "rust", &caps);
 
-            for key in KEYS {
+            for (i, key) in KEYS.into_iter().enumerate() {
                 let seeded = en.contains(key);
+                if seeded {
+                    seeded_by[i] += 1;
+                }
                 for (language, source) in [
                     (
                         "rust",
@@ -666,6 +710,11 @@ mod tests {
             "no template seeds the declared plane — either the predicate stopped saying yes \
              to anything, or this walk stopped reading en.json"
         );
+        // Per key, or a predicate that stopped saying yes for ONE of them (the
+        // page, say) would leave this test comparing nothing with nothing.
+        for (key, n) in KEYS.iter().zip(seeded_by) {
+            assert!(n > 0, "no template seeds `{key}`");
+        }
     }
 
     #[test]
