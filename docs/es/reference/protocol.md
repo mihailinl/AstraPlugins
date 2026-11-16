@@ -5,10 +5,10 @@
 Generación de protocolo **1**. 10 servicios, 201 RPC. Fuente:
 [`proto/plugin.proto`](../../../proto/plugin.proto), un recorte
 generado del `astra.proto` de Astra
-(`surface-sha256: aa8e8c85171601f3…`, el digest del cuerpo orientado a
+(`surface-sha256: 7769c66f1ec0730d…`, el digest del cuerpo orientado a
 plugins del que trata esta página), fijado por
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) en
-`sha256:92ecf1a0f03c302d…`. Cada copia vendorizada en los tres SDK tiene
+`sha256:94db34481a671a26…`. Cada copia vendorizada en los tres SDK tiene
 ese mismo hash; `tools/check-proto.sh` es lo que lo confirma.
 
 ## Los tres servicios de plugin
@@ -142,6 +142,7 @@ plugin en un usuario.
 | `InspectPluginFile` | `InspectPluginFileRequest` | `PluginFileInspection` | unary | Lee un archivo `.astraplugin` SIN instalarlo, para que la pantalla de consentimiento del §4.3 también pueda mostrarse en la vía de importación. |
 | `ResolvePendingUpdate` | `ResolvePendingUpdateRequest` | `PluginStatusMsg` | unary | §4.5/§4.6. |
 | `GetPluginLogs` | `PluginLogsRequest` | `PluginLogsResponse` | unary | Obtiene logs de un plugin (últimas N líneas) |
+| `SubscribePluginLogs` | `PluginLogsRequest` | `PluginLogEvent` | server | El log de un plugin, EN VIVO: el primer mensaje son las últimas N líneas (las mismas que responde GetPluginLogs, con `backlog`), y después cada línea capturada tras ellas — stdout, stderr y la propia RPC `Log` del plugin — exactamente una vez. |
 | `GetPluginProvenance` | `PluginProvenanceRequest` | `PluginProvenanceMsg` | unary | Todo lo que Astra registró sobre de dónde vino un plugin INSTALADO — plan de producción §4.2, el panel de procedencia. |
 | `GetAllUiContributions` | `Empty` | `AllUiContributionsResponse` | unary | Obtiene todas las contribuciones de UI de todos los plugins en ejecución |
 | `GetActiveThemes` | `Empty` | `ActiveThemesResponse` | unary | Obtiene las contribuciones de tema activas de los plugins |

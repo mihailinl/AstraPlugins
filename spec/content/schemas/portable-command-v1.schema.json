@@ -1702,6 +1702,10 @@
     "PressKeysAction": {
       "description": "Press keyboard keys",
       "properties": {
+        "app": {
+          "description": "The installed application whose window must have the focus before any\nkey is sent (a name or an exact app-picker identity). Empty: the keys go\nto whatever window has the focus, as always.",
+          "type": "string"
+        },
         "combinations": {
           "description": "Additional chords, each with a delay after the preceding chord releases.",
           "items": {

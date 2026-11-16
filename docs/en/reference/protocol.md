@@ -11,7 +11,7 @@
 
 # Protocol reference
 
-Protocol generation **1**. 10 services, 201 RPCs. Source: [`proto/plugin.proto`](../../../proto/plugin.proto), a generated slice of Astra's `astra.proto` (`surface-sha256: aa8e8c85171601f3…`, the digest of the plugin-facing body you are reading about), pinned by [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) at `sha256:92ecf1a0f03c302d…`. Every vendored copy in the three SDKs has that same hash; `tools/check-proto.sh` is what says so.
+Protocol generation **1**. 10 services, 202 RPCs. Source: [`proto/plugin.proto`](../../../proto/plugin.proto), a generated slice of Astra's `astra.proto` (`surface-sha256: 7769c66f1ec0730d…`, the digest of the plugin-facing body you are reading about), pinned by [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) at `sha256:94db34481a671a26…`. Every vendored copy in the three SDKs has that same hash; `tools/check-proto.sh` is what says so.
 
 ## The three plugin services
 
@@ -19,7 +19,7 @@ Protocol generation **1**. 10 services, 201 RPCs. Source: [`proto/plugin.proto`]
 |---|---|---|---|
 | [`PluginCapabilityService`](#plugincapabilityservice) | daemon → plugin | 33 | your plugin |
 | [`PluginHostService`](#pluginhostservice) | plugin → daemon | 16 | the daemon |
-| [`PluginService`](#pluginservice) | UI → daemon | 23 | the daemon |
+| [`PluginService`](#pluginservice) | UI → daemon | 24 | the daemon |
 
 The protocol generation is the contract. A plugin sends it in `PluginRegisterRequest.protocol_version` and the daemon answers with its own floor in `PluginRegisterResponse.min_supported_protocol`; `sdk_name` and `sdk_version` ride along for triage and gate nothing.
 
@@ -115,6 +115,7 @@ The gate answers at the *start* of a call. `SubscribeEvents` starts once and run
 | `InspectPluginFile` | `InspectPluginFileRequest` | `PluginFileInspection` | unary | Read a `.astraplugin` file WITHOUT installing it, so §4.3's consent sheet can be shown on the import path too. |
 | `ResolvePendingUpdate` | `ResolvePendingUpdateRequest` | `PluginStatusMsg` | unary | §4.5/§4.6. |
 | `GetPluginLogs` | `PluginLogsRequest` | `PluginLogsResponse` | unary | Get logs from a plugin (last N lines) |
+| `SubscribePluginLogs` | `PluginLogsRequest` | `PluginLogEvent` | server | A plugin's log, LIVE: the first message is the last N lines (the same lines GetPluginLogs answers, `backlog` set), then every line captured after them — stdout, stderr and the plugin's own `Log` RPC — exactly once. |
 | `GetPluginProvenance` | `PluginProvenanceRequest` | `PluginProvenanceMsg` | unary | Everything Astra recorded about where one INSTALLED plugin came from — production plan §4.2, the provenance panel. |
 | `GetAllUiContributions` | `Empty` | `AllUiContributionsResponse` | unary | Get all UI contributions from all running plugins |
 | `GetActiveThemes` | `Empty` | `ActiveThemesResponse` | unary | Get active theme contributions from plugins |

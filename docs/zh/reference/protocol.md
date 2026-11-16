@@ -4,10 +4,10 @@
 
 协议世代 **1**。10 个服务，201 个 RPC。来源：
 [`proto/plugin.proto`](../../../proto/plugin.proto)，从 Astra 的
-`astra.proto` 生成出的一部分（`surface-sha256: aa8e8c85171601f3…`，
+`astra.proto` 生成出的一部分（`surface-sha256: 7769c66f1ec0730d…`，
 即本页所讲述的面向插件主体的摘要），由
 [`proto/PROTO_VERSION`](../../../proto/PROTO_VERSION) 固定为
-`sha256:92ecf1a0f03c302d…`。三个 SDK 中每一份 vendor 的拷贝都携带同样
+`sha256:94db34481a671a26…`。三个 SDK 中每一份 vendor 的拷贝都携带同样
 的哈希值；`tools/check-proto.sh` 就是用来确认这一点的。
 
 ## 三个面向插件的服务
@@ -135,6 +135,7 @@ trailer 来结束这个流。因此，一次被撤销的权限，是可以和一
 | `InspectPluginFile` | `InspectPluginFileRequest` | `PluginFileInspection` | unary | 在**不**安装的情况下读取一个 `.astraplugin` 文件，好让 §4.3 的同意页面在导入路径上也能展示出来。 |
 | `ResolvePendingUpdate` | `ResolvePendingUpdateRequest` | `PluginStatusMsg` | unary | §4.5/§4.6。 |
 | `GetPluginLogs` | `PluginLogsRequest` | `PluginLogsResponse` | unary | 获取一个插件的日志（最近 N 行） |
+| `SubscribePluginLogs` | `PluginLogsRequest` | `PluginLogEvent` | server | 实时推送插件的日志：第一条消息是最近 N 行（与 GetPluginLogs 返回的相同，设置了 `backlog`），之后每一条新捕获的行 — stdout、stderr 和插件自己的 `Log` RPC — 各推送一次。 |
 | `GetPluginProvenance` | `PluginProvenanceRequest` | `PluginProvenanceMsg` | unary | Astra 记录下的、关于某个**已安装**插件来源的一切——生产计划 §4.2，溯源面板。 |
 | `GetAllUiContributions` | `Empty` | `AllUiContributionsResponse` | unary | 获取所有正在运行的插件的全部 UI 贡献 |
 | `GetActiveThemes` | `Empty` | `ActiveThemesResponse` | unary | 获取插件贡献的处于激活状态的主题 |

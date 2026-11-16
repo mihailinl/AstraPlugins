@@ -6184,6 +6184,11 @@ class PluginServiceStub(object):
                 request_serializer=plugin__pb2.PluginLogsRequest.SerializeToString,
                 response_deserializer=plugin__pb2.PluginLogsResponse.FromString,
                 _registered_method=True)
+        self.SubscribePluginLogs = channel.unary_stream(
+                '/astra.PluginService/SubscribePluginLogs',
+                request_serializer=plugin__pb2.PluginLogsRequest.SerializeToString,
+                response_deserializer=plugin__pb2.PluginLogEvent.FromString,
+                _registered_method=True)
         self.GetPluginProvenance = channel.unary_unary(
                 '/astra.PluginService/GetPluginProvenance',
                 request_serializer=plugin__pb2.PluginProvenanceRequest.SerializeToString,
@@ -6411,6 +6416,19 @@ class PluginServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SubscribePluginLogs(self, request, context):
+        """A plugin's log, LIVE: the first message is the last N lines (the same
+        lines GetPluginLogs answers, `backlog` set), then every line captured
+        after them — stdout, stderr and the plugin's own `Log` RPC — exactly once.
+        Ends when the client drops it, when the plugin's instance goes away
+        (uninstall, a reinstall: the client re-subscribes), and with
+        PERMISSION_DENIED when Astra locks — a log can carry what a plugin was
+        told, and nothing crosses the lock screen.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def GetPluginProvenance(self, request, context):
         """Everything Astra recorded about where one INSTALLED plugin came from —
         production plan §4.2, the provenance panel.
@@ -6549,6 +6567,11 @@ def add_PluginServiceServicer_to_server(servicer, server):
                     servicer.GetPluginLogs,
                     request_deserializer=plugin__pb2.PluginLogsRequest.FromString,
                     response_serializer=plugin__pb2.PluginLogsResponse.SerializeToString,
+            ),
+            'SubscribePluginLogs': grpc.unary_stream_rpc_method_handler(
+                    servicer.SubscribePluginLogs,
+                    request_deserializer=plugin__pb2.PluginLogsRequest.FromString,
+                    response_serializer=plugin__pb2.PluginLogEvent.SerializeToString,
             ),
             'GetPluginProvenance': grpc.unary_unary_rpc_method_handler(
                     servicer.GetPluginProvenance,
@@ -7086,6 +7109,33 @@ class PluginService(object):
             '/astra.PluginService/GetPluginLogs',
             plugin__pb2.PluginLogsRequest.SerializeToString,
             plugin__pb2.PluginLogsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def SubscribePluginLogs(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/astra.PluginService/SubscribePluginLogs',
+            plugin__pb2.PluginLogsRequest.SerializeToString,
+            plugin__pb2.PluginLogEvent.FromString,
             options,
             channel_credentials,
             insecure,
