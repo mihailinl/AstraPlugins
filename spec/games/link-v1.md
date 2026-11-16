@@ -28,12 +28,17 @@ A Link-capable GI may:
 - expose tools the AI can call;
 - fire triggers automations can bind to;
 - add a read-only skill;
-- tell the AI, briefly, what is happening in the game.
+- tell the AI, briefly, what is happening in the game;
+- open the user's voice input when the player presses its key on the
+  companion (`talk`, §5 "Voice key");
+- let Astra speak on her own about an event it declared (`speaks`, §5
+  "Speaking on her own"), if the user switched that on.
 
 Allowed only as declared in `[integration.link]` and only once the user has
-switched it on (§4). **Never available to a game:** chat as the user or as
+switched it on (§5). **Never available to a game:** chat as the user or as
 Astra, slash commands, any variable outside the `game.*` namespace, UI or
-theme, the DOM, files, settings, other plugins, or choosing the model.
+theme, the DOM, files, settings, other plugins, choosing the model, or words
+spoken for the user (`talk` carries none).
 
 ## 2. Discovery: the link file
 
@@ -89,12 +94,14 @@ theme, the DOM, files, settings, other plugins, or choosing the model.
 | dir | `t` | fields | limits |
 |---|---|---|---|
 | game→A | `hello` | `token\|resume`, `integration`, `v`, `client` | first message only, within 5 s of connecting |
-| A→game | `welcome` | `granted{tools,triggers,events,context,skill}`, `limits`, `resume` | — |
+| A→game | `welcome` | `granted{tools,triggers,events,context,skill,speaks,talk}`, `limits`, `resume` | — |
 | game→A | `event` | `name`, `data` | `name` must be declared; `data` valid against its declared schema; ≤4 KiB; ≤2/s |
 | game→A | `context` | `text` | ≤2 KiB; replaces the previous value; ≤1/s |
 | game→A | `trigger` | `name`, `data` | `name` must be declared; schema-valid; goes through `trigger_admission` |
 | A→game | `call` | `id`, `tool`, `args` | `args` schema-valid |
-| game→A | `result` | `id`, `ok`, `data\|error` | ≤16 KiB; 10 s timeout |
+| game→A | `result` | `id`, `ok`, `data\|error` | ≤16 KiB; 10 s timeout; `error` is a code (§5 "Refusal codes") |
+| game→A | `talk` | — | `talk` granted; ≤1 per 2 s; carries no text (§5 "Voice key") |
+| game→A | `quiet` | `on` | `true` while the game is in a menu, a cutscene or paused, `false` again when play resumes; ≤2/s (§5 "Speaking on her own") |
 | A→game | `grants` | the new granted set | sent on any switch change |
 | A→game | `end` | `reason` | one of `withdrawn`, `stopped`, `replaced`, `game_exited`, `catalogue_stale` |
 | A→game | `error` | `code` | one of `not_granted`, `rate_limited`, `too_large`, `bad_schema`, `withdrawn` |
@@ -112,18 +119,58 @@ The granted set a live session actually has is the **intersection** of:
 2. the current consent digest (`games-index-v1.md`-adjacent; the daemon's
    `updates.rs` owns the digest itself);
 3. not withdrawn (`games-withdrawn-v1.md`);
-4. the two user switches: "AI may act" gates tools and triggers; "Tell the
-   AI what happens" gates context and events;
+4. the user switches, each off until the user turns it on: "AI may act"
+   gates tools, triggers and `talk`; "Tell the AI what happens" gates context
+   and events; "She may speak on her own" gates `speaks` and has no effect
+   while "Tell the AI what happens" is off;
 5. catalogue freshness of at most 7 days — past that there is no Link
    session at all, and the game still plays (`end{catalogue_stale}` is sent
    to a session that was already live when the index went stale).
 
 **Tools.** Exposed as `game_<entryhash8>_<name>`, each description prefixed
 `"[From <GI name>, a game integration]"` and capped at 200 characters. They
-exist only while the session is live, follow the same approval policy as any
-other plugin tool, and a result reaches the model labelled as **untrusted**
-tool output — never silently merged into the model's own context as if it
-had said it.
+exist only while the session is live, are approved by their declared danger
+(below), and a result reaches the model labelled as **untrusted** tool output —
+never silently merged into the model's own context as if it had said it.
+
+**Tool danger.** Each tool declares `danger = "low"` or `"high"`
+(`manifest.md` §2.6); absent means `"high"`.
+- `low` is only for an action that stays inside the game on the user's own
+  machine: it moves or turns the companion, marks the map for this session
+  only, shows a bubble over her, or reads the game's own state. Anything that
+  changes the world other players share, the game's saved data, the player's
+  inventory, or anything outside the game is `high`.
+- The game declares; the catalogue checks the declaration when it accepts the
+  entry and refuses a `low` that is not such an action.
+- The daemon honours `low` only for a tool declared in the link table it
+  extracted from a **signed** catalogue entry whose `link.digest` matches
+  (item 1 above). For any other GI — sideloaded, unsigned, or a table that
+  does not match — every tool is `high`.
+- A `low` tool runs without an approval card. A `high` one follows the same
+  approval policy as any other plugin tool, and the game-text rule below
+  applies to it.
+
+**Tools that act on her.** A tool that moves, turns or shows the companion
+declares `companion = true`. While the game does not hold her — she is not
+being drawn into the game — the daemon refuses such a call before it reaches
+the game: the tool's result is `{"status":"refused","code":"NOT_IN_GAME"}`
+with a sentence that does not name the game. Every other tool runs whether or
+not she is in the game.
+
+**Refusal codes.** A game refuses a call with `result{ok:false, error:<code>}`.
+The codes for these cases, which every GI uses for them:
+- `not_holding`: she cannot be shown (no compositor, hidden by the player, no
+  link to the engine);
+- `not_in_world`: the main menu, a loading screen;
+- `player_dead`;
+- `busy`: a cutscene, a teleport;
+- `unknown_target`: the thing the call names is not there;
+- `bad_args`: the arguments are valid against the schema but make no sense
+  in the game.
+
+A GI may use another code of the same shape (`^[a-z][a-z0-9_]{0,31}$`). The
+daemon hands the model the code as the tool's result — never free text from
+the game in its place.
 
 **Game text in a turn.** Any turn whose context carries game-sourced content
 (context, an event, or a tool result, since the last user message) puts
@@ -134,9 +181,37 @@ cannot talk the AI into a destructive action on the user's own auto-approve
 trust.
 
 **Events and context.** Reach the AI only as quoted, labelled data on the
-**next user-initiated turn** — never on their own. Only the last 20 events
-plus the current context value are kept; nothing here is ever written to
-chat history or long-term memory.
+**next user-initiated turn** — never on their own, except a `speaks` event
+under the rules below. Only the last 20 events plus the current context value
+are kept; nothing here is ever written to chat history or long-term memory.
+
+**Speaking on her own** (`speaks`). *Pending the owner's approval: it changes
+what people see, so the shapes are reserved here for the work to go on, and no
+client shows the switch until it is approved.* An event declared with
+`speaks = true` (`manifest.md` §2.6) may start a short AI turn with no user
+message, but only while "She may speak on her own" is on (and "Tell the AI
+what happens" with it). That turn:
+- starts at most once per 2 minutes and 10 times per hour per GI;
+- never starts while the user is speaking, while a user turn runs, or while
+  the game last said `quiet{on:true}`;
+- is a short turn with no extended reasoning, and its context is that event
+  and the current `context` value, quoted and labelled like any game text;
+- may call only this GI's own `low` tools, no built-in or other tool;
+- writes nothing to long-term memory, and its line in the chat carries a band
+  saying it reacts to a game event;
+- is spoken like any other reply.
+
+A `speaks` event that cannot start a turn is kept like any other event, for
+the next user turn.
+
+**Voice key** (`talk`). A GI that declares `talk = true` may send `talk` when
+the player presses its key on the companion. The daemon treats it as a press
+of the user's own voice key: it opens voice input the same way, with the same
+indicator, and the words are the user's own. `talk` is honoured only while the
+session is live and "AI may act" is on, at most once per 2 seconds; otherwise
+the game gets `error{not_granted}` or `error{rate_limited}`. The daemon cannot
+tell a real press from a forged one, which is why `talk` is declared (and so
+in the consent digest), switched and rate-limited.
 
 **Triggers.** `trigger_admission` is keyed by `(Owner::Game(entry), name)` —
 a game integration is its own owner, distinct from a plugin's `PluginId`

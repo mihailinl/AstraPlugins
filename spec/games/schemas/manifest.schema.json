@@ -105,6 +105,7 @@
         "context": { "type": "boolean" },
         "shares_other_players": { "type": "boolean" },
         "skill": { "type": "string" },
+        "talk": { "type": "boolean", "description": "manifest.md §2.6, link-v1.md §5 'Voice key'. Absent = false." },
         "tools": {
           "type": "array",
           "maxItems": 16,
@@ -115,7 +116,9 @@
             "properties": {
               "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,31}$" },
               "description": { "type": "string", "maxLength": 200 },
-              "params": { "type": "string" }
+              "params": { "type": "string" },
+              "danger": { "enum": ["low", "high"], "description": "link-v1.md §5 'Tool danger'. Absent = high; low is honoured only from a signed catalogue entry." },
+              "companion": { "type": "boolean", "description": "link-v1.md §5 'Tools that act on her'. Absent = false." }
             }
           }
         },
@@ -142,7 +145,8 @@
             "additionalProperties": false,
             "properties": {
               "name": { "type": "string" },
-              "data": { "type": "string" }
+              "data": { "type": "string" },
+              "speaks": { "type": "boolean", "description": "link-v1.md §5 'Speaking on her own' (pending the owner's approval). Absent = false." }
             }
           }
         }

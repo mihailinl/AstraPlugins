@@ -93,7 +93,9 @@
         "context": { "type": "boolean" },
         "shares_other_players": { "type": "boolean" },
         "skill_digest": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
-        "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "talk": { "type": "boolean", "description": "games-index-v1.md §2.1: the table's talk. Absent = false." },
+        "speaks": { "type": "boolean", "description": "games-index-v1.md §2.1: true when any event declares speaks = true. Absent = false." }
       }
     },
 

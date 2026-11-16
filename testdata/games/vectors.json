@@ -9,7 +9,8 @@
       { "name": "foundation-shares-engine", "file": "manifests/valid/foundation-shares-engine.toml", "verdict": "accept" },
       { "name": "foundation-dependency-claim", "file": "manifests/valid/foundation-dependency-claim.toml", "verdict": "accept" },
       { "name": "runner-builtin", "file": "manifests/valid/runner-builtin.toml", "verdict": "accept" },
-      { "name": "content-parts", "file": "manifests/valid/content-parts.toml", "verdict": "accept" }
+      { "name": "content-parts", "file": "manifests/valid/content-parts.toml", "verdict": "accept" },
+      { "name": "link-danger-speaks-talk", "file": "manifests/valid/link-danger-speaks-talk.toml", "verdict": "accept" }
     ],
     "invalid": [
       { "name": "engine-undeclared", "file": "manifests/invalid/engine-undeclared.toml", "verdict": "refuse", "check": "semantic", "rule": "engine-undeclared" },
@@ -21,6 +22,8 @@
       { "name": "reserved-name", "file": "manifests/invalid/reserved-name.toml", "verdict": "refuse", "check": "semantic", "rule": "reserved-name" },
       { "name": "target-anti-cheat-missing", "file": "manifests/invalid/target-anti-cheat-missing.toml", "verdict": "refuse", "check": "schema" },
       { "name": "link-too-many-tools", "file": "manifests/invalid/link-too-many-tools.toml", "verdict": "refuse", "check": "schema" },
+      { "name": "link-danger-unknown", "file": "manifests/invalid/link-danger-unknown.toml", "verdict": "refuse", "check": "schema" },
+      { "name": "link-speaks-on-trigger", "file": "manifests/invalid/link-speaks-on-trigger.toml", "verdict": "refuse", "check": "schema" },
       { "name": "unknown-top-level-key", "file": "manifests/invalid/unknown-top-level-key.toml", "verdict": "refuse", "check": "schema" },
       { "name": "content-kind-not-allowed", "file": "manifests/invalid/content-kind-not-allowed.toml", "verdict": "refuse", "check": "schema" },
       { "name": "content-path-traversal", "file": "manifests/invalid/content-path-traversal.toml", "verdict": "refuse", "check": "schema" },
@@ -384,6 +387,10 @@
     "message_schema": "spec/games/schemas/link-v1-message.schema.json",
     "data_schema_profile": "spec/games/schemas/link-v1-data-schema-profile.schema.json",
     "transcript": { "file": "link/transcript.json", "verdict": "accept", "note": "every message in messages[] must validate against the message schema" },
+    "transcripts": [
+      { "name": "speaks-talk", "file": "link/transcript-speaks-talk.json", "verdict": "accept", "note": "link-v1.md §5: talk, quiet, the speaks and talk grants, a refusal code; every message must validate" },
+      { "name": "talk-with-text", "file": "link/transcript-talk-with-text.json", "verdict": "refuse", "note": "a talk carrying text: some message must fail the schema" }
+    ],
     "data_schemas": {
       "valid": [
         { "name": "boss_spawned", "file": "link/data-schemas/valid/boss_spawned.json", "verdict": "accept" },

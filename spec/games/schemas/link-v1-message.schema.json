@@ -77,7 +77,30 @@
         "id": { "type": "string" },
         "ok": { "type": "boolean" },
         "data": {},
-        "error": { "type": "string" }
+        "error": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,31}$",
+          "description": "link-v1.md §5 'Refusal codes': not_holding, not_in_world, player_dead, busy, unknown_target, bad_args, or another code of this shape."
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["t"],
+      "additionalProperties": false,
+      "description": "link-v1.md §5 'Voice key'. No text: the words are the user's own.",
+      "properties": {
+        "t": { "const": "talk" }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["t", "on"],
+      "additionalProperties": false,
+      "description": "link-v1.md §5 'Speaking on her own': true while the game is in a menu, a cutscene or paused.",
+      "properties": {
+        "t": { "const": "quiet" },
+        "on": { "type": "boolean" }
       }
     },
     {
@@ -117,7 +140,9 @@
         "triggers": { "type": "array", "items": { "type": "string" } },
         "events": { "type": "array", "items": { "type": "string" } },
         "context": { "type": "boolean" },
-        "skill": { "type": "boolean" }
+        "skill": { "type": "boolean" },
+        "speaks": { "type": "boolean" },
+        "talk": { "type": "boolean" }
       }
     }
   }

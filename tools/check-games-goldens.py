@@ -2302,14 +2302,25 @@ def main() -> int:
         got = link_digest(load_doc(v["manifest"]))
         report(f"link/digest/{v['name']}", got == v["digest"], f"{got} vs {v['digest']}")
     message_schema = load_schema(vectors["link"]["message_schema"])
-    transcript = load_doc(vectors["link"]["transcript"]["file"])
-    all_msgs_ok = True
-    for i, msg in enumerate(transcript["messages"]):
-        ok, detail = schema_ok(msg, message_schema)
-        if not ok:
-            all_msgs_ok = False
-            print(f"  transcript message {i} ({msg.get('t')}): {detail}")
-    report("link/transcript", all_msgs_ok == (vectors["link"]["transcript"]["verdict"] == "accept"))
+
+    def transcript_ok(rel: str, quiet: bool) -> bool:
+        """Every message of the transcript at `rel` validates against the message schema.
+        `quiet` keeps a refused golden's expected failures out of the output."""
+        all_ok = True
+        for i, msg in enumerate(load_doc(rel)["messages"]):
+            ok, detail = schema_ok(msg, message_schema)
+            if not ok:
+                all_ok = False
+                if not quiet:
+                    print(f"  {rel} message {i} ({msg.get('t')}): {detail}")
+        return all_ok
+
+    v = vectors["link"]["transcript"]
+    report("link/transcript", transcript_ok(v["file"], False) == (v["verdict"] == "accept"))
+    # More sessions, each with its own verdict: a refused one must have a message the schema refuses.
+    for v in vectors["link"].get("transcripts", []):
+        accept = v["verdict"] == "accept"
+        report(f"link/transcript/{v['name']}", transcript_ok(v["file"], not accept) == accept)
 
     profile_schema = load_schema(vectors["link"]["data_schema_profile"])
     for v in vectors["link"]["data_schemas"]["valid"]:

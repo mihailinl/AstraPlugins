@@ -222,14 +222,46 @@ on this foundation, not something an installing user needs.
 
 The full grammar, limits and the wire protocol it drives are normative in
 [`link-v1.md`](link-v1.md) (**DRAFT** — may freeze as late as 0.2.8.x; see
-that document's status note). This table's shape in the TOML is exactly the
-example in §2 above: `context`, `shares_other_players`, an optional `skill`
-path, and the three repeatable arrays `tools`, `triggers`, `events`. Limits
-enforced by `gi-probe check`, unchanged from the earlier marketplace plan:
-at most 16 tools, 16 triggers and 32 events; every named JSON Schema file
+that document's status note). This table's shape in the TOML is the example
+in §2 above: `context`, `shares_other_players`, an optional `skill` path, and
+the three repeatable arrays `tools`, `triggers`, `events`. Limits enforced by
+`gi-probe check`, unchanged from the earlier marketplace plan: at most 16
+tools, 16 triggers and 32 events; every named JSON Schema file
 (`params`/`data`) may use only a local `$ref` and only linear-time regex
 patterns (§6 of `link-v1.md` gives the exact restricted profile and its own
 schema).
+
+Four optional keys say how far the GI's AI-facing surface reaches. What each
+one allows is normative in `link-v1.md` §5.
+
+| key | where | value | absent means |
+|---|---|---|---|
+| `talk` | the table | boolean: the GI may send `talk`, the user's voice key pressed on the companion | `false` |
+| `danger` | a `[[integration.link.tools]]` entry | `"low"` or `"high"` | `"high"` |
+| `companion` | a `[[integration.link.tools]]` entry | boolean: the tool moves, turns or shows the companion, so the daemon refuses it while the game does not hold her | `false` |
+| `speaks` | a `[[integration.link.events]]` entry | boolean: the event may start a short turn of its own (pending the owner's approval, `link-v1.md` §5) | `false` |
+
+```toml
+[integration.link]
+context = true
+shares_other_players = false
+talk = true
+
+[[integration.link.tools]]
+name = "come_here"
+description = "Walk to the player"
+params = "astra/tools/come_here.json"
+danger = "low"
+companion = true
+
+[[integration.link.events]]
+name = "boss_defeated"
+data = "astra/events/boss_defeated.json"
+speaks = true
+```
+
+All four are in the table, so all four are in the digest (§2.6.1): a changed
+`danger`, `companion`, `speaks` or `talk` asks the player to consent again.
 
 #### 2.6.1 The link digest
 
@@ -247,8 +279,9 @@ its catalogue entry (games-index-v1.md §2.1). The catalogue's ingest and
      before step 3, and a CRLF checkout gives the same digest as an LF one
      (vectors `crlf`, `crlf-as-lf`).
    - **No default is added** for a key the table leaves out. An absent
-     optional key (`skill`, `tools`, `triggers`, `events`) is absent, never
-     `false`, `[]` or `null`.
+     optional key (`skill`, `talk`, `tools`, `triggers`, `events`, and a
+     tool's `danger` or `companion`, an event's `speaks`) is absent, never
+     `false`, `"high"`, `[]` or `null`.
    - Writing a default out explicitly therefore changes the digest. That
      asks the player to consent again, which is the conservative reading:
      no two implementations ever have to agree on what a default is.
