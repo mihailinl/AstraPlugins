@@ -194,6 +194,8 @@ pub fn firehose_events() -> Vec<proto::FirehoseEventMsg> {
             // Not a replay: these fixtures are a live turn. `backlog` is true
             // only for events the daemon re-sends to satisfy a cursor.
             backlog: false,
+            // And the cursor matched the log: `cursor_ahead` is a message with no event.
+            cursor_ahead: false,
             event: Some(event),
         })
         .collect()
@@ -206,6 +208,7 @@ pub fn firehose_error_turn() -> Vec<proto::FirehoseEventMsg> {
         proto::FirehoseEventMsg {
             conversation_id: "conv-2".into(),
             backlog: false,
+            cursor_ahead: false,
             event: Some(evt(
                 1,
                 E::AssistantStart(proto::AssistantStartEvt {
@@ -217,6 +220,7 @@ pub fn firehose_error_turn() -> Vec<proto::FirehoseEventMsg> {
         proto::FirehoseEventMsg {
             conversation_id: "conv-2".into(),
             backlog: false,
+            cursor_ahead: false,
             event: Some(evt(
                 2,
                 E::Error(proto::ErrorEvt {
@@ -233,6 +237,7 @@ pub fn firehose_error_turn() -> Vec<proto::FirehoseEventMsg> {
         proto::FirehoseEventMsg {
             conversation_id: "conv-2".into(),
             backlog: false,
+            cursor_ahead: false,
             event: Some(proto::ConversationEventMsg {
                 seq: 3,
                 ..Default::default()

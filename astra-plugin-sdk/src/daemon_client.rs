@@ -165,7 +165,13 @@ impl Daemon for DaemonClient {
         let resp = self
             .chat
             .clone()
-            .subscribe_events(proto::SubscribeEventsRequest { cursors })
+            .subscribe_events(proto::SubscribeEventsRequest {
+                cursors,
+                // `cursor_seconds` (which event each cursor names) is not surfaced
+                // yet: absent, the daemon judges a cursor by its seq alone, as it
+                // always has. A `cursor_ahead` message still reaches the stream.
+                ..Default::default()
+            })
             .await?;
         Ok(Box::pin(
             resp.into_inner().map(|r| r.map_err(anyhow::Error::from)),
