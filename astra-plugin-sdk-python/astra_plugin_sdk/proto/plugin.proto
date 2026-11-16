@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: b31692a82f1466d38044f6f71747a83f126d930f2bc49429952f8c097a9dabf7
+// surface-sha256: aa8e8c85171601f39d4351e53a69689fd90229c2a1eba969fc3143273d411ffd
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -1154,8 +1154,20 @@ message StopAgentRunResponse {
 // Client-provided resume cursors: per-conversation last seen seq.
 // Backlog is delivered only for listed conversations (events with seq > cursor).
 // For conversations not in the map, only live events are delivered.
+//
+// `cursor_seconds` says WHICH event a cursor names: the unix second of the event
+// the client holds AT that seq. A seq alone cannot tell a log that went back
+// and then grew past the cursor (a restored backup, then a new turn before the
+// client reconnected) from the log the client copied — the daemon would replay
+// only what follows and the client would keep events the log never had. When
+// the daemon's event at that seq is from another second, or is gone, the copy is
+// not of this log: answered as a cursor past the end (`FirehoseEventMsg.
+// cursor_ahead`). Seconds, not finer: each shell renders the timestamp in its
+// own precision, and a mismatch from rounding would rebuild every conversation
+// on every launch. Optional per conversation; absent = judged by seq alone.
 message SubscribeEventsRequest {
     map<string, uint64> cursors = 1;
+    map<string, int64> cursor_seconds = 2;
 }
 
 // A single event carrying its conversation identifier.
@@ -1170,10 +1182,22 @@ message SubscribeEventsRequest {
 // made that ambiguity land the user in a random old conversation on every
 // launch. proto3 defaults it to false = LIVE, which is what an older daemon
 // and an older client both mean.
+//
+// `cursor_ahead` is a message with NO `event`: the subscriber's cursor for
+// `conversation_id` is not of that conversation's log — it names a seq past the
+// end of the log, or an event the log does not hold at that seq
+// (`SubscribeEventsRequest.cursor_seconds`). The log went BACK under the client
+// — restored from a backup, or a power cut lost its unsynced tail — so the
+// client's copy describes events this log does not have, and the next append
+// REUSES those seqs: a client deduping by seq would drop real events as
+// "already seen" and keep a turn the log never finished (a Stop button nothing
+// can stop). The client drops its copy of the conversation; the WHOLE log
+// follows at once as backlog, from seq 1, to rebuild it from.
 message FirehoseEventMsg {
     string conversation_id = 1;
     ConversationEventMsg event = 2;
     bool backlog = 3;  // true = replayed from the log for a cursor
+    bool cursor_ahead = 4;  // true = drop your copy; the whole log follows
 }
 
 // One-shot backlog request: read every event with seq > from_seq.

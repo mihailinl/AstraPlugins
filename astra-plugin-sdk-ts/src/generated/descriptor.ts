@@ -1529,6 +1529,11 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "keyType": "string",
               "type": "uint64",
               "id": 1
+            },
+            "cursorSeconds": {
+              "keyType": "string",
+              "type": "int64",
+              "id": 2
             }
           }
         },
@@ -1545,6 +1550,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "backlog": {
               "type": "bool",
               "id": 3
+            },
+            "cursorAhead": {
+              "type": "bool",
+              "id": 4
             }
           }
         },
