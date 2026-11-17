@@ -24,7 +24,14 @@
       "properties": {
         "t": { "const": "welcome" },
         "granted": { "$ref": "#/$defs/grantedSet" },
-        "limits": { "type": "object" },
+        "limits": {
+          "type": "object",
+          "description": "link-v1.md §4: integers, at most the protocol's own (65536, 50); unknown members are ignored.",
+          "properties": {
+            "max_message_bytes": { "type": "integer", "minimum": 1024, "maximum": 65536 },
+            "max_messages_per_second": { "type": "integer", "minimum": 1, "maximum": 50 }
+          }
+        },
         "resume": { "type": "string" }
       }
     },
@@ -34,17 +41,21 @@
       "additionalProperties": false,
       "properties": {
         "t": { "const": "event" },
-        "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,31}$" },
+        "name": {
+          "enum": ["session_started", "session_ended", "player_hurt", "player_fell", "player_died", "player_revived", "goal_reached"],
+          "description": "link-v1.md §5 'Event words': the closed v1 list. Any other word is refused with error{unknown_event}."
+        },
         "data": { "type": "object" }
       }
     },
     {
       "type": "object",
-      "required": ["t", "text"],
+      "required": ["t", "data"],
       "additionalProperties": false,
+      "description": "link-v1.md §4, §5 'Events and context'. Facts valid against the declared context schema (the AI profile, §6); never text.",
       "properties": {
         "t": { "const": "context" },
-        "text": { "type": "string", "maxLength": 2048 }
+        "data": { "type": "object" }
       }
     },
     {
@@ -77,7 +88,30 @@
         "id": { "type": "string" },
         "ok": { "type": "boolean" },
         "data": {},
-        "error": { "type": "string" }
+        "error": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,31}$",
+          "description": "link-v1.md §5 'Refusal codes': not_holding, not_in_world, player_dead, busy, unknown_target, bad_args, or another code of this shape (the daemon's own not_in_game has it too)."
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["t"],
+      "additionalProperties": false,
+      "description": "link-v1.md §5 'Voice key'. No text: the words are the user's own.",
+      "properties": {
+        "t": { "const": "talk" }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["t", "on"],
+      "additionalProperties": false,
+      "description": "link-v1.md §5 'Speaking on her own': true while the game is in a menu, a cutscene or paused.",
+      "properties": {
+        "t": { "const": "quiet" },
+        "on": { "type": "boolean" }
       }
     },
     {
@@ -104,7 +138,7 @@
       "additionalProperties": false,
       "properties": {
         "t": { "const": "error" },
-        "code": { "enum": ["not_granted", "rate_limited", "too_large", "bad_schema", "withdrawn"] }
+        "code": { "enum": ["not_granted", "rate_limited", "too_large", "bad_schema", "unknown_event", "withdrawn"] }
       }
     }
   ],
@@ -117,7 +151,9 @@
         "triggers": { "type": "array", "items": { "type": "string" } },
         "events": { "type": "array", "items": { "type": "string" } },
         "context": { "type": "boolean" },
-        "skill": { "type": "boolean" }
+        "skill": { "type": "boolean" },
+        "speaks": { "type": "boolean" },
+        "talk": { "type": "boolean" }
       }
     }
   }

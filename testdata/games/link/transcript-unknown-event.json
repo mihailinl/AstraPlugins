@@ -1,0 +1,7 @@
+{
+  "schema": "astra.link.transcript/1",
+  "note": "Refused: an event whose word is not on link-v1.md §5's closed v1 list ('Event words'). The daemon answers error{unknown_event} and the event goes no further.",
+  "messages": [
+    { "t": "event", "name": "boss_defeated", "data": { "players": 1 } }
+  ]
+}

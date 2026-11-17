@@ -90,10 +90,18 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "context": { "type": "boolean" },
+        "context": { "type": "boolean", "description": "games-index-v1.md §2.1: true when the link table names a context schema." },
         "shares_other_players": { "type": "boolean" },
         "skill_digest": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
-        "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+        "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "talk": { "type": "boolean", "description": "games-index-v1.md §2.1: the table's talk. Absent = false." },
+        "low_tools": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 16,
+          "description": "games-index-v1.md §2.1: how many tools declare danger = low (they run without an approval card). Absent = 0."
+        },
+        "speaks": { "type": "boolean", "description": "games-index-v1.md §2.1: true when any event declares speaks = true. Absent = false." }
       }
     },
 

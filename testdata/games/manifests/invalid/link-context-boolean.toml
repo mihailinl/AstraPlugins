@@ -1,0 +1,19 @@
+# Invalid: `context = true`, the earlier draft's switch for free text. `context` now names the
+# context schema (manifest.md §2.6; link-v1.md §6, the AI profile): a game tells the AI facts,
+# never text.
+schema = 1
+
+[integration]
+id = "someone.context-boolean"
+name = "Context Boolean"
+version = "0.1.0"
+license = "MIT"
+
+[integration.link]
+context = true
+shares_other_players = false
+
+[target]
+exe = "Game.exe"
+platforms = ["windows-x64"]
+anti_cheat = "none"

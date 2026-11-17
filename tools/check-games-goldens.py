@@ -2302,14 +2302,44 @@ def main() -> int:
         got = link_digest(load_doc(v["manifest"]))
         report(f"link/digest/{v['name']}", got == v["digest"], f"{got} vs {v['digest']}")
     message_schema = load_schema(vectors["link"]["message_schema"])
-    transcript = load_doc(vectors["link"]["transcript"]["file"])
-    all_msgs_ok = True
-    for i, msg in enumerate(transcript["messages"]):
-        ok, detail = schema_ok(msg, message_schema)
-        if not ok:
-            all_msgs_ok = False
-            print(f"  transcript message {i} ({msg.get('t')}): {detail}")
-    report("link/transcript", all_msgs_ok == (vectors["link"]["transcript"]["verdict"] == "accept"))
+
+    def local_tool(exposed: str) -> str:
+        """The declared name behind `game_<entryhash8>_<name>` (link-v1.md §5 "Tools")."""
+        m = re.fullmatch(r"game_[0-9a-f]{8}_(.+)", exposed or "")
+        return m.group(1) if m else exposed
+
+    def transcript_ok(rel: str, quiet: bool, result_schemas: dict | None = None) -> bool:
+        """Every message of the transcript at `rel` validates against the message schema, and —
+        when `result_schemas` names each tool's result schema — every successful `result`'s data
+        against the schema of the tool its `call` named (link-v1.md §5 "A tool's result").
+        `quiet` keeps a refused golden's expected failures out of the output."""
+        all_ok = True
+        schemas = {tool: load_doc(path) for tool, path in (result_schemas or {}).items()}
+        called = {}
+        for i, msg in enumerate(load_doc(rel)["messages"]):
+            ok, detail = schema_ok(msg, message_schema)
+            if ok and result_schemas is not None:
+                if msg.get("t") == "call":
+                    called[msg.get("id")] = local_tool(msg.get("tool"))
+                elif msg.get("t") == "result" and msg.get("ok") is True:
+                    tool = called.get(msg.get("id"))
+                    if tool not in schemas:
+                        ok, detail = False, f"no result schema for the tool {tool!r}"
+                    else:
+                        ok, detail = schema_ok(msg.get("data", {}), schemas[tool])
+                        detail = f"result of {tool}: {detail}" if not ok else detail
+            if not ok:
+                all_ok = False
+                if not quiet:
+                    print(f"  {rel} message {i} ({msg.get('t')}): {detail}")
+        return all_ok
+
+    v = vectors["link"]["transcript"]
+    report("link/transcript", transcript_ok(v["file"], False, v.get("result_schemas")) == (v["verdict"] == "accept"))
+    # More sessions, each with its own verdict: a refused one must have a message the schema refuses.
+    for v in vectors["link"].get("transcripts", []):
+        accept = v["verdict"] == "accept"
+        report(f"link/transcript/{v['name']}", transcript_ok(v["file"], not accept, v.get("result_schemas")) == accept)
 
     profile_schema = load_schema(vectors["link"]["data_schema_profile"])
     for v in vectors["link"]["data_schemas"]["valid"]:
@@ -2320,6 +2350,22 @@ def main() -> int:
         doc = load_doc(v["file"])
         ok, detail = schema_ok(doc, profile_schema)
         report(f"link/data-schema/invalid/{v['name']}", ok is False, detail)
+    # link-v1.md §6 "The AI profile": a schema whose data reaches the AI (context, events) passes
+    # the general profile AND the stricter one. A refused golden passes the general profile, so it
+    # proves the stricter one is what refuses it.
+    if "data_schema_profile_ai" in vectors["link"]:
+        ai_schema = load_schema(vectors["link"]["data_schema_profile_ai"])
+        for v in vectors["link"]["data_schemas"].get("ai_valid", []):
+            doc = load_doc(v["file"])
+            ok, detail = schema_ok(doc, profile_schema)
+            ok_ai, detail_ai = schema_ok(doc, ai_schema)
+            report(f"link/data-schema/ai-valid/{v['name']}", ok and ok_ai, detail or detail_ai)
+        for v in vectors["link"]["data_schemas"].get("ai_invalid", []):
+            doc = load_doc(v["file"])
+            ok, detail = schema_ok(doc, profile_schema)
+            ok_ai, detail_ai = schema_ok(doc, ai_schema)
+            report(f"link/data-schema/ai-invalid/{v['name']}", ok and ok_ai is False,
+                   detail if not ok else detail_ai)
 
     print(f"\n{checked} goldens checked, {len(failures)} failed.")
     if failures:

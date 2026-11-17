@@ -1,0 +1,24 @@
+# Invalid: a tool whose danger is neither "low" nor "high" (manifest.md §2.6, link-v1.md §5
+# "Tool danger"). There is no middle level to argue about at review.
+schema = 1
+
+[integration]
+id = "someone.danger-unknown"
+name = "Danger Unknown"
+version = "0.1.0"
+license = "MIT"
+
+[integration.link]
+shares_other_players = false
+
+[[integration.link.tools]]
+name = "open_door"
+description = "Open the door in front of the player"
+params = "astra/tools/open_door.json"
+result = "astra/tools/open_door.result.json"
+danger = "medium"
+
+[target]
+exe = "Game.exe"
+platforms = ["windows-x64"]
+anti_cheat = "none"

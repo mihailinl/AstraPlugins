@@ -4,7 +4,7 @@
   "messages": [
     { "t": "hello", "token": "3f1a9c2e7b6d4805a1c9e2f6b7d84e1a9c2e7b6d4805a1c9e2f6b7d84e1a9c2e", "integration": "someone.peak-astra", "v": 1, "client": "BepInEx 5.4.22" },
     { "t": "welcome", "granted": { "tools": ["game_a1b2c3d4_drop_item"], "triggers": ["boss_spawned"], "events": ["player_died"], "context": true, "skill": true }, "limits": { "max_message_bytes": 65536, "max_messages_per_second": 50 }, "resume": "r.9e8d7c6b5a4938271" },
-    { "t": "context", "text": "The player is exploring the Wilderness biome at night, HP low." },
+    { "t": "context", "data": { "biome": "wilderness", "night": true, "health_pct": 18 } },
     { "t": "trigger", "name": "boss_spawned", "data": { "boss_name": "Bloat", "difficulty": 3, "enraged": false } },
     { "t": "call", "id": "c1", "tool": "game_a1b2c3d4_drop_item", "args": { "item_id": "flashlight" } },
     { "t": "result", "id": "c1", "ok": true, "data": { "dropped": true } },

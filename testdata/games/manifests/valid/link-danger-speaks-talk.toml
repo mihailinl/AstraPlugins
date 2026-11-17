@@ -1,0 +1,61 @@
+# Valid: a game-specific GI whose [integration.link] uses the optional keys of manifest.md §2.6:
+# a context schema and talk on the table, danger and companion on tools, speaks on an event. Absent keys stay absent
+# (map_pin_add has no companion, player_died no speaks), as the digest rule requires.
+schema = 1
+
+[integration]
+id = "someone.viking-astra"
+name = "Astra in a viking game"
+version = "0.2.0"
+authors = ["someone"]
+license = "MIT"
+repo = "https://github.com/someone/viking-astra"
+
+[integration.capabilities]
+companion = ["presentation"]
+
+[integration.link]
+context = "astra/context.json"
+shares_other_players = false
+talk = true
+
+[[integration.link.tools]]
+name = "come_here"
+description = "Walk to the player"
+params = "astra/tools/come_here.json"
+result = "astra/tools/come_here.result.json"
+danger = "low"
+companion = true
+
+[[integration.link.tools]]
+name = "map_pin_add"
+description = "Mark a place on the player's map for this session only"
+params = "astra/tools/map_pin_add.json"
+result = "astra/tools/map_pin_add.result.json"
+danger = "low"
+
+[[integration.link.tools]]
+name = "drop_item"
+description = "Drop the item the player holds"
+params = "astra/tools/drop_item.json"
+result = "astra/tools/drop_item.result.json"
+danger = "high"
+
+[[integration.link.events]]
+name = "goal_reached"
+data = "astra/events/goal_reached.json"
+speaks = true
+
+[[integration.link.events]]
+name = "player_died"
+data = "astra/events/player_died.json"
+
+[target]
+steam_appid = 892970
+exe = "valheim.exe"
+platforms = ["windows-x64", "linux-proton"]
+anti_cheat = "none"
+
+[[files]]
+from = "BepInEx/plugins/**"
+to = "${profile}/BepInEx/plugins/"

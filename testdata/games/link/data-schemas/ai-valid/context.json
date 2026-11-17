@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["biome", "night"],
+  "properties": {
+    "day": { "type": "integer", "minimum": 1 },
+    "night": { "type": "boolean" },
+    "biome": { "type": "string", "enum": ["meadows", "black_forest", "swamp", "mountain", "plains", "ocean", "mistlands", "ashlands"] },
+    "health_pct": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "stamina_pct": { "type": "integer", "minimum": 0, "maximum": 100 },
+    "wet": { "type": "boolean" },
+    "enemies_near": { "type": "integer", "minimum": 0, "maximum": 99 }
+  }
+}

@@ -102,20 +102,24 @@
       "description": "manifest.md §2.6. Structural shape only; the message protocol and the restricted data-schema profile are normative in link-v1.md and its own schemas/ files.",
       "additionalProperties": false,
       "properties": {
-        "context": { "type": "boolean" },
+        "context": { "type": "string", "description": "manifest.md §2.6: the path of the context schema, held to link-v1.md §6's AI profile. Absent = the GI sends no context." },
         "shares_other_players": { "type": "boolean" },
         "skill": { "type": "string" },
+        "talk": { "type": "boolean", "description": "manifest.md §2.6, link-v1.md §5 'Voice key'. Absent = false." },
         "tools": {
           "type": "array",
           "maxItems": 16,
           "items": {
             "type": "object",
-            "required": ["name", "description", "params"],
+            "required": ["name", "description", "params", "result"],
             "additionalProperties": false,
             "properties": {
-              "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,31}$" },
+              "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,31}$", "description": "At most 32 characters, so game_<entryhash8>_<name> stays within 46 (link-v1.md §5 'Tools')." },
               "description": { "type": "string", "maxLength": 200 },
-              "params": { "type": "string" }
+              "params": { "type": "string" },
+              "result": { "type": "string", "description": "link-v1.md §5 'A tool's result': the path of the result schema, held to §6's AI profile. Required." },
+              "danger": { "enum": ["low", "high"], "description": "link-v1.md §5 'Tool danger'. Absent = high; low is honoured only from a signed catalogue entry." },
+              "companion": { "type": "boolean", "description": "link-v1.md §5 'Tools that act on her'. Absent = false." }
             }
           }
         },
@@ -141,8 +145,9 @@
             "required": ["name", "data"],
             "additionalProperties": false,
             "properties": {
-              "name": { "type": "string" },
-              "data": { "type": "string" }
+              "name": { "enum": ["session_started", "session_ended", "player_hurt", "player_fell", "player_died", "player_revived", "goal_reached"], "description": "link-v1.md §5 'Event words': the closed v1 list." },
+              "data": { "type": "string" },
+              "speaks": { "type": "boolean", "description": "link-v1.md §5 'Speaking on her own' (pending the owner's approval). Absent = false." }
             }
           }
         }

@@ -1,0 +1,23 @@
+# Invalid: speaks on a trigger. Only an event may start a turn of its own (manifest.md §2.6,
+# link-v1.md §5 "Speaking on her own"); a trigger runs the automations the user bound to it.
+schema = 1
+
+[integration]
+id = "someone.speaks-on-trigger"
+name = "Speaks On Trigger"
+version = "0.1.0"
+license = "MIT"
+
+[integration.link]
+shares_other_players = false
+
+[[integration.link.triggers]]
+name = "boss_spawned"
+label = "A boss appears"
+data = "astra/triggers/boss_spawned.json"
+speaks = true
+
+[target]
+exe = "Game.exe"
+platforms = ["windows-x64"]
+anti_cheat = "none"

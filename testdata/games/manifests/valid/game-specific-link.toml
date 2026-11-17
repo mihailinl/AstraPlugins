@@ -14,7 +14,7 @@ repo = "https://github.com/someone/peak-astra"
 companion = ["presentation"]
 
 [integration.link]
-context = true
+context = "astra/context.json"
 shares_other_players = false
 skill = "astra/SKILL.md"
 
@@ -22,6 +22,7 @@ skill = "astra/SKILL.md"
 name = "drop_item"
 description = "Drop the item the player holds"
 params = "astra/tools/drop_item.json"
+result = "astra/tools/drop_item.result.json"
 
 [[integration.link.triggers]]
 name = "boss_spawned"
