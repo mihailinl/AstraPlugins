@@ -89,6 +89,11 @@ never a Link event (§5 "Events are edges").
   that GI is already live. Every `welcome` rotates `resume`. Game exit kills
   both tokens. (This is what covers a Unity load stall longer than 30 s: the
   session ends and resumes rather than failing outright.)
+- **A hello the daemon will not take** — a spent or unknown token, a resume it
+  does not know, a GI with no Link now — is answered `error{not_granted}`, and
+  the socket closed. The game does not send that token or resume again: it
+  reads the link file once more for a new Play's token, and without one stays
+  off until the next Play. A hello with no answer at all may be repeated.
 - **Peer process.** The daemon records the connecting socket's peer pid and
   exe; the chat chip shows them. The peer is expected to be the process of
   the game the daemon's watcher of running games recognised, or that game's
