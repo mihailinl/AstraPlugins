@@ -265,7 +265,10 @@ pub fn generate_plugin_py(name: &str, capabilities: &[&str]) -> String {
         );
     }
 
-    let ui = capabilities.contains(&"ui_contributions") || capabilities.contains(&"dom_access");
+    // A frame of either kind gets the `@ui_call` handler; only the page gets
+    // the `@ui_page` class decorator below.
+    let ui = super::contributes_ui(capabilities);
+    let page = super::contributes_ui_page(capabilities);
     let desktop = capabilities.contains(&crate::commands::create::DESKTOP_WIDGET_MARKER);
     if desktop {
         imports.extend([
@@ -327,12 +330,22 @@ pub fn generate_plugin_py(name: &str, capabilities: &[&str]) -> String {
     // The UI contributions themselves are declared with a CLASS decorator —
     // `@ui_page` registers, it does not return something to be plumbed. That is
     // the whole point of §5.8's change, so the scaffold has to show it.
-    let class_decorator = if ui && !desktop {
-        "@ui_page(\"main\", \"My Plugin\", \"index.html\")\n"
+    //
+    // It is also why this decorator was once believed not to exist: it IS the
+    // contribution, but reading the generated Python for the word
+    // "contribution" finds nothing — which is how `uses_declared_plane` came to
+    // leave the page label out on the grounds that Python declared no page.
+    // Its label is a `$key` like every other label the daemon renders.
+    let class_decorator = if page {
+        "# The page this plugin puts in Astra's window. DECLARED plane, like every\n\
+         # label Astra shows for a plugin: the DAEMON resolves this key, per request,\n\
+         # in the user's language, so it must be in locales/en.json. `i18n.key(\"…\")`\n\
+         # builds the same string; a literal is clearer in a decorator.\n\
+         @ui_page(\"main\", \"$ui.main.label\", \"index.html\")\n"
     } else {
         ""
     };
-    let ui_page_import = if ui { ", ui_page" } else { "" };
+    let ui_page_import = if page { ", ui_page" } else { "" };
 
     format!(
         r#""""{class_name} — Astra plugin."""

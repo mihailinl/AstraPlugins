@@ -26,8 +26,19 @@ pub mod ui;
 pub const LABEL_RESOLVER_RELEASE: &str = "0.2.1";
 
 /// Generate a `plugin.toml` manifest.
+///
+/// `capabilities` is the list the code generators get, template markers
+/// included: whether the scaffold declares a `$key` depends on WHICH
+/// contribution it makes (a page, or a desktop widget), and only the marker
+/// says that. The markers are read here and never written — they are not
+/// capabilities, and [`manifest_capabilities`] strips them from `[capabilities]`.
+///
+/// [`manifest_capabilities`]: crate::commands::create::manifest_capabilities
 pub fn generate_manifest(name: &str, lang: &str, capabilities: &[&str]) -> String {
-    let caps_toml: Vec<String> = capabilities.iter().map(|c| format!("{c} = true")).collect();
+    let caps_toml: Vec<String> = crate::commands::create::manifest_capabilities(capabilities)
+        .iter()
+        .map(|c| format!("{c} = true"))
+        .collect();
 
     let (command, args, runtimes) = match lang {
         // Where `cargo build --release` actually puts it, with cargo's
@@ -63,7 +74,7 @@ pub fn generate_manifest(name: &str, lang: &str, capabilities: &[&str]) -> Strin
     // resolve. See `LABEL_RESOLVER_RELEASE`.
     let floor = if uses_declared_plane(capabilities) {
         format!(
-            "\n# The generated action and trigger labels are `$keys` the DAEMON resolves.\n\
+            "\n# The labels the generated source declares are `$keys` the DAEMON resolves.\n\
              # Astra {LABEL_RESOLVER_RELEASE} is the first release that does; an older one would show\n\
              # your users the key instead of the label, so it is refused the install.\n\
              # Delete this line if you replace those keys with literal English.\n\
@@ -281,6 +292,9 @@ pub fn generate_locales(name: &str, capabilities: &[&str]) -> (String, String) {
         if capabilities.contains(&"triggers") {
             keys.push_str(",\n  \"trigger.something_happened.label\": \"Something Happened\"");
         }
+        if contributes_ui_page(capabilities) {
+            keys.push_str(",\n  \"ui.main.label\": \"My Plugin\"");
+        }
         keys
     } else {
         String::new()
@@ -332,17 +346,50 @@ pub fn uses_runtime_plane(capabilities: &[&str]) -> bool {
 /// fact, and any two of them arriving without the third is a bug someone finds
 /// at install time.
 ///
-/// **UI contribution labels are deliberately not in this list**, though the
-/// daemon resolves them too. One `en.json` serves all three language
-/// templates, and the Python scaffold declares no contribution for a `ui.*`
-/// key to hang off — seeding one would give a Python author a key nothing in
-/// their plugin resolves, which is the disease
-/// `the_seeded_keys_are_the_ones_the_generated_source_resolves` exists to
-/// catch. The generated Rust and TypeScript say so where the label is.
+/// The page label is on this list too. It was once left off on the grounds
+/// that the Python scaffold declares no contribution for a `ui.*` key to hang
+/// off — and it declares one: `@ui_page(…)` is a CLASS decorator, which
+/// registers rather than returning something to be plumbed, so searching the
+/// generated Python for the word `contribution` finds nothing. All three
+/// languages contribute the page, all three label it, and the daemon's
+/// `resolve_ui_contribution` resolves that label the way `resolve_action_type`
+/// and `resolve_trigger_type` resolve theirs.
 pub fn uses_declared_plane(capabilities: &[&str]) -> bool {
     ["actions", "triggers"]
         .iter()
         .any(|c| capabilities.contains(c))
+        || contributes_ui_page(capabilities)
+}
+
+/// Does the generated source put a frame in Astra's window — the `main` page,
+/// or a desktop widget?
+///
+/// Asked wherever both kinds need the same thing: the TypeScript `UiContrib`
+/// import, Python's `@ui_call` handler. `dom_access` sits beside
+/// `ui_contributions` because the generators treat the two as one: reaching
+/// into Astra's DOM is done from a contributed frame, so a scaffold asked for
+/// `dom_access` alone still gets a frame to reach from.
+pub fn contributes_ui(capabilities: &[&str]) -> bool {
+    capabilities.contains(&"ui_contributions") || capabilities.contains(&"dom_access")
+}
+
+/// Does the generated source contribute the `main` PAGE, labelled
+/// `ui.main.label`?
+///
+/// One predicate for the four places that must agree on it: the three code
+/// generators, which emit the page, and [`generate_locales`], which seeds the
+/// key the page's label names — and through [`uses_declared_plane`], the floor.
+/// It used to be spelled out in each generator, which is how they came to
+/// disagree about whether Python contributed a page at all.
+///
+/// A desktop widget is a frame but not this page: its scaffold
+/// (`desktop_widget.rs`) contributes `UiContribution::widget` with its own
+/// labels, which stay literal — the daemon resolves those too, but the widget
+/// runtime is unreleased, and its README says the floor is set when it ships.
+/// Making those labels keys belongs with that floor.
+pub fn contributes_ui_page(capabilities: &[&str]) -> bool {
+    contributes_ui(capabilities)
+        && !capabilities.contains(&crate::commands::create::DESKTOP_WIDGET_MARKER)
 }
 
 pub fn generate_readme(name: &str, lang: &str, capabilities: &[&str]) -> String {

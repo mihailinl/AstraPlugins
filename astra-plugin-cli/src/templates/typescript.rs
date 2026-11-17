@@ -192,18 +192,20 @@ pub fn generate_index_ts(name: &str, capabilities: &[&str]) -> String {
 
     if capabilities.contains(&crate::commands::create::DESKTOP_WIDGET_MARKER) {
         sections.push_str(super::desktop_widget::TYPESCRIPT);
-    } else if capabilities.contains(&"ui_contributions") || capabilities.contains(&"dom_access") {
+    } else if super::contributes_ui_page(capabilities) {
+        // The comment below says "en.json", never the directory: N13 notes any
+        // TypeScript source that names `locales/` beside an `import`.
         sections.push_str(
             r#"
   ui: {
     // The iframes this plugin puts in Astra's window. `url` is served from the
     // plugin's own bundle.
-    // Literal English, unlike the labels above, and the reason is the
-    // scaffold rather than the daemon: one locales/en.json serves all three
-    // language templates and the Python one declares no contribution to hang a
-    // `ui.*` key off. Astra resolves this one too — make it
-    // `key("ui.main.label")` and add the key when you translate it.
-    contributions: [UiContrib.page("main", "My Plugin", "index.html")],
+    // DECLARED plane, like every label Astra shows for a plugin: the DAEMON
+    // resolves this key, per request, in the user's language. It must be in
+    // your English locale file (en.json), and it is one reason plugin.toml
+    // carries a `min_astra_version`. `key("…")` from the SDK builds the same
+    // string.
+    contributions: [UiContrib.page("main", "$ui.main.label", "index.html")],
     // Reachable from that iframe as `astra.callBackend("ping", {})`. Push data the
     // other way with `ctx.pushToUi(...)`.
     onCall: {
@@ -318,7 +320,8 @@ pub fn generate_index_ts(name: &str, capabilities: &[&str]) -> String {
         imports.push("action");
         imports.push("Field");
     }
-    if capabilities.contains(&"ui_contributions") || capabilities.contains(&"dom_access") {
+    // The page and the desktop widget both go through `UiContrib`.
+    if super::contributes_ui(capabilities) {
         imports.push("UiContrib");
     }
     if capabilities.contains(&crate::commands::create::DESKTOP_WIDGET_MARKER) {
