@@ -38,7 +38,7 @@ A Link-capable GI may:
 
 Allowed only as declared in `[integration.link]` and only once the user has
 switched it on (§5). **Never available to a game:** chat as the user or as
-Astra, slash commands, any variable outside the `game.*` namespace, UI or
+Astra, slash commands, any variable outside the `game_` namespace, UI or
 theme, the DOM, files, settings, other plugins, choosing the model, words
 spoken for the user (`talk` carries none), or text of its own in front of the
 AI or a plugin.
@@ -75,6 +75,13 @@ never a Link event (§5 "Events are edges").
   both: another process of the same user can read the file.
 - When Astra spawns the process itself, the path is also exported as
   `ASTRA_LINK_FILE`; under Proton it is given in its `Z:\` form.
+- **Flatpak Steam** (Linux, from Flathub): the game's sandbox sees only
+  `<profile>/BepInEx` of the profile, and a game Steam starts gets no
+  environment from Astra, so there is no `ASTRA_LINK_FILE` either. Astra
+  grants that sandbox read access to `<profile>/astra-link.json` alone, by a
+  Flatpak permission of its own (the daemon's half): the GI reads the file at
+  the same path, read-only. The socket works there unchanged, since Flatpak
+  Steam shares the host's network, loopback included.
 - **An old daemon or launcher writes no file at all**, and the GI runs
   presentation-only — it must degrade, not crash, when the file is absent.
 
@@ -312,8 +319,9 @@ before it lands there.
 
 **AI turns that game events start.** That is a `speaks` turn (below), or a
 turn a plugin asks for (`send_chat_message`) in reaction to a game event it
-received; the daemon knows the second from the event's causal chain. Every
-such turn:
+received. The daemon cannot follow a cause through a plugin's own process, so
+it counts a plugin's turn as one when the plugin asks for it within 60 seconds
+after a game event was delivered to that plugin. Every such turn:
 - is off by default: a `speaks` turn needs "She may speak on her own", and a
   plugin's turn needs the plugin's own `send_chat_message` grant, besides
   the "Plugins hear game events" that let the event reach it;
@@ -337,9 +345,10 @@ what happens" with it). Besides the limits above, that turn:
 - is a short turn with no extended reasoning, and its context is that event
   and the current `context` value, quoted and labelled like any game data;
 - may call only this GI's own `low` tools, no built-in or other tool;
-- is spoken like any other reply. That reply is kept in the current main
-  conversation, with a band saying it reacts to a game event; the event
-  itself is not written there.
+- is spoken like any other reply. That reply is kept in the last
+  conversation in which a turn carried game data ("Which turns carry game
+  data"), or in the main conversation when none has, with a band saying it
+  reacts to a game event; the event itself is not written there.
 
 A `speaks` event that cannot start a turn is kept like any other event, for
 the next turn that carries game data. That includes a chat whose model is a
@@ -360,8 +369,11 @@ switched and rate-limited.
 **Triggers.** `trigger_admission` is keyed by `(Owner::Game(entry), name)` —
 a game integration is its own owner, distinct from a plugin's `PluginId`
 today (a daemon change, in the daemon's half). Trigger data must validate
-against its declared schema. Its fields reach an automation as `game.<key>`
-variables. The workflow binder refuses `{game.*}` outright:
+against its declared schema. Its fields reach an automation as variables
+named `game_<key>`: the command parser reads a variable only as `{name}` of
+letters, digits and `_`, so a dot would end the name (`{game.height}` is no
+variable at all). `game_` is these variables' namespace. The workflow binder
+refuses `{game_<key>}` outright:
 - inside shell or raw command text — there such a value may only be passed as
   a quoted argument or an environment variable;
 - in every text that goes to a model: an AI node's prompt, a task, a chat
