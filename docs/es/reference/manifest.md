@@ -108,7 +108,7 @@ Identidad y metadatos del plugin.
 | `license` | string | no | `""` | — |
 | `homepage` | string | no | `""` | — |
 | `min_astra_version` [†](#lo-que-se-rechaza) | string | no | `""` | El Astra más antiguo con el que funciona este plugin, como versión semver (`"0.9.0"`). |
-| `target` [†](#what-is-refused) | array de strings | no | vacío | The games this plugin is for: at most [`MAX_TARGETS`] game keys, spelled as Astra spells a game's key (`target = ["3527290"]`; [`crate::game_key`]). |
+| `target` [†](#lo-que-se-rechaza) | array de strings | no | vacío | The games this plugin is for: at most [`MAX_TARGETS`] game keys, spelled as Astra spells a game's key (`target = ["3527290"]`; [`crate::game_key`]). |
 | `call_timeout_secs` | integer | no | ausente | Cuánto espera el daemon a `CallTool` / `ExecuteAction` antes de rendirse, en segundos. |
 
 † tiene una regla que rechaza el manifiesto de plano — consulta

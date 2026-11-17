@@ -73,7 +73,7 @@
 | `license` | string | 否 | `""` | — |
 | `homepage` | string | 否 | `""` | — |
 | `min_astra_version` [†](#什么会被拒绝) | string | 否 | `""` | 这个插件能运行在的最旧的 Astra 版本，以 semver 版本号表示（`"0.9.0"`）。 |
-| `target` [†](#what-is-refused) | array of strings | 否 | 空 | The games this plugin is for: at most [`MAX_TARGETS`] game keys, spelled as Astra spells a game's key (`target = ["3527290"]`; [`crate::game_key`]). |
+| `target` [†](#什么会被拒绝) | array of strings | 否 | 空 | The games this plugin is for: at most [`MAX_TARGETS`] game keys, spelled as Astra spells a game's key (`target = ["3527290"]`; [`crate::game_key`]). |
 | `call_timeout_secs` | integer | 否 | 无 | 守护进程在放弃 `CallTool` / `ExecuteAction` 之前会等待多少秒。 |
 
 † 带有一条会直接拒绝清单文件的规则 —— 具体条件和消息见

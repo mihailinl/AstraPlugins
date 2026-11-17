@@ -105,7 +105,7 @@ string such as "plugin", not &lt;type&gt;.
 | `license` | строка | нет | `""` | — |
 | `homepage` | строка | нет | `""` | — |
 | `min_astra_version` [†](#что-отклоняется) | строка | нет | `""` | Самая старая Astra, на которой работает этот плагин, как версия semver (`"0.9.0"`). |
-| `target` [†](#what-is-refused) | массив строк | нет | пусто | The games this plugin is for: at most [`MAX_TARGETS`] game keys, spelled as Astra spells a game's key (`target = ["3527290"]`; [`crate::game_key`]). |
+| `target` [†](#что-отклоняется) | массив строк | нет | пусто | The games this plugin is for: at most [`MAX_TARGETS`] game keys, spelled as Astra spells a game's key (`target = ["3527290"]`; [`crate::game_key`]). |
 | `call_timeout_secs` | целое | нет | отсутствует | Сколько демон ждёт `CallTool` / `ExecuteAction`, прежде чем сдаться, в секундах. |
 
 † несёт правило, отклоняющее манифест безусловно — см.

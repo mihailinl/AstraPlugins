@@ -76,7 +76,7 @@ Astra のコピーとバイト同一に保たれています — から生成さ
 | `license` | string | いいえ | `""` | — |
 | `homepage` | string | いいえ | `""` | — |
 | `min_astra_version` [†](#何が拒否されるか) | string | いいえ | `""` | このプラグインが動作する最も古い Astra、semver バージョンとして(`"0.9.0"`)。 |
-| `target` [†](#what-is-refused) | array of strings | いいえ | 空 | The games this plugin is for: at most [`MAX_TARGETS`] game keys, spelled as Astra spells a game's key (`target = ["3527290"]`; [`crate::game_key`]). |
+| `target` [†](#何が拒否されるか) | array of strings | いいえ | 空 | The games this plugin is for: at most [`MAX_TARGETS`] game keys, spelled as Astra spells a game's key (`target = ["3527290"]`; [`crate::game_key`]). |
 | `call_timeout_secs` | integer | いいえ | なし | デーモンが `CallTool` / `ExecuteAction` を諦めるまで何秒待つか。 |
 
 † マニフェストを完全に拒否するルールを持つ — 条件とメッセージについて

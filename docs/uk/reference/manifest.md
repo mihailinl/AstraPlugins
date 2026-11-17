@@ -104,7 +104,7 @@ as "plugin", not &lt;type&gt;.
 | `license` | рядок | ні | `""` | — |
 | `homepage` | рядок | ні | `""` | — |
 | `min_astra_version` [†](#що-відхиляється) | рядок | ні | `""` | Найстаріша Astra, на якій працює цей плагін, як версія semver (`"0.9.0"`). |
-| `target` [†](#what-is-refused) | масив рядків | ні | порожньо | The games this plugin is for: at most [`MAX_TARGETS`] game keys, spelled as Astra spells a game's key (`target = ["3527290"]`; [`crate::game_key`]). |
+| `target` [†](#що-відхиляється) | масив рядків | ні | порожньо | The games this plugin is for: at most [`MAX_TARGETS`] game keys, spelled as Astra spells a game's key (`target = ["3527290"]`; [`crate::game_key`]). |
 | `call_timeout_secs` | ціле | ні | відсутнє | Скільки демон чекає `CallTool` / `ExecuteAction`, перш ніж здатися, у секундах. |
 
 † несе правило, що відхиляє маніфест безумовно — див.

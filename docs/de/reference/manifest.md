@@ -111,7 +111,7 @@ Plugin-Identität und Metadaten.
 | `license` | string | nein | `""` | — |
 | `homepage` | string | nein | `""` | — |
 | `min_astra_version` [†](#was-abgelehnt-wird) | string | nein | `""` | Das älteste Astra, mit dem dieses Plugin funktioniert, als Semver-Version (`"0.9.0"`). |
-| `target` [†](#what-is-refused) | Array von Strings | nein | leer | The games this plugin is for: at most [`MAX_TARGETS`] game keys, spelled as Astra spells a game's key (`target = ["3527290"]`; [`crate::game_key`]). |
+| `target` [†](#was-abgelehnt-wird) | Array von Strings | nein | leer | The games this plugin is for: at most [`MAX_TARGETS`] game keys, spelled as Astra spells a game's key (`target = ["3527290"]`; [`crate::game_key`]). |
 | `call_timeout_secs` | integer | nein | abwesend | Wie lange der Daemon auf `CallTool` / `ExecuteAction` wartet, bevor er aufgibt, in Sekunden. |
 
 † hat eine Regel, die das Manifest pauschal ablehnt — siehe
