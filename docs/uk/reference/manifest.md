@@ -104,6 +104,7 @@ as "plugin", not &lt;type&gt;.
 | `license` | рядок | ні | `""` | — |
 | `homepage` | рядок | ні | `""` | — |
 | `min_astra_version` [†](#що-відхиляється) | рядок | ні | `""` | Найстаріша Astra, на якій працює цей плагін, як версія semver (`"0.9.0"`). |
+| `target` [†](#what-is-refused) | масив рядків | ні | порожньо | The games this plugin is for: at most [`MAX_TARGETS`] game keys, spelled as Astra spells a game's key (`target = ["3527290"]`; [`crate::game_key`]). |
 | `call_timeout_secs` | ціле | ні | відсутнє | Скільки демон чекає `CallTool` / `ExecuteAction`, перш ніж здатися, у секундах. |
 
 † несе правило, що відхиляє маніфест безумовно — див.
@@ -119,6 +120,10 @@ as "plugin", not &lt;type&gt;.
 фічі демона, якої в хоста не було, встановлювався чисто, а потім
 провалювався рівно на тому виклику, для якого вона потрібна, —
 користувач читає це як «цей плагін зламаний».
+
+**`plugin.target`.** The games this plugin is for: at most [`MAX_TARGETS`] game keys, spelled as Astra spells a game's key (`target = ["3527290"]`; [`crate::game_key`]). The daemon's Link server reads it: a plugin learns WHICH game sent a Link event only when `target` names that game, and only for that game. A game the user added by hand (`local-…`) has a key that differs from machine to machine, so a plugin never names one. Empty = no game.
+
+Validated by [`PluginManifest::validate`] everywhere, CLI included.
 
 **`plugin.call_timeout_secs`.** Скільки демон чекає `CallTool` /
 `ExecuteAction`, перш ніж здатися, у секундах. `None` → власний
@@ -415,6 +420,10 @@ check` перелічує оголошене і попереджає, коли �
 | `kind` — рядок, відмінний від `"plugin"` ([зарезервований](#зарезервовані-ключі-верхнього-рівня)) | this item is a &lt;kind&gt;; this version of Astra installs plugins only. Update Astra to install it. |
 | `kind` — не рядок ([зарезервований](#зарезервовані-ключі-верхнього-рівня)) | `kind` must be a string such as "plugin", not &lt;type&gt; |
 | `requires` не порожній ([зарезервований](#зарезервовані-ключі-верхнього-рівня)) | this item requires other items, and this version of Astra cannot install dependencies. Update Astra to install it. |
+| `target.len() > MAX_TARGETS` | plugin.target names {} games; at most {MAX_TARGETS} are allowed |
+| `target[..i].contains(key)` | plugin.target names '{key}' twice |
+| `matches!(spelling, Some(GameKeySpelling::Local))` | plugin.target '{key}' is a game added by hand; its key differs from machine to machine, so a plugin cannot name it |
+| `spelling.is_none() \|\| key.starts_with('0')` | plugin.target '{key}' is not a game key a plugin may name (expected {SPELLINGS}) |
 | `self.plugin.id.is_empty()` | plugin.id is required |
 | `self.plugin.name.is_empty()` | plugin.name is required |
 | `self.plugin.version.is_empty()` | plugin.version is required |

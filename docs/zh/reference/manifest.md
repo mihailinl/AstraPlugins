@@ -73,6 +73,7 @@
 | `license` | string | 否 | `""` | — |
 | `homepage` | string | 否 | `""` | — |
 | `min_astra_version` [†](#什么会被拒绝) | string | 否 | `""` | 这个插件能运行在的最旧的 Astra 版本，以 semver 版本号表示（`"0.9.0"`）。 |
+| `target` [†](#what-is-refused) | array of strings | 否 | 空 | The games this plugin is for: at most [`MAX_TARGETS`] game keys, spelled as Astra spells a game's key (`target = ["3527290"]`; [`crate::game_key`]). |
 | `call_timeout_secs` | integer | 否 | 无 | 守护进程在放弃 `CallTool` / `ExecuteAction` 之前会等待多少秒。 |
 
 † 带有一条会直接拒绝清单文件的规则 —— 具体条件和消息见
@@ -87,6 +88,10 @@
 却从未被读取的字段，所以一个需要宿主没有安装的守护进程功能的插件，
 表面上会干净地完成安装，只在需要该功能的那一次调用时才失败，而用户会
 把这解读为"这个插件坏了"。
+
+**`plugin.target`.** The games this plugin is for: at most [`MAX_TARGETS`] game keys, spelled as Astra spells a game's key (`target = ["3527290"]`; [`crate::game_key`]). The daemon's Link server reads it: a plugin learns WHICH game sent a Link event only when `target` names that game, and only for that game. A game the user added by hand (`local-…`) has a key that differs from machine to machine, so a plugin never names one. Empty = no game.
+
+Validated by [`PluginManifest::validate`] everywhere, CLI included.
 
 **`plugin.call_timeout_secs`。** 守护进程在放弃 `CallTool` /
 `ExecuteAction` 之前会等待多少秒。`None` → 使用守护进程的
@@ -370,6 +375,10 @@ author says:"前缀）。它永远不是标签本身 —— 措辞的修正随 A
 | `kind` 是 `"plugin"` 以外的字符串（[保留](#保留的顶层键)） | this item is a &lt;kind&gt;; this version of Astra installs plugins only. Update Astra to install it. |
 | `kind` 不是字符串（[保留](#保留的顶层键)） | `kind` must be a string such as "plugin", not &lt;type&gt; |
 | `requires` 不为空（[保留](#保留的顶层键)） | this item requires other items, and this version of Astra cannot install dependencies. Update Astra to install it. |
+| `target.len() > MAX_TARGETS` | plugin.target names {} games; at most {MAX_TARGETS} are allowed |
+| `target[..i].contains(key)` | plugin.target names '{key}' twice |
+| `matches!(spelling, Some(GameKeySpelling::Local))` | plugin.target '{key}' is a game added by hand; its key differs from machine to machine, so a plugin cannot name it |
+| `spelling.is_none() \|\| key.starts_with('0')` | plugin.target '{key}' is not a game key a plugin may name (expected {SPELLINGS}) |
 | `self.plugin.id.is_empty()` | plugin.id is required |
 | `self.plugin.name.is_empty()` | plugin.name is required |
 | `self.plugin.version.is_empty()` | plugin.version is required |

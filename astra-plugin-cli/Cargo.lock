@@ -124,7 +124,7 @@ dependencies = [
 
 [[package]]
 name = "astra-plugin-manifest"
-version = "0.1.2"
+version = "0.1.3"
 dependencies = [
  "anyhow",
  "semver",
