@@ -89,6 +89,7 @@ still a CI failure.
 | File | Holds |
 |---|---|
 | `src/manifest.rs` | `PluginManifest` and its sections; `validate()`, the `plugin.id`-as-path-component rules, `min_astra_version` |
+| `src/game_key.rs` | `GameKeySpelling`: the one grammar of a game's key (Steam appid, `local-…`, `epic-…`, `gog-…`), shared with the daemon; `[plugin] target` is checked against it |
 | `src/capabilities.rs` | `[capabilities]`, the capability vocabulary, and the rename table behind the error messages |
 | `src/platform.rs` | `[platform]`, `current_platform()`, and the single `(os, arch) → registry artifact key` mapping |
 

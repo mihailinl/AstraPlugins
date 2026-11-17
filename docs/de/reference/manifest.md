@@ -111,6 +111,7 @@ Plugin-Identität und Metadaten.
 | `license` | string | nein | `""` | — |
 | `homepage` | string | nein | `""` | — |
 | `min_astra_version` [†](#was-abgelehnt-wird) | string | nein | `""` | Das älteste Astra, mit dem dieses Plugin funktioniert, als Semver-Version (`"0.9.0"`). |
+| `target` [†](#was-abgelehnt-wird) | Array von Strings | nein | leer | The games this plugin is for: at most [`MAX_TARGETS`] game keys, spelled as Astra spells a game's key (`target = ["3527290"]`; [`crate::game_key`]). |
 | `call_timeout_secs` | integer | nein | abwesend | Wie lange der Daemon auf `CallTool` / `ExecuteAction` wartet, bevor er aufgibt, in Sekunden. |
 
 † hat eine Regel, die das Manifest pauschal ablehnt — siehe
@@ -127,6 +128,10 @@ als Feld, das geparst und nie gelesen wurde, sodass ein Plugin, das ein
 Daemon-Feature brauchte, das der Host nicht installiert hatte, sauber
 installierte und dann bei genau dem einen Aufruf scheiterte, der es
 brauchte — was der Nutzer als „dieses Plugin ist kaputt" liest.
+
+**`plugin.target`.** The games this plugin is for: at most [`MAX_TARGETS`] game keys, spelled as Astra spells a game's key (`target = ["3527290"]`; [`crate::game_key`]). The daemon's Link server reads it: a plugin learns WHICH game sent a Link event only when `target` names that game, and only for that game. A game the user added by hand (`local-…`) has a key that differs from machine to machine, so a plugin never names one. Empty = no game.
+
+Validated by [`PluginManifest::validate`] everywhere, CLI included.
 
 **`plugin.call_timeout_secs`.** Wie lange der Daemon auf `CallTool` /
 `ExecuteAction` wartet, bevor er aufgibt, in Sekunden. `None` → das
@@ -440,6 +445,10 @@ geprüft.
 | `kind` ist ein String außer `"plugin"` ([reserviert](#reservierte-schlüssel-auf-oberster-ebene)) | this item is a &lt;kind&gt;; this version of Astra installs plugins only. Update Astra to install it. |
 | `kind` ist kein String ([reserviert](#reservierte-schlüssel-auf-oberster-ebene)) | `kind` must be a string such as "plugin", not &lt;type&gt; |
 | `requires` ist nicht leer ([reserviert](#reservierte-schlüssel-auf-oberster-ebene)) | this item requires other items, and this version of Astra cannot install dependencies. Update Astra to install it. |
+| `target.len() > MAX_TARGETS` | plugin.target names {} games; at most {MAX_TARGETS} are allowed |
+| `target[..i].contains(key)` | plugin.target names '{key}' twice |
+| `matches!(spelling, Some(GameKeySpelling::Local))` | plugin.target '{key}' is a game added by hand; its key differs from machine to machine, so a plugin cannot name it |
+| `spelling.is_none() \|\| key.starts_with('0')` | plugin.target '{key}' is not a game key a plugin may name (expected {SPELLINGS}) |
 | `self.plugin.id.is_empty()` | plugin.id is required |
 | `self.plugin.name.is_empty()` | plugin.name is required |
 | `self.plugin.version.is_empty()` | plugin.version is required |

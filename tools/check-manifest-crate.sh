@@ -84,6 +84,7 @@ IDENTICAL=(
     "src/capabilities.rs"
     "src/permissions.rs"
     "src/platform.rs"
+    "src/game_key.rs"
     "README.md"
 )
 

@@ -76,6 +76,7 @@ Astra のコピーとバイト同一に保たれています — から生成さ
 | `license` | string | いいえ | `""` | — |
 | `homepage` | string | いいえ | `""` | — |
 | `min_astra_version` [†](#何が拒否されるか) | string | いいえ | `""` | このプラグインが動作する最も古い Astra、semver バージョンとして(`"0.9.0"`)。 |
+| `target` [†](#何が拒否されるか) | array of strings | いいえ | 空 | The games this plugin is for: at most [`MAX_TARGETS`] game keys, spelled as Astra spells a game's key (`target = ["3527290"]`; [`crate::game_key`]). |
 | `call_timeout_secs` | integer | いいえ | なし | デーモンが `CallTool` / `ExecuteAction` を諦めるまで何秒待つか。 |
 
 † マニフェストを完全に拒否するルールを持つ — 条件とメッセージについて
@@ -92,6 +93,10 @@ Astra、semver バージョンとして(`"0.9.0"`)。空 = 要件なし。
 を必要とするプラグインは、一見きれいにインストールされてしまい、その
 機能を必要とする呼び出しでだけ失敗し、ユーザーはそれを「このプラグイン
 は壊れている」と読み取りました。
+
+**`plugin.target`.** The games this plugin is for: at most [`MAX_TARGETS`] game keys, spelled as Astra spells a game's key (`target = ["3527290"]`; [`crate::game_key`]). The daemon's Link server reads it: a plugin learns WHICH game sent a Link event only when `target` names that game, and only for that game. A game the user added by hand (`local-…`) has a key that differs from machine to machine, so a plugin never names one. Empty = no game.
+
+Validated by [`PluginManifest::validate`] everywhere, CLI included.
 
 **`plugin.call_timeout_secs`。** デーモンが `CallTool` /
 `ExecuteAction` を諦めるまで何秒待つか。`None` → デーモンの
@@ -394,6 +399,10 @@ plugin.toml で宣言される UI コントリビューションの定義。
 | `kind` が `"plugin"` 以外の文字列 ([予約済み](#予約済みのトップレベルキー)) | this item is a &lt;kind&gt;; this version of Astra installs plugins only. Update Astra to install it. |
 | `kind` が文字列でない ([予約済み](#予約済みのトップレベルキー)) | `kind` must be a string such as "plugin", not &lt;type&gt; |
 | `requires` が空でない ([予約済み](#予約済みのトップレベルキー)) | this item requires other items, and this version of Astra cannot install dependencies. Update Astra to install it. |
+| `target.len() > MAX_TARGETS` | plugin.target names {} games; at most {MAX_TARGETS} are allowed |
+| `target[..i].contains(key)` | plugin.target names '{key}' twice |
+| `matches!(spelling, Some(GameKeySpelling::Local))` | plugin.target '{key}' is a game added by hand; its key differs from machine to machine, so a plugin cannot name it |
+| `spelling.is_none() \|\| key.starts_with('0')` | plugin.target '{key}' is not a game key a plugin may name (expected {SPELLINGS}) |
 | `self.plugin.id.is_empty()` | plugin.id is required |
 | `self.plugin.name.is_empty()` | plugin.name is required |
 | `self.plugin.version.is_empty()` | plugin.version is required |
