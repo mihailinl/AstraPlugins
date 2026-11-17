@@ -101,6 +101,41 @@ pub fn check_reserved_keys(
     Ok(())
 }
 
+/// The most games a plugin's `[plugin] target` may name.
+pub const MAX_TARGETS: usize = 16;
+
+/// Refuse a `[plugin] target` that is too long, repeats a game or names a key a plugin may not.
+fn check_target(target: &[String]) -> Result<()> {
+    use crate::game_key::GameKeySpelling;
+    const SPELLINGS: &str = "a Steam appid (\"3527290\"), \"epic-<name>\" or \"gog-<id>\"";
+    if target.len() > MAX_TARGETS {
+        anyhow::bail!(
+            "plugin.target names {} games; at most {MAX_TARGETS} are allowed",
+            target.len()
+        );
+    }
+    for (i, key) in target.iter().enumerate() {
+        if target[..i].contains(key) {
+            anyhow::bail!("plugin.target names '{key}' twice");
+        }
+        let spelling = GameKeySpelling::parse(key);
+        if matches!(spelling, Some(GameKeySpelling::Local)) {
+            anyhow::bail!(
+                "plugin.target '{key}' is a game added by hand; its key differs from machine \
+                 to machine, so a plugin cannot name it"
+            );
+        }
+        // A leading zero is a second spelling of a Steam appid (and `"0"` names no game); an
+        // `epic-` or `gog-` key never starts with a digit.
+        if spelling.is_none() || key.starts_with('0') {
+            anyhow::bail!(
+                "plugin.target '{key}' is not a game key a plugin may name (expected {SPELLINGS})"
+            );
+        }
+    }
+    Ok(())
+}
+
 /// Plugin identity and metadata.
 #[derive(Debug, Clone, Deserialize)]
 pub struct PluginMeta {
@@ -126,6 +161,15 @@ pub struct PluginMeta {
     /// one call that needed it, which the user reads as "this plugin is broken".
     #[serde(default)]
     pub min_astra_version: String,
+    /// The games this plugin is for: at most [`MAX_TARGETS`] game keys, spelled as Astra spells
+    /// a game's key (`target = ["3527290"]`; [`crate::game_key`]). The daemon's Link server
+    /// reads it: a plugin learns WHICH game sent a Link event only when `target` names that
+    /// game, and only for that game. A game the user added by hand (`local-…`) has a key that
+    /// differs from machine to machine, so a plugin never names one. Empty = no game.
+    ///
+    /// Validated by [`PluginManifest::validate`] everywhere, CLI included.
+    #[serde(default)]
+    pub target: Vec<String>,
     /// How long the daemon waits for `CallTool` / `ExecuteAction` before giving
     /// up, in seconds. `None` → the daemon's `PLUGIN_CALL_TIMEOUT`.
     ///
@@ -323,6 +367,7 @@ impl PluginManifest {
         // the author must hear about it from `astra-plugin check` rather than
         // from a user's daemon.
         self.required_astra_version()?;
+        check_target(&self.plugin.target)?;
         // Value only where a host version exists to compare against. A tool
         // validating a manifest is not a host, and refusing to *check* a plugin
         // because it needs a newer Astra than the CLI's own version would be
@@ -933,5 +978,61 @@ requirements_lock = "requirements.lock"
         let manifest: PluginManifest = toml::from_str(&plugin_with("kind = \"animset\"")).unwrap();
         let why = format!("{:#}", manifest.validate().expect_err("must be refused"));
         assert!(why.contains("this item is a animset"), "{why}");
+    }
+
+    fn target_refusal(target: &str) -> String {
+        let content = format!(
+            "[plugin]\nid = \"t\"\nname = \"T\"\nversion = \"1.0.0\"\ntarget = {target}\n\n\
+             [entry]\ncommand = \"./bin/x\"\n"
+        );
+        refusal(&content)
+    }
+
+    fn target_of(target: &str) -> Vec<String> {
+        let content = format!(
+            "[plugin]\nid = \"t\"\nname = \"T\"\nversion = \"1.0.0\"\ntarget = {target}\n\n\
+             [entry]\ncommand = \"./bin/x\"\n"
+        );
+        PluginManifest::from_str(&content).unwrap().plugin.target
+    }
+
+    #[test]
+    fn target_absent_is_empty_and_game_keys_are_accepted() {
+        let m = PluginManifest::from_str(&plugin_with("")).unwrap();
+        assert!(m.plugin.target.is_empty());
+        assert_eq!(
+            target_of(r#"["3527290", "epic-fortnite", "gog-1207658930"]"#).len(),
+            3
+        );
+        let sixteen: Vec<String> = (1..=16).map(|n| format!("\"{n}\"")).collect();
+        assert_eq!(target_of(&format!("[{}]", sixteen.join(","))).len(), 16);
+    }
+
+    #[test]
+    fn target_refuses_each_bad_entry_by_name() {
+        let local = target_refusal(r#"["local-0123456789abcdef"]"#);
+        assert!(
+            local.contains("added by hand") && local.contains("local-0123456789abcdef"),
+            "{local}"
+        );
+        for bad in [
+            r#"["0620"]"#,
+            r#"["4294967296"]"#,
+            r#"["0"]"#,
+            r#"["epic-Fortnite"]"#,
+            r#"["gog-007"]"#,
+            r#"[""]"#,
+        ] {
+            let why = target_refusal(bad);
+            assert!(
+                why.contains("not a game key a plugin may name") && why.contains("gog-<id>"),
+                "{bad}: {why}"
+            );
+        }
+        let many: Vec<String> = (1..=17).map(|n| format!("\"{n}\"")).collect();
+        let why = target_refusal(&format!("[{}]", many.join(",")));
+        assert!(why.contains("at most 16"), "{why}");
+        let why = target_refusal(r#"["620", "620"]"#);
+        assert!(why.contains("twice") && why.contains("620"), "{why}");
     }
 }

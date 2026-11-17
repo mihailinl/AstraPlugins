@@ -39,6 +39,7 @@
 //! differ. `README.md` records why that was chosen over crates.io.
 
 mod capabilities;
+pub mod game_key;
 mod manifest;
 mod permissions;
 mod platform;
