@@ -51,6 +51,14 @@ The full-window layers are always transparent and do not take clicks.
 The current `window.astra` request methods are `getTheme`, `getCssVariables`,
 `setCssVariable`, `setAppBackground`, `getPluginId`, `getWindowSize`,
 `getData`, `setData`, `navigateTo`, and `callBackend`.
+`setCssVariable` and `setAppBackground` restyle Astra itself, so they need
+the `set_theme_contribution` permission (high risk, its own consent
+checkbox, refused to a plugin imported as a file). Without it, the one call
+Astra accepts is lowering `--z-plugin-front` to an integer from -1 to 300,
+which puts the `background.front` layer lower; any other name or value is
+refused with an error naming the permission, and values a plugin stored
+earlier are dropped. Astra builds before this rule applied both calls
+unchecked.
 `astra.callBackend(method, params)` calls the plugin's `CallFromUi` hook.
 `onBackendMessage` and `on(name, callback)` subscribe to events from
 `PushToUi`, which needs the `push_to_ui` permission. Use event names without
