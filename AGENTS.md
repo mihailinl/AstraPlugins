@@ -113,14 +113,18 @@ reads *attested* bundles — artifacts GitHub cryptographically ties to the
 workflow run that produced them — off your GitHub Release, and verifies each one.
 A hand-built bundle is refused however good it is.
 
-1. `astra-plugin init-ci .` — writes `.github/workflows/release.yml`, pinned to a
-   commit of Astra's reusable workflow.
+1. `astra-plugin init-ci` writes `.github/workflows/release.yml`, pinned to a commit
+   of Astra's reusable workflow. `astra-plugin init-ci --binding <token>` writes the
+   other file, the line in `.well-known/astra-plugin-owner` that binds the repository
+   to your Minice account. It writes only that line. The token is the one the panel
+   minted for your account.
 2. `astra-plugin version <semver>` — sets the version in every manifest at once.
 3. Commit, tag, `git push --tags`. CI builds, attests and uploads the bundles.
 4. `astra-plugin publish --dry-run` — runs every registry check that can run
    locally, and names the ones only the registry can.
-5. `astra-plugin publish` — opens a prefilled listing request in `astra-registry`;
-   it uploads nothing and holds no credential.
+5. `astra-plugin publish` — prints, and offers to open, the panel's submission page
+   with the repository and tag filled in. You submit it there, signed in to the account
+   the repository is bound to. It uploads nothing and holds no credential.
 
 Full story: [`docs/en/publishing.md`](docs/en/publishing.md),
 [`docs/en/5-publish/`](docs/en/5-publish/release-with-ci.md).
