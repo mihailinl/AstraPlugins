@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["pinned"],
+  "properties": {
+    "pinned": { "type": "boolean" },
+    "pins_now": { "type": "integer", "minimum": 0, "maximum": 64 }
+  }
+}

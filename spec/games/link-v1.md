@@ -115,10 +115,12 @@ never a Link event (§5 "Events are edges").
 - **Sockets:** at most 4 unauthenticated sockets at once, each closed after
   5 seconds without a `hello`. A **live** session does not count against
   that pool, and at most 1 live session exists per installed GI at a time.
-- **Limits:** messages ≤64 KiB; ≤50 messages/second per session; a ping
+- **Limits:** messages ≤64 KiB; ≤50 messages/second per installed GI; a ping
   every 10 seconds; 30 seconds of silence ends the session (resumable, §3).
-- **Bursts.** Every rate in the table below is held per session, on the
-  socket itself, before a message reaches anything else in Astra. A message
+- **Bursts.** Every rate in the table below is held per installed GI —
+  never per session, since a resume replaces a session and must not start the
+  counts afresh — on the socket itself, before a message reaches anything else
+  in Astra. A message
   over its rate is dropped there, and the game gets `error{rate_limited}`.
   It never reaches the AI, a plugin or an automation, so a chatty mod cannot
   flood the daemon's event bus ahead of the limits on AI turns (§5).
@@ -340,7 +342,9 @@ what happens" with it). Besides the limits above, that turn:
   itself is not written there.
 
 A `speaks` event that cannot start a turn is kept like any other event, for
-the next user turn.
+the next turn that carries game data. That includes a chat whose model is a
+cloud model while "Game data may go to a cloud model" is off: the `speaks`
+turn does not start at all.
 
 **Voice key** (`talk`). A GI that declares `talk = true` may send `talk` when
 the player presses its key on the companion. The daemon treats it as a press

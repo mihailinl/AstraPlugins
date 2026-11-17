@@ -10,7 +10,7 @@
     { "t": "event", "name": "goal_reached", "data": { "goal": "boss_down", "players": 1 } },
     { "t": "talk" },
     { "t": "call", "id": "c1", "tool": "game_5e6f7a8b_come_here", "args": {} },
-    { "t": "result", "id": "c1", "ok": true, "data": { "distance": 7.5 } },
+    { "t": "result", "id": "c1", "ok": true, "data": { "arrived": true, "distance_m": 7.5 } },
     { "t": "call", "id": "c2", "tool": "game_5e6f7a8b_map_pin_add", "args": { "label": "copper", "kind": "ore" } },
     { "t": "result", "id": "c2", "ok": false, "error": "not_in_world" },
     { "t": "error", "code": "rate_limited" },

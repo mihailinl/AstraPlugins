@@ -2303,12 +2303,31 @@ def main() -> int:
         report(f"link/digest/{v['name']}", got == v["digest"], f"{got} vs {v['digest']}")
     message_schema = load_schema(vectors["link"]["message_schema"])
 
-    def transcript_ok(rel: str, quiet: bool) -> bool:
-        """Every message of the transcript at `rel` validates against the message schema.
+    def local_tool(exposed: str) -> str:
+        """The declared name behind `game_<entryhash8>_<name>` (link-v1.md §5 "Tools")."""
+        m = re.fullmatch(r"game_[0-9a-f]{8}_(.+)", exposed or "")
+        return m.group(1) if m else exposed
+
+    def transcript_ok(rel: str, quiet: bool, result_schemas: dict | None = None) -> bool:
+        """Every message of the transcript at `rel` validates against the message schema, and —
+        when `result_schemas` names each tool's result schema — every successful `result`'s data
+        against the schema of the tool its `call` named (link-v1.md §5 "A tool's result").
         `quiet` keeps a refused golden's expected failures out of the output."""
         all_ok = True
+        schemas = {tool: load_doc(path) for tool, path in (result_schemas or {}).items()}
+        called = {}
         for i, msg in enumerate(load_doc(rel)["messages"]):
             ok, detail = schema_ok(msg, message_schema)
+            if ok and result_schemas is not None:
+                if msg.get("t") == "call":
+                    called[msg.get("id")] = local_tool(msg.get("tool"))
+                elif msg.get("t") == "result" and msg.get("ok") is True:
+                    tool = called.get(msg.get("id"))
+                    if tool not in schemas:
+                        ok, detail = False, f"no result schema for the tool {tool!r}"
+                    else:
+                        ok, detail = schema_ok(msg.get("data", {}), schemas[tool])
+                        detail = f"result of {tool}: {detail}" if not ok else detail
             if not ok:
                 all_ok = False
                 if not quiet:
@@ -2316,11 +2335,11 @@ def main() -> int:
         return all_ok
 
     v = vectors["link"]["transcript"]
-    report("link/transcript", transcript_ok(v["file"], False) == (v["verdict"] == "accept"))
+    report("link/transcript", transcript_ok(v["file"], False, v.get("result_schemas")) == (v["verdict"] == "accept"))
     # More sessions, each with its own verdict: a refused one must have a message the schema refuses.
     for v in vectors["link"].get("transcripts", []):
         accept = v["verdict"] == "accept"
-        report(f"link/transcript/{v['name']}", transcript_ok(v["file"], not accept) == accept)
+        report(f"link/transcript/{v['name']}", transcript_ok(v["file"], not accept, v.get("result_schemas")) == accept)
 
     profile_schema = load_schema(vectors["link"]["data_schema_profile"])
     for v in vectors["link"]["data_schemas"]["valid"]:
