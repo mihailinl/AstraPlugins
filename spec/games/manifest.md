@@ -73,7 +73,7 @@ version = "0.8.1"
 engine = "unity-mono"
 
 [integration.link]
-context = true
+context = "astra/context.json"
 shares_other_players = false
 skill = "astra/SKILL.md"
 [[integration.link.tools]]
@@ -223,13 +223,25 @@ on this foundation, not something an installing user needs.
 The full grammar, limits and the wire protocol it drives are normative in
 [`link-v1.md`](link-v1.md) (**DRAFT** — may freeze as late as 0.2.8.x; see
 that document's status note). This table's shape in the TOML is the example
-in §2 above: `context`, `shares_other_players`, an optional `skill` path, and
-the three repeatable arrays `tools`, `triggers`, `events`. Limits enforced by
-`gi-probe check`, unchanged from the earlier marketplace plan: at most 16
-tools, 16 triggers and 32 events; every named JSON Schema file
-(`params`/`data`) may use only a local `$ref` and only linear-time regex
-patterns (§6 of `link-v1.md` gives the exact restricted profile and its own
-schema).
+in §2 above: an optional `context` schema path, `shares_other_players`, an
+optional `skill` path, and the three repeatable arrays `tools`, `triggers`,
+`events`. Limits enforced by `gi-probe check`, unchanged from the earlier
+marketplace plan: at most 16 tools, 16 triggers and 32 events; every named
+JSON Schema file (`context`, `params`, `data`) may use only a local `$ref`
+and only linear-time regex patterns (§6 of `link-v1.md` gives the exact
+restricted profile and its own schema).
+
+- **`context`** names the schema of what the GI tells the AI about the game
+  right now. It is a path, like `params` and `data`. The values are names
+  from an `enum`, numbers and booleans, never text (the AI profile,
+  `link-v1.md` §6). Absent means the GI sends no context.
+- **An event's `name`** is one word of `link-v1.md` §5's closed list
+  ("Event words"): `session_started`, `session_ended`, `player_hurt`,
+  `player_fell`, `player_died`, `player_revived`, `goal_reached`. Any other
+  name is refused. Its `data` schema follows the AI profile too.
+- **A tool's `name`** is at most 32 characters of `[a-z0-9_]`, so its exposed
+  name `game_<entryhash8>_<name>` stays inside the 64 characters AI providers
+  accept.
 
 Four optional keys say how far the GI's AI-facing surface reaches. What each
 one allows is normative in `link-v1.md` §5.
@@ -243,7 +255,7 @@ one allows is normative in `link-v1.md` §5.
 
 ```toml
 [integration.link]
-context = true
+context = "astra/context.json"
 shares_other_players = false
 talk = true
 
@@ -255,8 +267,8 @@ danger = "low"
 companion = true
 
 [[integration.link.events]]
-name = "boss_defeated"
-data = "astra/events/boss_defeated.json"
+name = "goal_reached"
+data = "astra/events/goal_reached.json"
 speaks = true
 ```
 
@@ -279,9 +291,9 @@ its catalogue entry (games-index-v1.md §2.1). The catalogue's ingest and
      before step 3, and a CRLF checkout gives the same digest as an LF one
      (vectors `crlf`, `crlf-as-lf`).
    - **No default is added** for a key the table leaves out. An absent
-     optional key (`skill`, `talk`, `tools`, `triggers`, `events`, and a
-     tool's `danger` or `companion`, an event's `speaks`) is absent, never
-     `false`, `"high"`, `[]` or `null`.
+     optional key (`context`, `skill`, `talk`, `tools`, `triggers`, `events`,
+     and a tool's `danger` or `companion`, an event's `speaks`) is absent,
+     never `false`, `"high"`, `[]` or `null`.
    - Writing a default out explicitly therefore changes the digest. That
      asks the player to consent again, which is the conservative reading:
      no two implementations ever have to agree on what a default is.
@@ -297,8 +309,8 @@ its catalogue entry (games-index-v1.md §2.1). The catalogue's ingest and
 A GI with no `[integration.link]` table has `link: null` and no digest. The
 digest covers the table's text only. The bytes of the files it names are
 covered separately: `link.skill_digest` covers the skill file, and
-`schema_digests` covers every `params`/`data` schema. A client asks for
-consent again when any of the three changes.
+`schema_digests` covers every `context`/`params`/`data` schema. A client asks
+for consent again when any of the three changes.
 
 **What asks for consent again on an update**, all of it read from the
 catalogue entry (games-index-v1.md §2.1), so a client can be tested against
@@ -308,7 +320,7 @@ two entries that differ in one member:
 |---|---|
 | `link.digest` | the `[integration.link]` table differs in any way (the rule above) |
 | `link.skill_digest` | the skill file's bytes differ |
-| `schema_digests` | a `params`/`data` schema is added, removed or differs |
+| `schema_digests` | a `context`/`params`/`data` schema is added, removed or differs |
 | `capabilities` | the list differs as a set: a capability added, removed or replaced (§2.3) |
 
 ### 2.7 `[[integration.content]]` — this GI's own animations, models, art and audio

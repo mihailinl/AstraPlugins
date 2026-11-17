@@ -24,6 +24,8 @@
       { "name": "link-too-many-tools", "file": "manifests/invalid/link-too-many-tools.toml", "verdict": "refuse", "check": "schema" },
       { "name": "link-danger-unknown", "file": "manifests/invalid/link-danger-unknown.toml", "verdict": "refuse", "check": "schema" },
       { "name": "link-speaks-on-trigger", "file": "manifests/invalid/link-speaks-on-trigger.toml", "verdict": "refuse", "check": "schema" },
+      { "name": "link-event-unknown-word", "file": "manifests/invalid/link-event-unknown-word.toml", "verdict": "refuse", "check": "schema" },
+      { "name": "link-context-boolean", "file": "manifests/invalid/link-context-boolean.toml", "verdict": "refuse", "check": "schema" },
       { "name": "unknown-top-level-key", "file": "manifests/invalid/unknown-top-level-key.toml", "verdict": "refuse", "check": "schema" },
       { "name": "content-kind-not-allowed", "file": "manifests/invalid/content-kind-not-allowed.toml", "verdict": "refuse", "check": "schema" },
       { "name": "content-path-traversal", "file": "manifests/invalid/content-path-traversal.toml", "verdict": "refuse", "check": "schema" },
@@ -379,17 +381,20 @@
 
   "link": {
     "digest": [
-      { "name": "game-specific-link", "manifest": "manifests/valid/game-specific-link.toml", "digest": "e26a440ebf1c3cacc9891fc8b031d9c0d8cbde9276ceeba68d1866a972a35ea2", "note": "manifest.md §2.6.1: SHA-256 of the JCS of [integration.link] as parsed" },
+      { "name": "game-specific-link", "manifest": "manifests/valid/game-specific-link.toml", "digest": "46d7ce3f88e7b0bed82498f4b4007849d9152af4e52549147a09ae174e204f7c", "note": "manifest.md §2.6.1: SHA-256 of the JCS of [integration.link] as parsed" },
       { "name": "edge", "manifest": "link/digest/edge.toml", "digest": "e1ddacccb882c0a240d26f933b883cc9ea23da7e50cfb3679c432539d5b95dd2", "note": "keys out of order, non-ASCII, a quote, a backslash, an empty array, absent keys left absent; checked against two other JCS implementations" },
       { "name": "crlf", "manifest": "link/digest/crlf.toml", "digest": "1c6ac6ebe826e018f2b91766c97fcb6a28a438644736c4711176ebb81eac6527", "crlf": true, "note": "CRLF line endings and a multi-line string with CRLF newlines: normalised to LF, so this equals crlf-as-lf" },
       { "name": "crlf-as-lf", "manifest": "link/digest/crlf-as-lf.toml", "digest": "1c6ac6ebe826e018f2b91766c97fcb6a28a438644736c4711176ebb81eac6527", "note": "the same table with LF line endings" }
     ],
     "message_schema": "spec/games/schemas/link-v1-message.schema.json",
     "data_schema_profile": "spec/games/schemas/link-v1-data-schema-profile.schema.json",
+    "data_schema_profile_ai": "spec/games/schemas/link-v1-ai-data-profile.schema.json",
     "transcript": { "file": "link/transcript.json", "verdict": "accept", "note": "every message in messages[] must validate against the message schema" },
     "transcripts": [
       { "name": "speaks-talk", "file": "link/transcript-speaks-talk.json", "verdict": "accept", "note": "link-v1.md §5: talk, quiet, the speaks and talk grants, a refusal code; every message must validate" },
-      { "name": "talk-with-text", "file": "link/transcript-talk-with-text.json", "verdict": "refuse", "note": "a talk carrying text: some message must fail the schema" }
+      { "name": "talk-with-text", "file": "link/transcript-talk-with-text.json", "verdict": "refuse", "note": "a talk carrying text: some message must fail the schema" },
+      { "name": "context-text", "file": "link/transcript-context-text.json", "verdict": "refuse", "note": "link-v1.md §5 'Events and context': a context carrying text, not facts" },
+      { "name": "unknown-event", "file": "link/transcript-unknown-event.json", "verdict": "refuse", "note": "link-v1.md §5 'Event words': a word not on the closed v1 list" }
     ],
     "data_schemas": {
       "valid": [
@@ -400,6 +405,13 @@
         { "name": "too-many-properties", "file": "link/data-schemas/invalid/too-many-properties.json", "verdict": "refuse", "check": "schema" },
         { "name": "nested-object", "file": "link/data-schemas/invalid/nested-object.json", "verdict": "refuse", "check": "schema" },
         { "name": "string-too-long", "file": "link/data-schemas/invalid/string-too-long.json", "verdict": "refuse", "check": "schema" }
+      ],
+      "ai_valid": [
+        { "name": "player_fell", "file": "link/data-schemas/ai-valid/player_fell.json", "verdict": "accept", "note": "an event's data: a number, an enum, a boolean" },
+        { "name": "context", "file": "link/data-schemas/ai-valid/context.json", "verdict": "accept", "note": "a context schema: facts only" }
+      ],
+      "ai_invalid": [
+        { "name": "free-string", "file": "link/data-schemas/ai-invalid/free-string.json", "verdict": "refuse", "check": "schema", "note": "passes the general profile; the AI profile refuses a string that is not an enum" }
       ]
     }
   },

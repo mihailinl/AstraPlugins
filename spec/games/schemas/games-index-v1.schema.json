@@ -90,7 +90,7 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "context": { "type": "boolean" },
+        "context": { "type": "boolean", "description": "games-index-v1.md §2.1: true when the link table names a context schema." },
         "shares_other_players": { "type": "boolean" },
         "skill_digest": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
         "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },

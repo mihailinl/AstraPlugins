@@ -1,5 +1,5 @@
 # Valid: a game-specific GI whose [integration.link] uses the optional keys of manifest.md §2.6:
-# talk on the table, danger and companion on tools, speaks on an event. Absent keys stay absent
+# a context schema and talk on the table, danger and companion on tools, speaks on an event. Absent keys stay absent
 # (map_pin_add has no companion, player_died no speaks), as the digest rule requires.
 schema = 1
 
@@ -15,7 +15,7 @@ repo = "https://github.com/someone/viking-astra"
 companion = ["presentation"]
 
 [integration.link]
-context = true
+context = "astra/context.json"
 shares_other_players = false
 talk = true
 
@@ -39,8 +39,8 @@ params = "astra/tools/drop_item.json"
 danger = "high"
 
 [[integration.link.events]]
-name = "boss_defeated"
-data = "astra/events/boss_defeated.json"
+name = "goal_reached"
+data = "astra/events/goal_reached.json"
 speaks = true
 
 [[integration.link.events]]

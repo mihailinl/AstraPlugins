@@ -1,20 +1,20 @@
 {
   "schema": "astra.link.transcript/1",
-  "note": "A Link v1 session of testdata/games/manifests/valid/link-danger-speaks-talk.toml in wire order, using link-v1.md §5's talk, quiet, speaks and refusal codes. Each message validates against spec/games/schemas/link-v1-message.schema.json.",
+  "note": "A Link v1 session of testdata/games/manifests/valid/link-danger-speaks-talk.toml in wire order, using link-v1.md §5's context facts, talk, quiet, speaks and refusal codes. Each message validates against spec/games/schemas/link-v1-message.schema.json.",
   "messages": [
     { "t": "hello", "token": "7c2e9a1f4b8d3065c1e9a2f6b7d84e1a9c2e7b6d4805a1c9e2f6b7d84e1a9c2e", "integration": "someone.viking-astra", "v": 1, "client": "BepInEx 5.4.23" },
-    { "t": "welcome", "granted": { "tools": ["game_5e6f7a8b_come_here", "game_5e6f7a8b_map_pin_add", "game_5e6f7a8b_drop_item"], "triggers": [], "events": ["boss_defeated", "player_died"], "context": true, "skill": false, "speaks": true, "talk": true }, "limits": { "max_message_bytes": 65536, "max_messages_per_second": 50 }, "resume": "r.1a2b3c4d5e6f7081" },
-    { "t": "context", "text": "Day 12, evening. Black Forest, light rain. Health 80%, stamina 45%. On foot. Two greydwarfs nearby." },
+    { "t": "welcome", "granted": { "tools": ["game_5e6f7a8b_come_here", "game_5e6f7a8b_map_pin_add", "game_5e6f7a8b_drop_item"], "triggers": [], "events": ["goal_reached", "player_died"], "context": true, "skill": false, "speaks": true, "talk": true }, "limits": { "max_message_bytes": 65536, "max_messages_per_second": 50 }, "resume": "r.1a2b3c4d5e6f7081" },
+    { "t": "context", "data": { "day": 12, "night": false, "biome": "black_forest", "health_pct": 80, "stamina_pct": 45, "wet": true, "enemies_near": 2 } },
     { "t": "quiet", "on": true },
     { "t": "quiet", "on": false },
-    { "t": "event", "name": "boss_defeated", "data": { "boss": "the_elder", "players": 1 } },
+    { "t": "event", "name": "goal_reached", "data": { "goal": "boss_down", "players": 1 } },
     { "t": "talk" },
     { "t": "call", "id": "c1", "tool": "game_5e6f7a8b_come_here", "args": {} },
     { "t": "result", "id": "c1", "ok": true, "data": { "distance": 7.5 } },
     { "t": "call", "id": "c2", "tool": "game_5e6f7a8b_map_pin_add", "args": { "label": "copper", "kind": "ore" } },
     { "t": "result", "id": "c2", "ok": false, "error": "not_in_world" },
     { "t": "error", "code": "rate_limited" },
-    { "t": "grants", "granted": { "tools": [], "triggers": [], "events": ["boss_defeated", "player_died"], "context": true, "skill": false, "speaks": false, "talk": false } },
+    { "t": "grants", "granted": { "tools": [], "triggers": [], "events": ["goal_reached", "player_died"], "context": true, "skill": false, "speaks": false, "talk": false } },
     { "t": "end", "reason": "game_exited" }
   ]
 }

@@ -34,17 +34,21 @@
       "additionalProperties": false,
       "properties": {
         "t": { "const": "event" },
-        "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,31}$" },
+        "name": {
+          "enum": ["session_started", "session_ended", "player_hurt", "player_fell", "player_died", "player_revived", "goal_reached"],
+          "description": "link-v1.md §5 'Event words': the closed v1 list. Any other word is refused with error{unknown_event}."
+        },
         "data": { "type": "object" }
       }
     },
     {
       "type": "object",
-      "required": ["t", "text"],
+      "required": ["t", "data"],
       "additionalProperties": false,
+      "description": "link-v1.md §4, §5 'Events and context'. Facts valid against the declared context schema (the AI profile, §6); never text.",
       "properties": {
         "t": { "const": "context" },
-        "text": { "type": "string", "maxLength": 2048 }
+        "data": { "type": "object" }
       }
     },
     {
@@ -80,7 +84,7 @@
         "error": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9_]{0,31}$",
-          "description": "link-v1.md §5 'Refusal codes': not_holding, not_in_world, player_dead, busy, unknown_target, bad_args, or another code of this shape."
+          "description": "link-v1.md §5 'Refusal codes': not_holding, not_in_world, player_dead, busy, unknown_target, bad_args, or another code of this shape (the daemon's own not_in_game has it too)."
         }
       }
     },
@@ -127,7 +131,7 @@
       "additionalProperties": false,
       "properties": {
         "t": { "const": "error" },
-        "code": { "enum": ["not_granted", "rate_limited", "too_large", "bad_schema", "withdrawn"] }
+        "code": { "enum": ["not_granted", "rate_limited", "too_large", "bad_schema", "unknown_event", "withdrawn"] }
       }
     }
   ],

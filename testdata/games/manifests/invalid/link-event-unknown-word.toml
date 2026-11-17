@@ -1,0 +1,21 @@
+# Invalid: an event whose name is not one of link-v1.md §5's closed v1 words ("Event words").
+# boss_defeated says what goal_reached already says; a new word comes only by a change to the spec.
+schema = 1
+
+[integration]
+id = "someone.event-unknown-word"
+name = "Event Unknown Word"
+version = "0.1.0"
+license = "MIT"
+
+[integration.link]
+shares_other_players = false
+
+[[integration.link.events]]
+name = "boss_defeated"
+data = "astra/events/boss_defeated.json"
+
+[target]
+exe = "Game.exe"
+platforms = ["windows-x64"]
+anti_cheat = "none"

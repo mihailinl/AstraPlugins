@@ -9,7 +9,6 @@ version = "0.1.0"
 license = "MIT"
 
 [integration.link]
-context = false
 shares_other_players = false
 
 [[integration.link.tools]]

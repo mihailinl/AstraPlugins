@@ -2331,6 +2331,22 @@ def main() -> int:
         doc = load_doc(v["file"])
         ok, detail = schema_ok(doc, profile_schema)
         report(f"link/data-schema/invalid/{v['name']}", ok is False, detail)
+    # link-v1.md §6 "The AI profile": a schema whose data reaches the AI (context, events) passes
+    # the general profile AND the stricter one. A refused golden passes the general profile, so it
+    # proves the stricter one is what refuses it.
+    if "data_schema_profile_ai" in vectors["link"]:
+        ai_schema = load_schema(vectors["link"]["data_schema_profile_ai"])
+        for v in vectors["link"]["data_schemas"].get("ai_valid", []):
+            doc = load_doc(v["file"])
+            ok, detail = schema_ok(doc, profile_schema)
+            ok_ai, detail_ai = schema_ok(doc, ai_schema)
+            report(f"link/data-schema/ai-valid/{v['name']}", ok and ok_ai, detail or detail_ai)
+        for v in vectors["link"]["data_schemas"].get("ai_invalid", []):
+            doc = load_doc(v["file"])
+            ok, detail = schema_ok(doc, profile_schema)
+            ok_ai, detail_ai = schema_ok(doc, ai_schema)
+            report(f"link/data-schema/ai-invalid/{v['name']}", ok and ok_ai is False,
+                   detail if not ok else detail_ai)
 
     print(f"\n{checked} goldens checked, {len(failures)} failed.")
     if failures:

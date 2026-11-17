@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["height_m"],
+  "properties": {
+    "height_m": { "type": "number", "minimum": 0, "maximum": 10000 },
+    "surface": { "type": "string", "enum": ["rock", "snow", "ice", "water", "other"] },
+    "hurt": { "type": "boolean" }
+  }
+}
