@@ -80,6 +80,7 @@ skill = "astra/SKILL.md"
 name = "drop_item"
 description = "Drop the item the player holds"
 params = "astra/tools/drop_item.json"
+result = "astra/tools/drop_item.result.json"
 [[integration.link.triggers]]
 name = "boss_spawned"
 label = "A boss appears"
@@ -227,7 +228,7 @@ in §2 above: an optional `context` schema path, `shares_other_players`, an
 optional `skill` path, and the three repeatable arrays `tools`, `triggers`,
 `events`. Limits enforced by `gi-probe check`, unchanged from the earlier
 marketplace plan: at most 16 tools, 16 triggers and 32 events; every named
-JSON Schema file (`context`, `params`, `data`) may use only a local `$ref`
+JSON Schema file (`context`, `params`, `result`, `data`) may use only a local `$ref`
 and only linear-time regex patterns (§6 of `link-v1.md` gives the exact
 restricted profile and its own schema).
 
@@ -242,6 +243,9 @@ restricted profile and its own schema).
 - **A tool's `name`** is at most 32 characters of `[a-z0-9_]`, so its exposed
   name `game_<entryhash8>_<name>` stays inside the 64 characters AI providers
   accept.
+- **A tool's `result`** is required: the path of the schema its result is
+  checked against before the model sees it (the AI profile; `link-v1.md` §5,
+  "A tool's result").
 
 Four optional keys say how far the GI's AI-facing surface reaches. What each
 one allows is normative in `link-v1.md` §5.
@@ -263,6 +267,7 @@ talk = true
 name = "come_here"
 description = "Walk to the player"
 params = "astra/tools/come_here.json"
+result = "astra/tools/come_here.result.json"
 danger = "low"
 companion = true
 
@@ -309,8 +314,8 @@ its catalogue entry (games-index-v1.md §2.1). The catalogue's ingest and
 A GI with no `[integration.link]` table has `link: null` and no digest. The
 digest covers the table's text only. The bytes of the files it names are
 covered separately: `link.skill_digest` covers the skill file, and
-`schema_digests` covers every `context`/`params`/`data` schema. A client asks
-for consent again when any of the three changes.
+`schema_digests` covers every `context`/`params`/`result`/`data` schema. A
+client asks for consent again when any of the three changes.
 
 **What asks for consent again on an update**, all of it read from the
 catalogue entry (games-index-v1.md §2.1), so a client can be tested against
@@ -320,7 +325,7 @@ two entries that differ in one member:
 |---|---|
 | `link.digest` | the `[integration.link]` table differs in any way (the rule above) |
 | `link.skill_digest` | the skill file's bytes differ |
-| `schema_digests` | a `context`/`params`/`data` schema is added, removed or differs |
+| `schema_digests` | a `context`/`params`/`result`/`data` schema is added, removed or differs |
 | `capabilities` | the list differs as a set: a capability added, removed or replaced (§2.3) |
 
 ### 2.7 `[[integration.content]]` — this GI's own animations, models, art and audio

@@ -26,6 +26,7 @@
       { "name": "link-speaks-on-trigger", "file": "manifests/invalid/link-speaks-on-trigger.toml", "verdict": "refuse", "check": "schema" },
       { "name": "link-event-unknown-word", "file": "manifests/invalid/link-event-unknown-word.toml", "verdict": "refuse", "check": "schema" },
       { "name": "link-context-boolean", "file": "manifests/invalid/link-context-boolean.toml", "verdict": "refuse", "check": "schema" },
+      { "name": "link-tool-no-result", "file": "manifests/invalid/link-tool-no-result.toml", "verdict": "refuse", "check": "schema" },
       { "name": "unknown-top-level-key", "file": "manifests/invalid/unknown-top-level-key.toml", "verdict": "refuse", "check": "schema" },
       { "name": "content-kind-not-allowed", "file": "manifests/invalid/content-kind-not-allowed.toml", "verdict": "refuse", "check": "schema" },
       { "name": "content-path-traversal", "file": "manifests/invalid/content-path-traversal.toml", "verdict": "refuse", "check": "schema" },
@@ -381,7 +382,7 @@
 
   "link": {
     "digest": [
-      { "name": "game-specific-link", "manifest": "manifests/valid/game-specific-link.toml", "digest": "46d7ce3f88e7b0bed82498f4b4007849d9152af4e52549147a09ae174e204f7c", "note": "manifest.md §2.6.1: SHA-256 of the JCS of [integration.link] as parsed" },
+      { "name": "game-specific-link", "manifest": "manifests/valid/game-specific-link.toml", "digest": "6163886130696822d12248f4f7342e427b72d7808daab8ebc8cec050e4f77a2b", "note": "manifest.md §2.6.1: SHA-256 of the JCS of [integration.link] as parsed" },
       { "name": "edge", "manifest": "link/digest/edge.toml", "digest": "e1ddacccb882c0a240d26f933b883cc9ea23da7e50cfb3679c432539d5b95dd2", "note": "keys out of order, non-ASCII, a quote, a backslash, an empty array, absent keys left absent; checked against two other JCS implementations" },
       { "name": "crlf", "manifest": "link/digest/crlf.toml", "digest": "1c6ac6ebe826e018f2b91766c97fcb6a28a438644736c4711176ebb81eac6527", "crlf": true, "note": "CRLF line endings and a multi-line string with CRLF newlines: normalised to LF, so this equals crlf-as-lf" },
       { "name": "crlf-as-lf", "manifest": "link/digest/crlf-as-lf.toml", "digest": "1c6ac6ebe826e018f2b91766c97fcb6a28a438644736c4711176ebb81eac6527", "note": "the same table with LF line endings" }
@@ -408,10 +409,14 @@
       ],
       "ai_valid": [
         { "name": "player_fell", "file": "link/data-schemas/ai-valid/player_fell.json", "verdict": "accept", "note": "an event's data: a number, an enum, a boolean" },
-        { "name": "context", "file": "link/data-schemas/ai-valid/context.json", "verdict": "accept", "note": "a context schema: facts only" }
+        { "name": "context", "file": "link/data-schemas/ai-valid/context.json", "verdict": "accept", "note": "a context schema: facts only" },
+        { "name": "come_here-result", "file": "link/data-schemas/ai-valid/come_here.result.json", "verdict": "accept", "note": "a tool's result schema: a boolean, a number, an enum of ids" }
       ],
       "ai_invalid": [
-        { "name": "free-string", "file": "link/data-schemas/ai-invalid/free-string.json", "verdict": "refuse", "check": "schema", "note": "passes the general profile; the AI profile refuses a string that is not an enum" }
+        { "name": "free-string", "file": "link/data-schemas/ai-invalid/free-string.json", "verdict": "refuse", "check": "schema", "note": "passes the general profile; the AI profile refuses a string that is not an enum" },
+        { "name": "enum-not-id", "file": "link/data-schemas/ai-invalid/enum-not-id.json", "verdict": "refuse", "check": "schema", "note": "an enum value that is text, not an id" },
+        { "name": "property-not-id", "file": "link/data-schemas/ai-invalid/property-not-id.json", "verdict": "refuse", "check": "schema", "note": "a property named as text, not an id" },
+        { "name": "enum-too-long", "file": "link/data-schemas/ai-invalid/enum-too-long.json", "verdict": "refuse", "check": "schema", "note": "65 values, one over the AI profile's 64" }
       ]
     }
   },

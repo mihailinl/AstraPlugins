@@ -15,70 +15,87 @@ shares_other_players = false
 name = "tool_01"
 description = "tool 1"
 params = "astra/tools/01.json"
+result = "astra/tools/01.result.json"
 [[integration.link.tools]]
 name = "tool_02"
 description = "tool 2"
 params = "astra/tools/02.json"
+result = "astra/tools/02.result.json"
 [[integration.link.tools]]
 name = "tool_03"
 description = "tool 3"
 params = "astra/tools/03.json"
+result = "astra/tools/03.result.json"
 [[integration.link.tools]]
 name = "tool_04"
 description = "tool 4"
 params = "astra/tools/04.json"
+result = "astra/tools/04.result.json"
 [[integration.link.tools]]
 name = "tool_05"
 description = "tool 5"
 params = "astra/tools/05.json"
+result = "astra/tools/05.result.json"
 [[integration.link.tools]]
 name = "tool_06"
 description = "tool 6"
 params = "astra/tools/06.json"
+result = "astra/tools/06.result.json"
 [[integration.link.tools]]
 name = "tool_07"
 description = "tool 7"
 params = "astra/tools/07.json"
+result = "astra/tools/07.result.json"
 [[integration.link.tools]]
 name = "tool_08"
 description = "tool 8"
 params = "astra/tools/08.json"
+result = "astra/tools/08.result.json"
 [[integration.link.tools]]
 name = "tool_09"
 description = "tool 9"
 params = "astra/tools/09.json"
+result = "astra/tools/09.result.json"
 [[integration.link.tools]]
 name = "tool_10"
 description = "tool 10"
 params = "astra/tools/10.json"
+result = "astra/tools/10.result.json"
 [[integration.link.tools]]
 name = "tool_11"
 description = "tool 11"
 params = "astra/tools/11.json"
+result = "astra/tools/11.result.json"
 [[integration.link.tools]]
 name = "tool_12"
 description = "tool 12"
 params = "astra/tools/12.json"
+result = "astra/tools/12.result.json"
 [[integration.link.tools]]
 name = "tool_13"
 description = "tool 13"
 params = "astra/tools/13.json"
+result = "astra/tools/13.result.json"
 [[integration.link.tools]]
 name = "tool_14"
 description = "tool 14"
 params = "astra/tools/14.json"
+result = "astra/tools/14.result.json"
 [[integration.link.tools]]
 name = "tool_15"
 description = "tool 15"
 params = "astra/tools/15.json"
+result = "astra/tools/15.result.json"
 [[integration.link.tools]]
 name = "tool_16"
 description = "tool 16"
 params = "astra/tools/16.json"
+result = "astra/tools/16.result.json"
 [[integration.link.tools]]
 name = "tool_17"
 description = "tool 17"
 params = "astra/tools/17.json"
+result = "astra/tools/17.result.json"
 
 [target]
 exe = "Game.exe"

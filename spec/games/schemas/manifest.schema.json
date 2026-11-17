@@ -111,12 +111,13 @@
           "maxItems": 16,
           "items": {
             "type": "object",
-            "required": ["name", "description", "params"],
+            "required": ["name", "description", "params", "result"],
             "additionalProperties": false,
             "properties": {
               "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,31}$", "description": "At most 32 characters, so game_<entryhash8>_<name> stays within 46 (link-v1.md §5 'Tools')." },
               "description": { "type": "string", "maxLength": 200 },
               "params": { "type": "string" },
+              "result": { "type": "string", "description": "link-v1.md §5 'A tool's result': the path of the result schema, held to §6's AI profile. Required." },
               "danger": { "enum": ["low", "high"], "description": "link-v1.md §5 'Tool danger'. Absent = high; low is honoured only from a signed catalogue entry." },
               "companion": { "type": "boolean", "description": "link-v1.md §5 'Tools that act on her'. Absent = false." }
             }

@@ -24,7 +24,14 @@
       "properties": {
         "t": { "const": "welcome" },
         "granted": { "$ref": "#/$defs/grantedSet" },
-        "limits": { "type": "object" },
+        "limits": {
+          "type": "object",
+          "description": "link-v1.md §4: integers, at most the protocol's own (65536, 50); unknown members are ignored.",
+          "properties": {
+            "max_message_bytes": { "type": "integer", "minimum": 1024, "maximum": 65536 },
+            "max_messages_per_second": { "type": "integer", "minimum": 1, "maximum": 50 }
+          }
+        },
         "resume": { "type": "string" }
       }
     },

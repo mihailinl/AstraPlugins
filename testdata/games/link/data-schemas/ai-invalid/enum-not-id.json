@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "biome": { "type": "string", "enum": ["meadows", "Black Forest"], "description": "An enum value is an id, never a name to show: 'Black Forest' is text." }
+  }
+}

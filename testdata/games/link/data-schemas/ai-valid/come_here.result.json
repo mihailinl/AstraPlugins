@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["arrived"],
+  "properties": {
+    "arrived": { "type": "boolean" },
+    "distance_m": { "type": "number", "minimum": 0 },
+    "blocked_by": { "type": "string", "enum": ["water", "cliff", "building", "none"] }
+  }
+}

@@ -15,6 +15,7 @@ shares_other_players = false
 name = "open_door"
 description = "Open the door in front of the player"
 params = "astra/tools/open_door.json"
+result = "astra/tools/open_door.result.json"
 danger = "medium"
 
 [target]

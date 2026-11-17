@@ -1,0 +1,23 @@
+# Invalid: a tool without a `result` schema. What a tool answers reaches the model only as the
+# fields its declared result schema names (link-v1.md §5 "A tool's result"), so every tool declares one.
+schema = 1
+
+[integration]
+id = "someone.tool-no-result"
+name = "Tool No Result"
+version = "0.1.0"
+license = "MIT"
+
+[integration.link]
+shares_other_players = false
+
+[[integration.link.tools]]
+name = "get_inventory"
+description = "What the player carries"
+params = "astra/tools/get_inventory.json"
+danger = "low"
+
+[target]
+exe = "Game.exe"
+platforms = ["windows-x64"]
+anti_cheat = "none"

@@ -85,10 +85,14 @@ never a Link event (§5 "Events are edges").
   token expires after **10 minutes**.
 - **First use spends the file token.** The game's first `hello` consumes it
   and the daemon answers with a `resume` token held only in memory. A
-  reconnect uses `hello{resume}` and is accepted only while no session for
-  that GI is already live. Every `welcome` rotates `resume`. Game exit kills
-  both tokens. (This is what covers a Unity load stall longer than 30 s: the
-  session ends and resumes rather than failing outright.)
+  reconnect uses `hello{resume}`. A valid resume **replaces** a session of
+  that GI that is still live: the old socket gets `end{replaced}` and is
+  closed, so a half-open socket never locks the game out for 30 s. Every
+  `welcome` rotates `resume`. Game exit kills both tokens. (This is what
+  covers a Unity load stall longer than 30 s: the session ends and resumes
+  rather than failing outright.)
+- **A daemon restart loses `resume`**, which lived only in its memory: Link is
+  then off for that game until the next Play writes a new link file.
 - **A hello the daemon will not take** — a spent or unknown token, a resume it
   does not know, a GI with no Link now — is answered `error{not_granted}`, and
   the socket closed. The game does not send that token or resume again: it
@@ -127,12 +131,12 @@ never a Link event (§5 "Events are edges").
 | dir | `t` | fields | limits |
 |---|---|---|---|
 | game→A | `hello` | `token\|resume`, `integration`, `v`, `client` | first message only, within 5 s of connecting |
-| A→game | `welcome` | `granted{tools,triggers,events,context,skill,speaks,talk}`, `limits`, `resume` | — |
+| A→game | `welcome` | `granted{tools,triggers,events,context,skill,speaks,talk}`, `limits{max_message_bytes,max_messages_per_second}`, `resume` | `limits` are integers, at most the protocol's own (65536, 50); a game keeps under them |
 | game→A | `event` | `name`, `data` | `name` is a v1 word (§5 "Event words") that this GI declared; `data` valid against its declared schema (the AI profile, §6); ≤4 KiB; ≤2/s, in bursts of at most 5 |
 | game→A | `context` | `data` | valid against the declared `context` schema (the AI profile, §6); ≤2 KiB; replaces the previous value; ≤1/s |
 | game→A | `trigger` | `name`, `data` | `name` must be declared; schema-valid; goes through `trigger_admission` |
 | A→game | `call` | `id`, `tool`, `args` | `args` schema-valid |
-| game→A | `result` | `id`, `ok`, `data\|error` | ≤16 KiB; 10 s timeout; `error` is a code (§5 "Refusal codes") |
+| game→A | `result` | `id`, `ok`, `data\|error` | ≤16 KiB; 10 s timeout; `data` valid against the tool's `result` schema (§5 "A tool's result"); `error` is a code (§5 "Refusal codes") |
 | game→A | `talk` | — | `talk` granted; ≤1 per 2 s; carries no text (§5 "Voice key") |
 | game→A | `quiet` | `on` | `true` while the game is in a menu, a cutscene or paused, `false` again when play resumes; ≤2/s (§5 "Speaking on her own") |
 | A→game | `grants` | the new granted set | sent on any switch change |
@@ -150,14 +154,16 @@ The granted set a live session actually has is the **intersection** of:
    under `<data>/games/link/<entry>/<version>/` — never the profile's own
    copy, which the GI's own code can rewrite. Without such an entry there is
    no session at all (§1, "Only from the signed catalogue");
-2. the current consent digest (`games-index-v1.md`-adjacent; the daemon's
-   `updates.rs` owns the digest itself);
+2. the current consent digest (`manifest.md` §2.6.1; in the daemon,
+   `games/service.rs` holds it);
 3. not withdrawn (`games-withdrawn-v1.md`);
 4. the user switches on the game's row, each off until the user turns it on:
    "AI may act" gates tools, triggers and `talk`; "Tell Astra what happens"
-   gates context and events, for the AI and for plugins alike; "She may speak
-   on her own" gates `speaks` and has no effect while "Tell Astra what
-   happens" is off;
+   gates context and events for the AI; "She may speak on her own" gates
+   `speaks` and has no effect while "Tell Astra what happens" is off. One more
+   switch is global, in Settings, and off by default: "Plugins hear game
+   events" gates events for plugins (below), on its own — a user may give an
+   event to a plugin without giving it to the AI, and the other way round;
 5. catalogue freshness of at most 7 days — past that there is no Link
    session at all, and the game still plays (`end{catalogue_stale}` is sent
    to a session that was already live when the index went stale).
@@ -170,6 +176,14 @@ so the whole name is at most 46 characters, inside the 64 characters of
 is live, are approved by their declared danger (below), and a result reaches
 the model labelled as **untrusted** tool output — never silently merged into
 the model's own context as if it had said it.
+
+**A tool's result** is facts too. Every tool declares a `result` schema
+(`manifest.md` §2.6) under the AI profile (§6), so it is in `schema_digests`
+and in the consent like `params`. The daemon validates `result.data` (absent
+is `{}`) against it, and the model gets only the fields that schema names:
+names from its enums, numbers, booleans. An item's id is a name from a
+declared `enum` too; there are no free strings. Data that does not match
+never reaches the model: it gets the daemon's own code `bad_result` instead.
 
 **Tool danger.** Each tool declares `danger = "low"` or `"high"`
 (`manifest.md` §2.6); absent means `"high"`.
@@ -216,6 +230,21 @@ regardless of the user's own auto-approve setting. This is the prompt-
 injection mitigation: whatever a game sends, it cannot talk the AI into a
 destructive action on the user's own auto-approve trust.
 
+**Which turns carry game data.** Context, events and tool results from a
+game go only into:
+- a direct human turn in the main chat;
+- a `speaks` turn (below).
+
+Never into a «Code» turn (an external coding agent), a sub-agent's turn or a
+background one. The context goes into a turn only when it changed since the
+last turn that carried it, not into every turn.
+
+**A cloud model only behind a global switch.** In Settings, off by default:
+"Game data may go to a cloud model". While it is off, no game data goes into
+any turn whose model is not local. A model is local when its endpoint is a
+loopback address (`127.0.0.0/8`, `::1`, `localhost`); every other endpoint,
+Astra's own server included, is a cloud model.
+
 **How much game data a turn carries.** At most **4 KiB** of game data per
 turn in all: the current `context` value first, then the events, newest
 first, while the next one still fits. The rest are left out of that turn.
@@ -226,8 +255,8 @@ credits like any other input.
 `enum` the GI declared, numbers and booleans (the AI profile, §6): no game
 ever puts text in front of the model. Events and context exist only inside a
 live session that passed `hello`/`welcome` (§1, §3). They reach the AI only as
-quoted, labelled data on the **next user-initiated turn** — never on their
-own, except a `speaks` event under the rules below. Only the last 20 events
+quoted, labelled data on the **next turn that carries game data** (above) —
+never on their own, except a `speaks` event under the rules below. Only the last 20 events
 plus the current context value are kept, in memory, for the live session.
 Neither is ever written to long-term memory, and an event is never written to
 the chat history (Astra's spoken reply to a `speaks` event is, below).
@@ -263,7 +292,13 @@ event's word and its data, never the game's name or key:
 - a plugin learns which game sent it only when its `plugin.toml` names that
   game in `target`, and only for that game;
 - it reaches only plugins granted `subscribe_events` for that type, and only
-  while the session is live and "Tell Astra what happens" is on.
+  while the session is live and the global "Plugins hear game events" is on
+  (§5, item 4), whatever "Tell Astra what happens" says.
+
+That daemon event is raised by the daemon's `games/link` server alone, so it
+exists only in a build with the games catalogue (§1). It replaces the
+engine-side `game_event` once planned for PEAK: events never go over the
+bridge.
 
 `target` is a `[plugin]` key of `plugin.toml`: an array of at most 16 game
 keys, spelled as in §2 (`target = ["3527290"]`). A key for a game the user
@@ -278,13 +313,13 @@ turn a plugin asks for (`send_chat_message`) in reaction to a game event it
 received; the daemon knows the second from the event's causal chain. Every
 such turn:
 - is off by default: a `speaks` turn needs "She may speak on her own", and a
-  plugin's turn needs the plugin's own `send_chat_message` grant as well as
-  "Tell Astra what happens";
+  plugin's turn needs the plugin's own `send_chat_message` grant, besides
+  the "Plugins hear game events" that let the event reach it;
 - starts at most once per 2 minutes for each GI (a `speaks` turn) or each
   plugin (a plugin's turn), at most 10 times per hour for each GI, and at most
   10 times per hour for all games together;
-- reaches a cloud AI model only while the user's global switch for game data
-  in the cloud is on, which is off by default;
+- carries game data only as "Which turns carry game data" allows, and so to
+  a cloud model only behind its global switch;
 - is paid from the user's ordinary credits;
 - writes nothing to long-term memory.
 
@@ -300,8 +335,9 @@ what happens" with it). Besides the limits above, that turn:
 - is a short turn with no extended reasoning, and its context is that event
   and the current `context` value, quoted and labelled like any game data;
 - may call only this GI's own `low` tools, no built-in or other tool;
-- is spoken like any other reply. That reply is kept in the chat with a band
-  saying it reacts to a game event; the event itself is not written there.
+- is spoken like any other reply. That reply is kept in the current main
+  conversation, with a band saying it reacts to a game event; the event
+  itself is not written there.
 
 A `speaks` event that cannot start a turn is kept like any other event, for
 the next user turn.
@@ -321,11 +357,15 @@ switched and rate-limited.
 a game integration is its own owner, distinct from a plugin's `PluginId`
 today (a daemon change, in the daemon's half). Trigger data must validate
 against its declared schema. Its fields reach an automation as `game.<key>`
-variables, and the workflow binder refuses `{game.*}` inside shell or raw
-command text outright — such a value may only be passed as a quoted argument
-or an environment variable. A trigger runs only the automations the user
-themselves bound to it. Trigger data never reaches the model, which is why it
-is the one place a game's own string (at most 64 characters, §6) may appear.
+variables. The workflow binder refuses `{game.*}` outright:
+- inside shell or raw command text — there such a value may only be passed as
+  a quoted argument or an environment variable;
+- in every text that goes to a model: an AI node's prompt, a task, a chat
+  message.
+
+A trigger runs only the automations the user themselves bound to it. Since
+the binder keeps trigger data from every model, trigger data is the one place
+a game's own string (at most 64 characters, §6) may appear.
 
 **Skill.** A read-only skills source, at most 16 KiB, labelled as coming
 from the GI, visible to the AI only while the session is live.
@@ -333,7 +373,8 @@ from the GI, visible to the AI only while the session is live.
 ## 6. The restricted data-schema profile
 
 Every schema file a manifest names (`[integration.link].context`,
-`.tools[].params`, `.triggers[].data`, `.events[].data`) must itself be
+`.tools[].params`, `.tools[].result`, `.triggers[].data`, `.events[].data`)
+must itself be
 restricted, so that validating untrusted game data against it can never
 become the attack:
 
@@ -354,9 +395,14 @@ itself obeys the restriction above, before that file is ever used to
 validate a live `event`/`trigger`/`call` payload.
 
 **The AI profile.** A schema whose data reaches the AI or a plugin — the
-`context` schema and every `.events[].data` — must also have no `string`
-property other than an `enum`. What a game tells the AI is names it chose
-ahead of time, numbers and booleans, never text.
+`context` schema, every `.events[].data` and every `.tools[].result` — must
+also:
+- have no `string` property other than an `enum`;
+- name its properties, and every `enum` value, as ids: `^[a-z][a-z0-9_]{0,31}$`;
+- list at most 64 values in an `enum`.
+
+What a game tells the AI is names it chose ahead of time, numbers and
+booleans, never text. A schema's `description` never reaches the model either.
 [`schemas/link-v1-ai-data-profile.schema.json`](schemas/link-v1-ai-data-profile.schema.json)
 is that stricter meta-schema. A `string` with `maxLength` stays allowed in
 `.triggers[].data`, which never reaches the model, and in `.tools[].params`,

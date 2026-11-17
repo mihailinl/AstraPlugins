@@ -23,6 +23,7 @@ talk = true
 name = "come_here"
 description = "Walk to the player"
 params = "astra/tools/come_here.json"
+result = "astra/tools/come_here.result.json"
 danger = "low"
 companion = true
 
@@ -30,12 +31,14 @@ companion = true
 name = "map_pin_add"
 description = "Mark a place on the player's map for this session only"
 params = "astra/tools/map_pin_add.json"
+result = "astra/tools/map_pin_add.result.json"
 danger = "low"
 
 [[integration.link.tools]]
 name = "drop_item"
 description = "Drop the item the player holds"
 params = "astra/tools/drop_item.json"
+result = "astra/tools/drop_item.result.json"
 danger = "high"
 
 [[integration.link.events]]
