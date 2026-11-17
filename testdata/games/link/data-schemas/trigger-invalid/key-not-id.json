@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "fall-height": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Passes the general profile; as {game_fall-height} it would be no variable at all."
+    }
+  }
+}

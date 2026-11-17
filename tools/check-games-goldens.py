@@ -2366,6 +2366,22 @@ def main() -> int:
             ok_ai, detail_ai = schema_ok(doc, ai_schema)
             report(f"link/data-schema/ai-invalid/{v['name']}", ok and ok_ai is False,
                    detail if not ok else detail_ai)
+    # link-v1.md §6 "The trigger profile": a trigger's data schema passes the general profile AND
+    # names its properties as ids, since each becomes a {game_<key>} variable. A refused golden
+    # passes the general profile, so it proves the trigger profile is what refuses it.
+    if "data_schema_profile_trigger" in vectors["link"]:
+        trigger_schema = load_schema(vectors["link"]["data_schema_profile_trigger"])
+        for v in vectors["link"]["data_schemas"].get("trigger_valid", []):
+            doc = load_doc(v["file"])
+            ok, detail = schema_ok(doc, profile_schema)
+            ok_t, detail_t = schema_ok(doc, trigger_schema)
+            report(f"link/data-schema/trigger-valid/{v['name']}", ok and ok_t, detail or detail_t)
+        for v in vectors["link"]["data_schemas"].get("trigger_invalid", []):
+            doc = load_doc(v["file"])
+            ok, detail = schema_ok(doc, profile_schema)
+            ok_t, detail_t = schema_ok(doc, trigger_schema)
+            report(f"link/data-schema/trigger-invalid/{v['name']}", ok and ok_t is False,
+                   detail if not ok else detail_t)
 
     print(f"\n{checked} goldens checked, {len(failures)} failed.")
     if failures:

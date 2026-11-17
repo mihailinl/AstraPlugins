@@ -59,7 +59,7 @@ never a Link event (§5 "Events are edges").
 ## 2. Discovery: the link file
 
 - On every Play through Astra, the daemon mints a 256-bit link token.
-- Launcher ≥0.5 `launch` writes `<profile>/astra-link.json` — a reserved
+- Launcher ≥0.6.0 `launch_with_link` writes `<profile>/astra-link.json` — a reserved
   profile file name (`reserved.yaml`):
   ```json
   {"schema":1,"url":"ws://127.0.0.1:<port>/link","token":"…",
@@ -373,7 +373,9 @@ against its declared schema. Its fields reach an automation as variables
 named `game_<key>`: the command parser reads a variable only as `{name}` of
 letters, digits and `_`, so a dot would end the name (`{game.height}` is no
 variable at all). `game_` is these variables' namespace. The workflow binder
-refuses `{game_<key>}` outright:
+refuses `{game_<key>}` outright (and every property of a trigger's data is
+such a variable: its schema names properties as ids, §6 "The trigger
+profile"):
 - inside shell or raw command text — there such a value may only be passed as
   a quoted argument or an environment variable;
 - in every text that goes to a model: an AI node's prompt, a task, a chat
@@ -423,6 +425,15 @@ booleans, never text. A schema's `description` never reaches the model either.
 is that stricter meta-schema. A `string` with `maxLength` stays allowed in
 `.triggers[].data`, which never reaches the model, and in `.tools[].params`,
 which the model writes and the game reads.
+
+**The trigger profile.** Every `.triggers[].data` schema must also name its
+properties as ids, `^[a-z][a-z0-9_]{0,31}$`. Each property reaches an
+automation as the variable `{game_<key>}` (§5 "Triggers"), and the command
+parser reads a variable name only as letters, digits and `_`: a property
+named `fall-height` or `BossName` would never be a variable, and would be
+lost without a word. A check of the manifest refuses such a schema instead.
+[`schemas/link-v1-trigger-data-profile.schema.json`](schemas/link-v1-trigger-data-profile.schema.json)
+is that meta-schema: the general profile with property names as ids.
 
 ## 7. Kits
 
