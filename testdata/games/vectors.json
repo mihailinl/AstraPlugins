@@ -28,6 +28,7 @@
       { "name": "link-game-without-stop", "file": "manifests/invalid/link-game-without-stop.toml", "verdict": "refuse", "check": "semantic", "rule": "game-without-stop" },
       { "name": "link-stops-not-low", "file": "manifests/invalid/link-stops-not-low.toml", "verdict": "refuse", "check": "semantic", "rule": "stops-not-low" },
       { "name": "link-knowledge-without-licence", "file": "manifests/invalid/link-knowledge-without-licence.toml", "verdict": "refuse", "check": "semantic", "rule": "knowledge-without-licence" },
+      { "name": "link-knowledge-path-escapes", "file": "manifests/invalid/link-knowledge-path-escapes.toml", "verdict": "refuse", "check": "schema" },
       { "name": "link-speaks-on-trigger", "file": "manifests/invalid/link-speaks-on-trigger.toml", "verdict": "refuse", "check": "schema" },
       { "name": "link-event-unknown-word", "file": "manifests/invalid/link-event-unknown-word.toml", "verdict": "refuse", "check": "schema" },
       { "name": "link-context-boolean", "file": "manifests/invalid/link-context-boolean.toml", "verdict": "refuse", "check": "schema" },

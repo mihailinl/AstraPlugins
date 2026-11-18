@@ -105,7 +105,7 @@
         "context": { "type": "string", "description": "manifest.md §2.6: the path of the context schema, held to link-v1.md §6's AI profile. Absent = the GI sends no context." },
         "shares_other_players": { "type": "boolean" },
         "skill": { "type": "string" },
-        "knowledge": { "type": "string", "pattern": "^[A-Za-z0-9_][A-Za-z0-9_./-]*$", "description": "manifest.md §2.6, link-v1.md §5 'Knowledge': the path of the knowledge folder in the zip. Requires knowledge_licence (semantic rule knowledge-without-licence)." },
+        "knowledge": { "type": "string", "pattern": "^[A-Za-z0-9_][A-Za-z0-9_.-]*(/[A-Za-z0-9_][A-Za-z0-9_.-]*){0,3}$", "description": "manifest.md §2.6, link-v1.md §5 'Knowledge': the path of the knowledge folder in the zip. Requires knowledge_licence (semantic rule knowledge-without-licence)." },
         "knowledge_licence": { "type": "string", "minLength": 1, "maxLength": 128, "description": "manifest.md §2.6: the knowledge base's licence, an SPDX id or text; shown on the consent sheet." },
         "talk": { "type": "boolean", "description": "manifest.md §2.6, link-v1.md §5 'Voice key'. Absent = false." },
         "tools": {
