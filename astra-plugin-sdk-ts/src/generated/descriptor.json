@@ -11202,6 +11202,10 @@
             "domAccess": {
               "type": "bool",
               "id": 4
+            },
+            "mayRestyle": {
+              "type": "bool",
+              "id": 5
             }
           }
         },
