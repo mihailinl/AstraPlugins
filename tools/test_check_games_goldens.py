@@ -2043,5 +2043,40 @@ class ModsGoldensEach(unittest.TestCase):
         self.assertEqual(rules, set(ggold.SEMANTIC_MODS_RULES), "one hostile golden per semantic rule")
 
 
+class KnowledgePaths(unittest.TestCase):
+    """link-v1.md §5 'Knowledge': at most 4 folders deep BELOW the knowledge folder, a .md file,
+    no .. segment (vectors.json link.knowledge_paths)."""
+
+    def test_the_fourth_folder_is_the_deepest(self):
+        self.assertIsNone(ggold.knowledge_path_problem("a/b/c/d/guide.md"))
+        self.assertEqual(ggold.knowledge_path_problem("a/b/c/d/e/guide.md"), "too-deep")
+        # One folder fewer or more flips it: the boundary is the fourth folder, not the fifth path segment.
+        self.assertIsNone(ggold.knowledge_path_problem("a/b/c/guide.md"))
+
+    def test_every_vector_is_what_the_rule_says(self):
+        v = json.loads((ggold.DATA / "vectors.json").read_text(encoding="utf-8"))["link"]["knowledge_paths"]
+        rules = set()
+        for c in v["cases"]:
+            with self.subTest(name=c["name"]):
+                want = None if c["verdict"] == "accept" else c["rule"]
+                self.assertEqual(ggold.knowledge_path_problem(c["path"]), want)
+                rules.add(want)
+        self.assertEqual(rules, {None, "too-deep", "not-markdown", "dot-dot"}, "each rule has a vector")
+
+    def test_a_flipped_verdict_turns_the_checker_red(self):
+        v = json.loads((ggold.DATA / "vectors.json").read_text(encoding="utf-8"))["link"]["knowledge_paths"]
+        self.assertTrue(all(ok for _, ok, _ in ggold.knowledge_path_results(v["cases"])))
+        for c in v["cases"]:
+            flipped = copy.deepcopy(c)
+            if c["verdict"] == "accept":
+                flipped.update(verdict="refuse", rule="too-deep")
+            else:
+                flipped.update(verdict="accept")
+                flipped.pop("rule")
+            with self.subTest(name=c["name"]):
+                [(_, ok, _)] = ggold.knowledge_path_results([flipped])
+                self.assertFalse(ok)
+
+
 if __name__ == "__main__":
     unittest.main()
