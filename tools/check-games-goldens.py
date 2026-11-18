@@ -2097,6 +2097,32 @@ def rule_knowledge_digest_missing(index: dict) -> bool:
     return True
 
 
+def knowledge_path_problem(rel: str):
+    """link-v1.md §5 'Knowledge': why a file at `rel` (relative to the knowledge folder) may not be
+    in a knowledge base, or None. At most 4 folders deep below the folder (`a/b/c/d/x.md` is the
+    deepest), a `.md` file, no `..` segment."""
+    parts = rel.split("/")
+    if ".." in parts:
+        return "dot-dot"
+    if len(parts) - 1 > 4:
+        return "too-deep"
+    if not rel.endswith(".md"):
+        return "not-markdown"
+    return None
+
+
+def knowledge_path_results(cases: list) -> list:
+    """(name, ok, detail) of each `link.knowledge_paths` case: ok when the rule's answer is the
+    case's verdict (and, refused, its rule)."""
+    out = []
+    for c in cases:
+        problem = knowledge_path_problem(c["path"])
+        want = None if c["verdict"] == "accept" else c["rule"]
+        out.append((c["name"], problem == want,
+                    f"{c['path']!r}: the rule gives {problem!r}, the vector says {want!r}"))
+    return out
+
+
 def rule_knowledge_without_licence(manifest: dict) -> bool:
     """link-v1.md §5 'Knowledge', manifest.md §2.6: a knowledge base declares its licence."""
     link = manifest.get("integration", {}).get("link", {}) or {}
@@ -2397,6 +2423,10 @@ def main() -> int:
 
     # link-v1.md §5 "Refusal codes": the closed list in the spec text is the vector's, and every
     # case's model_gets follows the rule (a listed code as it is, anything else bad_result).
+    # link-v1.md §5 "Knowledge": where a file of a knowledge base may be.
+    for name, ok, detail in knowledge_path_results(vectors["link"].get("knowledge_paths", {}).get("cases", [])):
+        report(f"link/knowledge-path/{name}", ok, detail)
+
     codes = vectors["link"].get("refusal_codes")
     if codes:
         spec_text = (ROOT / "spec" / "games" / "link-v1.md").read_text(encoding="utf-8")
