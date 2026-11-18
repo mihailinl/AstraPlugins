@@ -243,8 +243,8 @@ to the model only while all of these hold:
 - the session is live, and "AI may act" and "She may act in the game" are on
   (§5 item 4; the granted set's `acts`);
 - the game's last `world` said `alone: true`;
-- the turn is the person's own (below, "The game agent": typed text,
-  Astra's own voice key, or the wake word heard with echo cancellation on).
+- the turn is the person's own (below, "The person's own turn": typed
+  text, Astra's own voice key, or the wake word only under its flag).
   A turn a `talk` opened is not one (§5 "Voice key").
 
 It is never offered in any other turn: a turn a `talk` opened, a `speaks`
@@ -502,13 +502,19 @@ chat counts as the person's own (for `game` tools and for the game agent)
 only when it was opened by:
 - text typed in Astra;
 - Astra's own voice key (its hotkey or push-to-talk);
-- the wake word, **only while echo cancellation is on** for the capture that
-  heard it (`voice.echo_cancellation`, against the machine's own output).
-  Echo cancellation removes what the computer plays, the game's sound with
-  it, so a game that plays "Astra, …" cannot open the person's turn. With it
-  off, a wake-word turn while a session is live is treated like a turn a
-  `talk` opened: no `game` tool, no game data, no game agent. The person
-  can still type or use the voice key.
+- the wake word, **only** when all of these hold:
+  - the capture that heard it ran with echo cancellation against the
+    machine's whole output (the system loopback: a PipeWire monitor, WASAPI
+    loopback), not only Astra's own voice;
+  - the words recognised do not match what was playing from the speakers;
+  - the daemon declares this capability with a flag, and turns the flag on
+    only after false wake-ups have been measured on real game sound.
+
+  Until the flag is on (it is not today: Astra's echo cancellation removes
+  only her own voice), a wake-word turn while a session is live is treated
+  like a turn a `talk` opened: no `game` tool, no game data, no game
+  agent. A game that plays "Astra, …" must never open the person's turn.
+  The person types, or uses Astra's voice key.
 
 Never a turn a `talk` opened (§5 "Voice key"), a `speaks` turn, a turn a
 plugin asks for, an automation or a trigger, a sub-agent's, background,
