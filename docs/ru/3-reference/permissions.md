@@ -96,38 +96,6 @@ R6.
 за ним, сначала прочтите [модель безопасности](../1-orientation/security.md)
 и убедитесь, что `push_to_ui` в собственную панель не решит задачу.
 
-## Аргументы
-
-Два id принимают аргументы, и оба сужают то, что вы получаете.
-
-<!-- doctest: toml-manifest -->
-```toml
-[plugin]
-id = "meeting-notes"
-name = "Meeting Notes"
-version = "0.1.0"
-license = "MIT"
-author = "You"
-
-[entry]
-command = "bin/meeting_notes"
-
-[capabilities]
-tools = true
-event_handlers = true
-
-[permissions]
-subscribe_events = { types = ["command_completed", "state_changed"], reason = "Notices when a recording command finishes so it can write the summary" }
-set_variable = { scopes = ["plugin"], reason = "Stores the id of the note it just wrote so your commands can open it" }
-fire_trigger = { reason = "Fires meeting_summarised when a summary is ready" }
-```
-
-- **`subscribe_events.types` — это список разрешённых, применяемый демоном**
-  — а не фильтром, который отправляет ваш плагин. Без него каждый подписчик
-  получал каждое событие, включая `speech_recognized`, которое несёт
-  транскрипты пользователя. Пустой список не разрешает ничего.
-- **`set_variable.scopes`** — это `"plugin"`, `"session"` или `"persistent"`.
-
 ## Чтение настроек ИИ пользователя
 
 Плагин, который сам обращается к модели пользователя — собственный ассистент, суммаризатор, — должен знать, какого провайдера, какую модель и какой адрес выбрал пользователь. **Спрашивай об этом Astra; никогда не читай файлы Astra.** Объяви `read_ai_settings` и вызови `GetAiSettings` (`get_ai_settings()` в Rust и Python, `getAiSettings()` в TypeScript):
@@ -285,6 +253,80 @@ Astra помнит меньше, чем кажется, поэтому не пр
 | `write_refused` | Команду не удалось сохранить |
 
 Лимиты — дело демона: SDK экспортируют `PROPOSE_COMMAND_MAX_BYTES` и `PROPOSE_COMMAND_REASON_MAX_CHARS` и сами не проверяют ни одного. Помимо разрешения, вызову нужен **аккаунт с доступом к Astra**; отсутствие разрешения или аккаунт без доступа к Astra — это неудачный вызов, как у любого вызова хоста, а не исход. `propose_commands` — **высокорисковое** разрешение: сохранённая команда выполняется позже, по своим триггерам, но никогда не с полным доверием, как собственная команда человека: Astra спрашивает человека перед каждым опасным действием (например, shell-командой), а её ИИ-шаги не считаются доверенной автоматизацией, — поэтому у него свой чекбокс согласия. При локальном импорте оно не отклоняется: решение — сам лист, каждый раз. Astra старше этого вызова отвечает `UNIMPLEMENTED`.
+
+## Аргументы
+
+Два id принимают аргументы, и оба сужают то, что вы получаете.
+
+<!-- doctest: toml-manifest -->
+```toml
+[plugin]
+id = "meeting-notes"
+name = "Meeting Notes"
+version = "0.1.0"
+license = "MIT"
+author = "You"
+
+[entry]
+command = "bin/meeting_notes"
+
+[capabilities]
+tools = true
+event_handlers = true
+
+[permissions]
+subscribe_events = { types = ["command_completed", "state_changed"], reason = "Notices when a recording command finishes so it can write the summary" }
+set_variable = { scopes = ["plugin"], reason = "Stores the id of the note it just wrote so your commands can open it" }
+fire_trigger = { reason = "Fires meeting_summarised when a summary is ready" }
+```
+
+- **`subscribe_events.types` — это список разрешённых, применяемый демоном**
+  — а не фильтром, который отправляет ваш плагин. Без него каждый подписчик
+  получал каждое событие, включая `speech_recognized`, которое несёт
+  транскрипты пользователя. Пустой список не разрешает ничего.
+- **`set_variable.scopes`** — это `"plugin"`, `"session"` или `"persistent"`.
+
+### События игры (`game_event`)
+
+`game_event` — тип события, который плагин может указать в `subscribe_events`. Его создаёт только сервер Astra Link в демоне, когда игра о чём-то сообщает. Он есть только в сборке с каталогом игр, поэтому пока не входит ни в один релиз.
+
+В нагрузке до трёх полей:
+
+- `word` — одно из `session_started`, `session_ended`, `player_hurt`, `player_fell`, `player_died`, `player_revived`, `goal_reached`.
+- `data` — собственные поля интеграции игры. По объявленной схеме это только имена перечислений, числа и булевы значения.
+- `game` — ключ игры. Он есть, только если `[plugin] target` плагина называет эту игру ([`target`](../reference/manifest.md)), и никогда — для игры, которую человек добавил вручную (`local-…`).
+
+В нагрузке никогда нет названия игры.
+
+<!-- doctest: toml-manifest -->
+```toml
+[plugin]
+id = "game-companion"
+name = "Game Companion"
+version = "0.1.0"
+license = "MIT"
+author = "You"
+target = ["3527290"]
+
+[entry]
+command = "bin/game_companion"
+
+[capabilities]
+event_handlers = true
+
+[permissions]
+subscribe_events = { types = ["game_event"], reason = "Reacts when the game you play reports that you died or reached a goal" }
+```
+
+Событие доставляется, только когда выполнены все три условия:
+
+- у плагина есть `subscribe_events` для `game_event`;
+- Link-сессия игры активна;
+- общий переключатель человека «Plugins hear game events» включён. По умолчанию он выключен и не зависит от «Tell Astra what happens».
+
+`send_chat_message` или `fire_trigger`, запускающий команду, считается вызванным игрой, если пришёл в течение 60 секунд после доставки `game_event` вашему плагину. Такие запросы ограничены: не чаще одного раза в 2 минуты на плагин и 10 в час на все игры вместе; этот лимит общий с собственными реакциями Astra на игры. При превышении вызов завершается ошибкой `RESOURCE_EXHAUSTED`, а сообщение начинается с `rate_limited` и содержит `retry_after_ms=`. Ход, вызванный игрой, не передаёт модели данные игры и ничего не пишет в долговременную память. Через 60 секунд запрос считается обычным.
+
+Правила — в [`spec/games/link-v1.md`](../../../spec/games/link-v1.md), §5 «Events and plugins» и «AI turns that game events start».
 
 ## Как написать reason
 

@@ -97,40 +97,6 @@ RPC を述べます。2 つの問い、2 つのセクション; ケーパビリ�
 いるなら、まず[セキュリティモデル](../1-orientation/security.md) を読み、
 自分のパネルへの `push_to_ui` では足りないことを確認してください。
 
-## 引数
-
-2 つの id は引数を取り、どちらも得られるものを絞り込みます。
-
-<!-- doctest: toml-manifest -->
-```toml
-[plugin]
-id = "meeting-notes"
-name = "Meeting Notes"
-version = "0.1.0"
-license = "MIT"
-author = "You"
-
-[entry]
-command = "bin/meeting_notes"
-
-[capabilities]
-tools = true
-event_handlers = true
-
-[permissions]
-subscribe_events = { types = ["command_completed", "state_changed"], reason = "Notices when a recording command finishes so it can write the summary" }
-set_variable = { scopes = ["plugin"], reason = "Stores the id of the note it just wrote so your commands can open it" }
-fire_trigger = { reason = "Fires meeting_summarised when a summary is ready" }
-```
-
-- **`subscribe_events.types` は許可リストであり、デーモンによって強制
-  されます** — あなたのプラグインが送るフィルタによってではありません。
-  これがないと、`speech_recognized` を含む、すべてのイベントをすべての
-  購読者が受信していました。`speech_recognized` はユーザーの書き起こし
-  を運びます。空のリストは何も許可しません。
-- **`set_variable.scopes`** は `"plugin"`、`"session"`、`"persistent"`
-  のいずれかです。
-
 ## ユーザーの AI 設定を読む
 
 ユーザーのモデルを自分で呼ぶプラグイン — 独自のアシスタントや要約ツール — は、ユーザーがどのプロバイダー、モデル、エンドポイントを選んだかを知る必要があります。**Astra に尋ねてください。Astra のファイルは決して読まないでください。** `read_ai_settings` を宣言し、`GetAiSettings`(Rust と Python では `get_ai_settings()`、TypeScript では `getAiSettings()`)を呼びます:
@@ -288,6 +254,82 @@ Astra が覚えていることは見た目より狭いので、起動のたび�
 | `write_refused` | コマンドを保存できなかった |
 
 上限はデーモンのものです: SDK は `PROPOSE_COMMAND_MAX_BYTES` と `PROPOSE_COMMAND_REASON_MAX_CHARS` をエクスポートしますが、自分ではどちらも検査しません。許可に加えて、呼び出しには **Astra を利用できるアカウント** が必要です。許可がない、またはアカウントが Astra を利用できない場合は、他のホスト呼び出しと同じく失敗した呼び出しになり、結果ではありません。`propose_commands` は**高リスク**です — 残されたコマンドは後で、そのトリガーによって、本人自身のコマンドと同じ全面的な信頼では決して実行されず、Astra は危険な操作（たとえばシェルコマンド）の前に毎回本人に尋ね、その AI の手順は信頼された自動化として扱われません — ので、専用の同意チェックボックスを持ちます。ローカルインポートでは拒否されません: 毎回のシートそのものが決定だからです。この呼び出しより古い Astra は `UNIMPLEMENTED` を返します。
+
+## 引数
+
+2 つの id は引数を取り、どちらも得られるものを絞り込みます。
+
+<!-- doctest: toml-manifest -->
+```toml
+[plugin]
+id = "meeting-notes"
+name = "Meeting Notes"
+version = "0.1.0"
+license = "MIT"
+author = "You"
+
+[entry]
+command = "bin/meeting_notes"
+
+[capabilities]
+tools = true
+event_handlers = true
+
+[permissions]
+subscribe_events = { types = ["command_completed", "state_changed"], reason = "Notices when a recording command finishes so it can write the summary" }
+set_variable = { scopes = ["plugin"], reason = "Stores the id of the note it just wrote so your commands can open it" }
+fire_trigger = { reason = "Fires meeting_summarised when a summary is ready" }
+```
+
+- **`subscribe_events.types` は許可リストであり、デーモンによって強制
+  されます** — あなたのプラグインが送るフィルタによってではありません。
+  これがないと、`speech_recognized` を含む、すべてのイベントをすべての
+  購読者が受信していました。`speech_recognized` はユーザーの書き起こし
+  を運びます。空のリストは何も許可しません。
+- **`set_variable.scopes`** は `"plugin"`、`"session"`、`"persistent"`
+  のいずれかです。
+
+### ゲームイベント（`game_event`）
+
+`game_event` は、プラグインが `subscribe_events` で指定できるイベントタイプです。ゲームが何かを報告したときに、デーモンの Astra Link サーバーだけが発生させます。ゲームカタログを含むビルドにしか存在しないため、まだリリース版にはありません。
+
+ペイロードには最大 3 つのフィールドがあります。
+
+- `word` は `session_started`、`session_ended`、`player_hurt`、`player_fell`、`player_died`、`player_revived`、`goal_reached` のいずれかです。
+- `data` はゲーム連携（GI）独自のフィールドです。宣言されたスキーマにより、列挙名、数値、真偽値だけです。
+- `game` はゲームのキーです。プラグインの `[plugin] target` がそのゲームを指定している場合にのみ含まれ（[`target`](../reference/manifest.md)）、ユーザーが手動で追加したゲーム（`local-…`）には含まれません。
+
+ペイロードにゲームの名前は含まれません。
+
+<!-- doctest: toml-manifest -->
+```toml
+[plugin]
+id = "game-companion"
+name = "Game Companion"
+version = "0.1.0"
+license = "MIT"
+author = "You"
+target = ["3527290"]
+
+[entry]
+command = "bin/game_companion"
+
+[capabilities]
+event_handlers = true
+
+[permissions]
+subscribe_events = { types = ["game_event"], reason = "Reacts when the game you play reports that you died or reached a goal" }
+```
+
+イベントが配信されるのは、次の 3 つがすべて満たされたときだけです。
+
+- プラグインが `game_event` の `subscribe_events` を持っている。
+- ゲームの Link セッションが有効である。
+- ユーザーのグローバルスイッチ「Plugins hear game events」がオンである。初期値はオフで、「Tell Astra what happens」とは独立しています。
+
+`send_chat_message`、またはコマンドを開始する `fire_trigger` は、`game_event` がプラグインに配信されてから 60 秒以内に届いた場合、ゲーム起因として扱われます。この種のリクエストには上限があり、プラグインごとに 2 分に 1 回、全ゲーム合計で 1 時間に 10 回までです。この枠は Astra 自身のゲームへの反応と共有されます。上限を超えると、呼び出しは `RESOURCE_EXHAUSTED` で失敗し、メッセージは `rate_limited` で始まり `retry_after_ms=` を含みます。ゲーム起因のターンでは、モデルにゲームのデータは渡されず、長期記憶には何も書き込まれません。60 秒を過ぎると、リクエストは通常のものになります。
+
+ルールは [`spec/games/link-v1.md`](../../../spec/games/link-v1.md) の §5「Events and plugins」と「AI turns that game events start」にあります。
 
 ## reason を書く
 
