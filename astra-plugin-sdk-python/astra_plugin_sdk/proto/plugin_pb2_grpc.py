@@ -4330,6 +4330,11 @@ class ConfigServiceStub(object):
                 request_serializer=plugin__pb2.GetImageModelsRequest.SerializeToString,
                 response_deserializer=plugin__pb2.GetImageModelsResponse.FromString,
                 _registered_method=True)
+        self.GetImageProviders = channel.unary_unary(
+                '/astra.ConfigService/GetImageProviders',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.ImageProvidersResponse.FromString,
+                _registered_method=True)
         self.GetAiProviders = channel.unary_unary(
                 '/astra.ConfigService/GetAiProviders',
                 request_serializer=plugin__pb2.Empty.SerializeToString,
@@ -4510,6 +4515,16 @@ class ConfigServiceServicer(object):
         `astra` it is the server's own list with this account's prices and
         entitlement; for any other provider, the well-known image models it
         serves (the picker is free-entry).
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def GetImageProviders(self, request, context):
+        """Everything that can DRAW pictures, for the image-generation picker: the
+        built-in providers with an image dialect and every image-provider plugin,
+        running or not. A plugin that only draws is not an AI provider, so
+        GetAiProviders never lists it.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -4736,6 +4751,11 @@ def add_ConfigServiceServicer_to_server(servicer, server):
                     servicer.GetImageModels,
                     request_deserializer=plugin__pb2.GetImageModelsRequest.FromString,
                     response_serializer=plugin__pb2.GetImageModelsResponse.SerializeToString,
+            ),
+            'GetImageProviders': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetImageProviders,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.ImageProvidersResponse.SerializeToString,
             ),
             'GetAiProviders': grpc.unary_unary_rpc_method_handler(
                     servicer.GetAiProviders,
@@ -5130,6 +5150,33 @@ class ConfigService(object):
             '/astra.ConfigService/GetImageModels',
             plugin__pb2.GetImageModelsRequest.SerializeToString,
             plugin__pb2.GetImageModelsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetImageProviders(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ConfigService/GetImageProviders',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.ImageProvidersResponse.FromString,
             options,
             channel_credentials,
             insecure,

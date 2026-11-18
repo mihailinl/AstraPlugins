@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 3dcbceb6baf628fb766e11706429d963e7f0df1317c6096521a92ec9f2815edf
+// surface-sha256: 5a350f9088f5e775c702a36a6944c423bf3924e66b95e210968a9c12a8c4691d
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -2710,6 +2710,12 @@ service ConfigService {
     // serves (the picker is free-entry).
     rpc GetImageModels(GetImageModelsRequest) returns (GetImageModelsResponse);
 
+    // Everything that can DRAW pictures, for the image-generation picker: the
+    // built-in providers with an image dialect and every image-provider plugin,
+    // running or not. A plugin that only draws is not an AI provider, so
+    // GetAiProviders never lists it.
+    rpc GetImageProviders(Empty) returns (ImageProvidersResponse);
+
     // Get available AI providers and their capabilities
     rpc GetAiProviders(Empty) returns (AiProvidersResponse);
 
@@ -3831,6 +3837,27 @@ message GetImageModelsResponse {
     // Empty on success. An i18n-free English sentence for the log; the UI
     // decides its own words from `supported` / `entitled`.
     string error = 6;
+}
+
+message ImageProviderInfo {
+    string id = 1;  // the `ai.image_provider` value
+    string name = 2;  // a product name or the plugin's own, resolved
+    string kind = 3;  // "builtin" | "plugin"
+    bool available = 4;  // false: cannot draw now
+    string unavailable_reason = 5;  // i18n key; empty when available
+}
+
+message ImageProvidersResponse {
+    repeated ImageProviderInfo providers = 1;
+    string selected = 2;  // `ai.image_provider` as saved, empty = follows the chat
+
+    // While `selected` is a plugin that cannot draw: what draws instead (the
+    // chat's own plugin, through its image slot). Both empty = nothing does.
+    string instead_id = 3;
+    string instead_name = 4;
+
+    // See `server/capability.rs`: plugins can contribute providers.
+    string capability_epoch = 5;
 }
 
 message ImageModelInfo {

@@ -4265,6 +4265,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "requestType": "GetImageModelsRequest",
               "responseType": "GetImageModelsResponse"
             },
+            "GetImageProviders": {
+              "requestType": "Empty",
+              "responseType": "ImageProvidersResponse"
+            },
             "GetAiProviders": {
               "requestType": "Empty",
               "responseType": "AiProvidersResponse"
@@ -6499,6 +6503,55 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "error": {
               "type": "string",
               "id": 6
+            }
+          }
+        },
+        "ImageProviderInfo": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "name": {
+              "type": "string",
+              "id": 2
+            },
+            "kind": {
+              "type": "string",
+              "id": 3
+            },
+            "available": {
+              "type": "bool",
+              "id": 4
+            },
+            "unavailableReason": {
+              "type": "string",
+              "id": 5
+            }
+          }
+        },
+        "ImageProvidersResponse": {
+          "fields": {
+            "providers": {
+              "rule": "repeated",
+              "type": "ImageProviderInfo",
+              "id": 1
+            },
+            "selected": {
+              "type": "string",
+              "id": 2
+            },
+            "insteadId": {
+              "type": "string",
+              "id": 3
+            },
+            "insteadName": {
+              "type": "string",
+              "id": 4
+            },
+            "capabilityEpoch": {
+              "type": "string",
+              "id": 5
             }
           }
         },
