@@ -98,7 +98,9 @@ never a Link event (§5 "Events are edges").
   reconnect uses `hello{resume}`. A valid resume **replaces** a session of
   that GI that is still live: the old socket gets `end{replaced}` and is
   closed, so a half-open socket never locks the game out for 30 s. Every
-  `welcome` rotates `resume`. Game exit kills both tokens. (This is what
+  `welcome` rotates `resume`, and after every `welcome` (a resume's too) the
+  player counts as not alone until the game's next `world` (§5 "Actions in
+  the game"). Game exit kills both tokens. (This is what
   covers a Unity load stall longer than 30 s: the session ends and resumes
   rather than failing outright.)
 - **A daemon restart loses `resume`**, which lived only in its memory: Link is
@@ -132,6 +134,8 @@ never a Link event (§5 "Events are edges").
   counts afresh — on the socket itself, before a message reaches anything else
   in Astra. A message
   over its rate is dropped there, and the game gets `error{rate_limited}`.
+  One message is never dropped: `world{alone:false}`, which takes the `game`
+  tools away (§5 "Actions in the game"), passes whatever the rate.
   It never reaches the AI, a plugin or an automation, so a chatty mod cannot
   flood the daemon's event bus ahead of the limits on AI turns (§5).
 - **Framing:** JSON, one object per message, a `t` field naming the kind.
@@ -210,10 +214,17 @@ never reaches the model: it gets the daemon's own code `bad_result` instead.
   own world, character and inventory there, in a world where the player is
   alone: she gathers, fights, picks up or hands over. Below, "Actions in the
   game".
-- Anything that changes a world other players share, or anything outside
-  the game, is `high`.
+- Everything else is `high`, and these always are, whatever the world:
+  money or a premium currency, a store purchase, a trade with another player
+  or a market; deleting or overwriting a save, a character or a world; the
+  game's settings; the game's chat, an invite, opening the world to others;
+  anything that reaches another player; anything outside the game.
 - The game declares; the catalogue checks the declaration when it accepts the
-  entry and refuses a `low` or a `game` that is not such an action.
+  entry and refuses a `low` or a `game` that is not such an action. A `game`
+  tool passes only when its effect is one the player could cause by playing,
+  with the means the game gives (her tools and weapons come from the game,
+  never from nothing), at the pace of play, in the player's own world, and is
+  on none of the `high` list above.
 - The daemon reads `low` and `game` only from the link table it extracted
   from the signed entry whose `link.digest` matches (item 1 above). Link
   exists for no other GI (§1), so there is no other source of either.
@@ -230,12 +241,21 @@ to the model only while all of these hold:
 - the session is live, and "AI may act" and "She may act in the game" are on
   (§5 item 4; the granted set's `acts`);
 - the game's last `world` said `alone: true`;
-- the turn is a direct human turn in the main chat.
+- the turn is a direct human turn in the main chat. A turn a `talk` opened is
+  not one (§5 "Voice key").
 
-It is never offered in any other turn: a `speaks` turn, a turn a plugin asks
-for, an automation or a trigger, a sub-agent's, background or «Code» turn.
-There it is absent from the tools, not refused (the daemon pins this with a
-canary). That is what keeps "only when asked" true without a card.
+It is never offered in any other turn: a turn a `talk` opened, a `speaks`
+turn, a turn a plugin asks for, an automation or a trigger, a sub-agent's,
+background or «Code» turn. There it is absent from the tools, and a call to
+it all the same (a name kept in the history, a model that calls a tool it
+was not offered) is refused by the daemon with `not_granted` before it
+reaches the game. The daemon pins both with a canary and a test. That is
+what keeps "only when asked" true without a card.
+
+**Checked at every call, not once a turn.** Before each `game` call reaches
+the game, the daemon checks again that `acts` is granted and that the game's
+last `world` said `alone: true`, and refuses the call itself with
+`not_granted` or `not_alone` when either no longer holds.
 
 Besides:
 - **No approval card**, whatever the user's approval policy, and the
@@ -245,10 +265,22 @@ Besides:
   do stays inside the player's own game.
 - **At most 4 `game` calls in one turn.** A fifth gets the daemon's own
   result `{"status":"refused","code":"turn_limit"}` before it reaches the
-  game: a guard against a model that loops.
-- **Stopping is always possible.** A tool that only stops what she is doing
-  for the AI (her work, her guarding) is `low`: it changes nothing, so it
-  stays offered whenever tools are, and no limit counts it.
+  game: a guard against a model that loops. The turn is the whole tool loop
+  that answers one human message, every round of it; the daemon holds the
+  count, and a resume does not reset it. A refused call counts, whoever
+  refused it. Calls the model makes together in one round count in the order
+  it listed them.
+- **Stopping is always possible.** A GI with any `game` tool declares a
+  tool with `stops = true` (`manifest.md` §2.6) that ends all of her `game`
+  work, her guarding included. It is `low`: it changes nothing, so it stays
+  offered whenever tools are, and no limit counts it. The catalogue refuses a
+  GI with `game` tools and no such tool (`game-without-stop`), and a `stops`
+  tool that is not `low` (`stops-not-low`).
+- **Work never outlives its permission.** The game ends all `game` work at
+  once, as its `stops` tool would, when any of these happens: a `grants`
+  arrives with `acts` false; an `end` arrives, whatever its reason; the
+  connection to Astra drops (a resume does not start the work again); the
+  player is no longer alone; the player dies or leaves the world.
 - **The game holds the line too.** It refuses a `game` call with `not_alone`
   unless the player is alone, and when that stops being true (another player
   joins) it stops any such work at once and sends `world{alone:false}`.
@@ -273,13 +305,20 @@ The codes for these cases, which every GI uses for them:
 - `busy`: a cutscene, a teleport;
 - `not_alone`: a `game` tool, while the player is not alone in the world
   (§5 "Actions in the game");
+- `no_tool`: she has no tool or weapon for the job;
+- `tool_too_weak`: the tool she has cannot do it (a pickaxe of too low a tier);
+- `bag_full`: her bag has no room;
+- `too_far`: the target is beyond where she may go;
 - `unknown_target`: the thing the call names is not there;
 - `bad_args`: the arguments are valid against the schema but make no sense
   in the game.
 
-A GI may use another code of the same shape (`^[a-z][a-z0-9_]{0,31}$`), and
-the daemon's own `not_in_game` above has it too. The daemon hands the model
-the code as the tool's result — never free text from the game in its place.
+**The list is closed.** A game sends only the codes above. The daemon's own
+results add `not_in_game` (above), `not_granted`, `not_alone` and
+`turn_limit` (§5 "Actions in the game") and `bad_result` ("A tool's result").
+The daemon hands the model the code as the tool's result, and only a code
+from this list: any other code a game sends reaches the model as
+`bad_result`, so an error is never a channel for the game's own words.
 
 **Game data in a turn.** Any turn whose context carries game-sourced content
 (context, an event, or a tool result, since the last user message) puts
@@ -291,7 +330,8 @@ destructive action on the user's own auto-approve trust.
 
 **Which turns carry game data.** Context, events and tool results from a
 game go only into:
-- a direct human turn in the main chat;
+- a direct human turn in the main chat, never one a `talk` opened (§5
+  "Voice key");
 - a `speaks` turn (below).
 
 Never into a «Code» turn (an external coding agent), a sub-agent's turn or a
@@ -414,8 +454,12 @@ silences her, as the voice key does. `talk` is honoured only while the session
 is live, "AI may act" is on and the user's voice input is on, at most once per
 2 seconds; otherwise the game gets `error{not_granted}`, or
 `error{rate_limited}` over the rate. The daemon cannot tell a real press from
-a forged one, which is why `talk` is declared (and so in the consent digest),
-switched and rate-limited.
+a forged one, nor the user's own voice from sound the game plays, which is
+why `talk` is declared (and so in the consent digest), switched and
+rate-limited, and why **a turn a `talk` opened is not a human turn**: it is a
+turn from the game. It is offered no `game` tool, carries no game data,
+writes nothing to long-term memory, and no rule that relaxes approval for a
+human turn applies to it.
 
 **Triggers.** `trigger_admission` is keyed by `(Owner::Game(entry), name)` —
 a game integration is its own owner, distinct from a plugin's `PluginId`
@@ -472,6 +516,9 @@ also:
 
 What a game tells the AI is names it chose ahead of time, numbers and
 booleans, never text. A schema's `description` never reaches the model either.
+The names themselves (property names, `enum` values, tool names) are the
+author's words, and they do reach the model: the catalogue's review reads
+them as such and refuses a name that is an instruction rather than a name.
 [`schemas/link-v1-ai-data-profile.schema.json`](schemas/link-v1-ai-data-profile.schema.json)
 is that stricter meta-schema. A `string` with `maxLength` stays allowed in
 `.triggers[].data`, which never reaches the model, and in `.tools[].params`,

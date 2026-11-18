@@ -24,6 +24,8 @@
       { "name": "target-anti-cheat-missing", "file": "manifests/invalid/target-anti-cheat-missing.toml", "verdict": "refuse", "check": "schema" },
       { "name": "link-too-many-tools", "file": "manifests/invalid/link-too-many-tools.toml", "verdict": "refuse", "check": "schema" },
       { "name": "link-danger-unknown", "file": "manifests/invalid/link-danger-unknown.toml", "verdict": "refuse", "check": "schema" },
+      { "name": "link-game-without-stop", "file": "manifests/invalid/link-game-without-stop.toml", "verdict": "refuse", "check": "semantic", "rule": "game-without-stop" },
+      { "name": "link-stops-not-low", "file": "manifests/invalid/link-stops-not-low.toml", "verdict": "refuse", "check": "semantic", "rule": "stops-not-low" },
       { "name": "link-speaks-on-trigger", "file": "manifests/invalid/link-speaks-on-trigger.toml", "verdict": "refuse", "check": "schema" },
       { "name": "link-event-unknown-word", "file": "manifests/invalid/link-event-unknown-word.toml", "verdict": "refuse", "check": "schema" },
       { "name": "link-context-boolean", "file": "manifests/invalid/link-context-boolean.toml", "verdict": "refuse", "check": "schema" },
@@ -396,7 +398,8 @@
     "transcripts": [
       { "name": "speaks-talk", "file": "link/transcript-speaks-talk.json", "verdict": "accept", "note": "link-v1.md §5: talk, quiet, the speaks and talk grants, a refusal code; every message must validate", "result_schemas": { "come_here": "link/data-schemas/ai-valid/come_here.result.json", "map_pin_add": "link/data-schemas/ai-valid/map_pin_add.result.json", "drop_item": "link/data-schemas/ai-valid/drop_item.result.json" } },
       { "name": "game-acts", "file": "link/transcript-game-acts.json", "verdict": "accept", "note": "link-v1.md §5 'Actions in the game': world{alone}, the acts grant, not_alone, the low stop_work; every message must validate", "result_schemas": { "gather": "link/data-schemas/ai-valid/gather.result.json", "stop_work": "link/data-schemas/ai-valid/stop_work.result.json" } },
-      { "name": "world-not-boolean", "file": "link/transcript-world-not-boolean.json", "verdict": "refuse", "note": "link-v1.md §4: world carries a boolean alone, never a count" },
+      { "name": "world-not-boolean", "file": "link/transcript-world-not-boolean.json", "verdict": "refuse", "note": "link-v1.md §4: world's alone is a boolean, never a word" },
+      { "name": "world-no-alone", "file": "link/transcript-world-no-alone.json", "verdict": "refuse", "note": "link-v1.md §4: world needs alone" },
       { "name": "talk-with-text", "file": "link/transcript-talk-with-text.json", "verdict": "refuse", "note": "a talk carrying text: some message must fail the schema" },
       { "name": "context-text", "file": "link/transcript-context-text.json", "verdict": "refuse", "note": "link-v1.md §5 'Events and context': a context carrying text, not facts" },
       { "name": "unknown-event", "file": "link/transcript-unknown-event.json", "verdict": "refuse", "note": "link-v1.md §5 'Event words': a word not on the closed v1 list" }

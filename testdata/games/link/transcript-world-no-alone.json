@@ -1,0 +1,16 @@
+{
+  "schema": "astra.link.transcript/1",
+  "note": "link-v1.md §4: world without alone is refused by the schema; the player stays not alone.",
+  "messages": [
+    {
+      "t": "hello",
+      "token": "4d8e2a1f6b9c3075d2e8a1f6b7c94e2a9d3e7b6c4815a2c9e3f6b7d84e1a9c2f",
+      "integration": "someone.viking-helper",
+      "v": 1,
+      "client": "BepInEx 5.4.23"
+    },
+    {
+      "t": "world"
+    }
+  ]
+}

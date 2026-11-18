@@ -2049,7 +2049,28 @@ def judge_mods_hostile(v: dict, doc: dict, descriptor_schema: dict) -> list[tupl
     return out
 
 
+def _link_tools(manifest: dict) -> list:
+    return manifest.get("integration", {}).get("link", {}).get("tools", []) or []
+
+
+def rule_game_without_stop(manifest: dict) -> bool:
+    """link-v1.md §5 'Actions in the game': a GI with any danger = "game" tool declares a tool
+    with stops = true (which ends all of her game work)."""
+    tools = _link_tools(manifest)
+    if not any(t.get("danger") == "game" for t in tools):
+        return True
+    return any(t.get("stops") is True for t in tools)
+
+
+def rule_stops_not_low(manifest: dict) -> bool:
+    """link-v1.md §5 'Actions in the game': a stops tool is low; it changes nothing, so no
+    limit counts it and it stays offered whenever tools are."""
+    return all(t.get("danger") == "low" for t in _link_tools(manifest) if t.get("stops") is True)
+
+
 SEMANTIC_MANIFEST_RULES = {
+    "game-without-stop": rule_game_without_stop,
+    "stops-not-low": rule_stops_not_low,
     "engine-undeclared": rule_engine_undeclared,
     "loader-policy-conflict": rule_loader_policy_conflict,
     "capability-undeclared": rule_capability_undeclared,

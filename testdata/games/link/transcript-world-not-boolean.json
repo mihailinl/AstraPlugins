@@ -1,6 +1,6 @@
 {
   "schema": "astra.link.transcript/1",
-  "note": "link-v1.md §4: world carries a boolean alone; a count of players is not it, so the schema refuses the message.",
+  "note": "link-v1.md §4: world's alone is a boolean; a word is not, so the schema refuses the message. One rule broken, nothing else.",
   "messages": [
     {
       "t": "hello",
@@ -11,8 +11,7 @@
     },
     {
       "t": "world",
-      "alone": "yes",
-      "players": 1
+      "alone": "yes"
     }
   ]
 }

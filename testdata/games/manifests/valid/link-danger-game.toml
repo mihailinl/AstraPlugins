@@ -1,6 +1,7 @@
 # Valid: a GI with actions in the game (link-v1.md §5 "Actions in the game"): gather and guard are
-# danger = "game" (she acts in the player's own world when asked, no approval card), stop_work is
-# danger = "low" (it only stops her, so it is never limited), bag_contents reads the game's state.
+# danger = "game" (she acts in the player's own world when asked, no approval card); stop_work is
+# its stops = true tool, danger = "low" (it only stops her, so it is never limited); bag_contents
+# reads the game's state.
 schema = 1
 
 [integration]
@@ -41,6 +42,7 @@ description = "Stop gathering or guarding and come back"
 params = "astra/tools/stop_work.json"
 result = "astra/tools/stop_work.result.json"
 danger = "low"
+stops = true
 companion = true
 
 [[integration.link.tools]]
