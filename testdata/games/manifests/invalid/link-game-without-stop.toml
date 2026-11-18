@@ -1,0 +1,44 @@
+# Invalid (semantic, game-without-stop): a game tool and no stops = true tool to end her work
+# (link-v1.md §5 "Actions in the game": stopping is always possible). The schema alone passes it.
+schema = 1
+
+[integration]
+id = "someone.viking-helper"
+name = "Astra helps in a viking game"
+version = "0.3.0"
+authors = ["someone"]
+license = "MIT"
+repo = "https://github.com/someone/viking-helper"
+
+[integration.capabilities]
+companion = ["presentation"]
+
+[integration.link]
+context = "astra/context.json"
+shares_other_players = false
+talk = true
+
+[[integration.link.tools]]
+name = "gather"
+description = "Go and gather a resource the player named, into her own bag"
+params = "astra/tools/gather.json"
+result = "astra/tools/gather.result.json"
+danger = "game"
+companion = true
+
+[[integration.link.tools]]
+name = "bag_contents"
+description = "What is in her bag"
+params = "astra/tools/bag_contents.json"
+result = "astra/tools/bag_contents.result.json"
+danger = "low"
+
+[target]
+steam_appid = 892970
+exe = "valheim.exe"
+platforms = ["windows-x64", "linux-proton"]
+anti_cheat = "none"
+
+[[files]]
+from = "BepInEx/plugins/**"
+to = "${profile}/BepInEx/plugins/"

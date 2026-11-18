@@ -247,13 +247,14 @@ restricted profile and its own schema).
   checked against before the model sees it (the AI profile; `link-v1.md` §5,
   "A tool's result").
 
-Four optional keys say how far the GI's AI-facing surface reaches. What each
+Five optional keys say how far the GI's AI-facing surface reaches. What each
 one allows is normative in `link-v1.md` §5.
 
 | key | where | value | absent means |
 |---|---|---|---|
 | `talk` | the table | boolean: the GI may send `talk`, the user's voice key pressed on the companion | `false` |
-| `danger` | a `[[integration.link.tools]]` entry | `"low"` or `"high"` | `"high"` |
+| `danger` | a `[[integration.link.tools]]` entry | `"low"`, `"game"` or `"high"`: `game` is an action in the player's own game, when they ask, in a world where they are alone (`link-v1.md` §5 "Actions in the game") | `"high"` |
+| `stops` | a `[[integration.link.tools]]` entry | boolean: the tool ends all of her `game` work. A GI with a `game` tool must have one, and it must be `low` (`link-v1.md` §5 "Actions in the game") | `false` |
 | `companion` | a `[[integration.link.tools]]` entry | boolean: the tool moves, turns or shows the companion, so the daemon refuses it while the game does not hold her | `false` |
 | `speaks` | a `[[integration.link.events]]` entry | boolean: the event may start a short turn of its own (pending the owner's approval, `link-v1.md` §5) | `false` |
 
@@ -277,8 +278,9 @@ data = "astra/events/goal_reached.json"
 speaks = true
 ```
 
-All four are in the table, so all four are in the digest (§2.6.1): a changed
-`danger`, `companion`, `speaks` or `talk` asks the player to consent again.
+All five are in the table, so all five are in the digest (§2.6.1): a changed
+`danger`, `stops`, `companion`, `speaks` or `talk` asks the player to consent
+again.
 
 #### 2.6.1 The link digest
 
@@ -297,7 +299,7 @@ its catalogue entry (games-index-v1.md §2.1). The catalogue's ingest and
      (vectors `crlf`, `crlf-as-lf`).
    - **No default is added** for a key the table leaves out. An absent
      optional key (`context`, `skill`, `talk`, `tools`, `triggers`, `events`,
-     and a tool's `danger` or `companion`, an event's `speaks`) is absent,
+     and a tool's `danger`, `stops` or `companion`, an event's `speaks`) is absent,
      never `false`, `"high"`, `[]` or `null`.
    - Writing a default out explicitly therefore changes the digest. That
      asks the player to consent again, which is the conservative reading:

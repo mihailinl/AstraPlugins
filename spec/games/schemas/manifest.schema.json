@@ -118,8 +118,9 @@
               "description": { "type": "string", "maxLength": 200 },
               "params": { "type": "string" },
               "result": { "type": "string", "description": "link-v1.md §5 'A tool's result': the path of the result schema, held to §6's AI profile. Required." },
-              "danger": { "enum": ["low", "high"], "description": "link-v1.md §5 'Tool danger'. Absent = high; low is honoured only from a signed catalogue entry." },
-              "companion": { "type": "boolean", "description": "link-v1.md §5 'Tools that act on her'. Absent = false." }
+              "danger": { "enum": ["low", "game", "high"], "description": "link-v1.md §5 'Tool danger'. Absent = high; low and game are honoured only from a signed catalogue entry. game: an action in the player's own game, when they ask, in a world where they are alone (§5 'Actions in the game')." },
+              "companion": { "type": "boolean", "description": "link-v1.md §5 'Tools that act on her'. Absent = false." },
+              "stops": { "type": "boolean", "description": "link-v1.md §5 'Actions in the game': the tool ends all of her game work. A GI with a game tool needs one, and it is low (semantic rules game-without-stop, stops-not-low). Absent = false." }
             }
           }
         },

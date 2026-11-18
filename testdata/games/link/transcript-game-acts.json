@@ -1,0 +1,18 @@
+{
+  "schema": "astra.link.transcript/1",
+  "note": "A Link v1 session of testdata/games/manifests/valid/link-danger-game.toml in wire order (link-v1.md §5 \"Actions in the game\"): world{alone}, the acts grant (no talk: a turn a talk opened is offered no game tool), a game tool that starts long work and answers at once, the game's own not_alone refusal once another player joins, the low stop_work that still works, and the grants with acts off (the game tools gone, stop_work kept). Each message validates against spec/games/schemas/link-v1-message.schema.json.",
+  "messages": [
+    { "t": "hello", "token": "4d8e2a1f6b9c3075d2e8a1f6b7c94e2a9d3e7b6c4815a2c9e3f6b7d84e1a9c2f", "integration": "someone.viking-helper", "v": 1, "client": "BepInEx 5.4.23" },
+    { "t": "welcome", "granted": { "tools": ["game_7a8b9c0d_gather", "game_7a8b9c0d_guard", "game_7a8b9c0d_stop_work", "game_7a8b9c0d_bag_contents"], "triggers": [], "events": [], "context": true, "skill": false, "speaks": false, "talk": true, "acts": true }, "limits": { "max_message_bytes": 65536, "max_messages_per_second": 50 }, "resume": "r.7f6e5d4c3b2a1908" },
+    { "t": "world", "alone": true },
+    { "t": "call", "id": "c1", "tool": "game_7a8b9c0d_gather", "args": { "resource": "wood", "amount": 20 } },
+    { "t": "result", "id": "c1", "ok": true, "data": { "started": true, "resource": "wood", "target_amount": 20, "distance_m": 34.5 } },
+    { "t": "world", "alone": false },
+    { "t": "call", "id": "c2", "tool": "game_7a8b9c0d_gather", "args": { "resource": "stone", "amount": 10 } },
+    { "t": "result", "id": "c2", "ok": false, "error": "not_alone" },
+    { "t": "call", "id": "c3", "tool": "game_7a8b9c0d_stop_work", "args": { } },
+    { "t": "result", "id": "c3", "ok": true, "data": { "stopped": true, "was": "gathering" } },
+    { "t": "grants", "granted": { "tools": ["game_7a8b9c0d_stop_work", "game_7a8b9c0d_bag_contents"], "triggers": [], "events": [], "context": true, "skill": false, "speaks": false, "talk": true, "acts": false } },
+    { "t": "end", "reason": "game_exited" }
+  ]
+}

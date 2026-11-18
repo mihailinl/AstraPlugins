@@ -91,7 +91,7 @@
         "error": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9_]{0,31}$",
-          "description": "link-v1.md §5 'Refusal codes': not_holding, not_in_world, player_dead, busy, unknown_target, bad_args, or another code of this shape (the daemon's own not_in_game has it too)."
+          "description": "link-v1.md §5 'Refusal codes': a closed list a game sends from: not_holding, not_in_world, player_dead, busy, unknown_target, bad_args, not_alone, no_tool, tool_too_weak, bag_full, too_far, limit_reached, failed, unknown_tool, too_large. The wire takes any code of this shape; the daemon hands the model only a listed one and any other as bad_result."
         }
       }
     },
@@ -112,6 +112,16 @@
       "properties": {
         "t": { "const": "quiet" },
         "on": { "type": "boolean" }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["t", "alone"],
+      "additionalProperties": false,
+      "description": "link-v1.md §4, §5 'Actions in the game': whether the player is alone in the world (the game hosts it and no other player is in it). Until the first one, not alone.",
+      "properties": {
+        "t": { "const": "world" },
+        "alone": { "type": "boolean" }
       }
     },
     {
@@ -153,7 +163,8 @@
         "context": { "type": "boolean" },
         "skill": { "type": "boolean" },
         "speaks": { "type": "boolean" },
-        "talk": { "type": "boolean" }
+        "talk": { "type": "boolean" },
+        "acts": { "type": "boolean", "description": "link-v1.md §5 item 4, 'Actions in the game': the game tools may be offered ('She may act in the game' and 'AI may act' both on). Absent = false." }
       }
     }
   }

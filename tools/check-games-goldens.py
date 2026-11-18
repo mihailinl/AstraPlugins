@@ -2049,7 +2049,28 @@ def judge_mods_hostile(v: dict, doc: dict, descriptor_schema: dict) -> list[tupl
     return out
 
 
+def _link_tools(manifest: dict) -> list:
+    return manifest.get("integration", {}).get("link", {}).get("tools", []) or []
+
+
+def rule_game_without_stop(manifest: dict) -> bool:
+    """link-v1.md §5 'Actions in the game': a GI with any danger = "game" tool declares a tool
+    with stops = true (which ends all of her game work)."""
+    tools = _link_tools(manifest)
+    if not any(t.get("danger") == "game" for t in tools):
+        return True
+    return any(t.get("stops") is True for t in tools)
+
+
+def rule_stops_not_low(manifest: dict) -> bool:
+    """link-v1.md §5 'Actions in the game': a stops tool is low; it changes nothing, so no
+    limit counts it and it stays offered whenever tools are."""
+    return all(t.get("danger") == "low" for t in _link_tools(manifest) if t.get("stops") is True)
+
+
 SEMANTIC_MANIFEST_RULES = {
+    "game-without-stop": rule_game_without_stop,
+    "stops-not-low": rule_stops_not_low,
     "engine-undeclared": rule_engine_undeclared,
     "loader-policy-conflict": rule_loader_policy_conflict,
     "capability-undeclared": rule_capability_undeclared,
@@ -2333,6 +2354,25 @@ def main() -> int:
                 if not quiet:
                     print(f"  {rel} message {i} ({msg.get('t')}): {detail}")
         return all_ok
+
+    # link-v1.md §5 "Refusal codes": the closed list in the spec text is the vector's, and every
+    # case's model_gets follows the rule (a listed code as it is, anything else bad_result).
+    codes = vectors["link"].get("refusal_codes")
+    if codes:
+        spec_text = (ROOT / "spec" / "games" / "link-v1.md").read_text(encoding="utf-8")
+        section = spec_text.split("**Refusal codes.**", 1)[1].split("**The list is closed.**", 1)[0]
+        listed = []
+        for line in section.splitlines():
+            if line.startswith("- "):
+                listed += re.findall(r"`([a-z][a-z0-9_]*)`", line.split(":", 1)[0])
+        report("link/refusal-codes/spec-list", sorted(listed) == sorted(codes["game"]),
+               f"spec lists {sorted(listed)}, vector {sorted(codes['game'])}")
+        known = set(codes["game"]) | set(codes["daemon"])
+        for c in codes["cases"]:
+            fits = c.get("result_bytes", 0) <= 16 * 1024
+            want = c["from_game"] if (c["from_game"] in known and fits) else "bad_result"
+            report(f"link/refusal-codes/{c['from_game']}", c["model_gets"] == want,
+                   f"model_gets {c['model_gets']!r}, the rule gives {want!r}")
 
     v = vectors["link"]["transcript"]
     report("link/transcript", transcript_ok(v["file"], False, v.get("result_schemas")) == (v["verdict"] == "accept"))
