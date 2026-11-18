@@ -151,7 +151,7 @@ astra-plugin init-ci
 ```
   Created:   .github/workflows/release.yml
     calls  mihailinl/AstraPlugins/.github/workflows/plugin-release.yml
-    pinned b6e9140d53060585c70280e979b58202f34966ba (plugin-release/v1)
+    pinned 468a9731577f28055cec8009411dce75bf52908c (plugin-release/v1)
     with   plugin-dir: .
            tag-prefix: v
 
