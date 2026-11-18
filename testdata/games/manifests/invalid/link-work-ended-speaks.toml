@@ -1,0 +1,48 @@
+# Invalid (semantic, work-ended-misdeclared): work_ended with speaks = true. Its turn is the daemon's own
+# work-ended turn (link-v1.md §5 "When her work ends"), never a speaks turn. The schema alone passes it.
+schema = 1
+
+[integration]
+id = "someone.viking-helper"
+name = "Astra helps in a viking game"
+version = "0.3.0"
+authors = ["someone"]
+license = "MIT"
+repo = "https://github.com/someone/viking-helper"
+
+[integration.capabilities]
+companion = ["presentation"]
+
+[integration.link]
+context = "astra/context.json"
+shares_other_players = false
+
+[[integration.link.tools]]
+name = "gather"
+description = "Tool gather"
+params = "astra/tools/gather.json"
+result = "astra/tools/gather.result.json"
+danger = "game"
+
+[[integration.link.tools]]
+name = "stop_work"
+description = "Tool stop_work"
+params = "astra/tools/stop_work.json"
+result = "astra/tools/stop_work.result.json"
+danger = "low"
+stops = true
+
+[[integration.link.events]]
+name = "work_ended"
+data = "astra/events/work_ended.json"
+speaks = true
+
+[target]
+steam_appid = 892970
+exe = "valheim.exe"
+platforms = ["windows-x64", "linux-proton"]
+anti_cheat = "none"
+
+[[files]]
+from = "BepInEx/plugins/**"
+to = "${profile}/BepInEx/plugins/"

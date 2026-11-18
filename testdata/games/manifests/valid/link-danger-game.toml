@@ -1,7 +1,7 @@
 # Valid: a GI with actions in the game (link-v1.md §5 "Actions in the game"): gather and guard are
 # danger = "game" (she acts in the player's own world when asked, no approval card); stop_work is
 # its stops = true tool, danger = "low" (it only stops her, so it is never limited); bag_contents
-# reads the game's state.
+# reads the game's state; work_ended says when a job she was asked for ended.
 schema = 1
 
 [integration]
@@ -51,6 +51,10 @@ description = "What is in her bag"
 params = "astra/tools/bag_contents.json"
 result = "astra/tools/bag_contents.result.json"
 danger = "low"
+
+[[integration.link.events]]
+name = "work_ended"
+data = "astra/events/work_ended.json"
 
 [target]
 steam_appid = 892970

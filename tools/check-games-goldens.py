@@ -2068,6 +2068,25 @@ def rule_stops_not_low(manifest: dict) -> bool:
     return all(t.get("danger") == "low" for t in _link_tools(manifest) if t.get("stops") is True)
 
 
+def rule_tools_over_16_without_game(manifest: dict) -> bool:
+    """manifest.md §2.6: at most 16 tools, unless the GI has a danger = "game" tool, which may have up
+    to 24 (the schema's maxItems holds the 24)."""
+    tools = _link_tools(manifest)
+    return len(tools) <= 16 or any(t.get("danger") == "game" for t in tools)
+
+
+def rule_work_ended_misdeclared(manifest: dict) -> bool:
+    """link-v1.md §5 'work_ended': only a GI with a danger = "game" tool declares work_ended, and never
+    with speaks = true (its turn is the daemon's own work-ended turn)."""
+    link = manifest.get("integration", {}).get("link", {}) or {}
+    ended = [e for e in link.get("events", []) or [] if e.get("name") == "work_ended"]
+    if not ended:
+        return True
+    if not any(t.get("danger") == "game" for t in _link_tools(manifest)):
+        return False
+    return not any(e.get("speaks") is True for e in ended)
+
+
 def rule_knowledge_digest_missing(index: dict) -> bool:
     """link-v1.md §5 'Knowledge': an entry that declares a knowledge base (its licence) carries its
     knowledge_digest, and an entry with a digest declares the licence: neither without the other."""
@@ -2088,6 +2107,8 @@ SEMANTIC_MANIFEST_RULES = {
     "knowledge-without-licence": rule_knowledge_without_licence,
     "game-without-stop": rule_game_without_stop,
     "stops-not-low": rule_stops_not_low,
+    "tools-over-16-without-game": rule_tools_over_16_without_game,
+    "work-ended-misdeclared": rule_work_ended_misdeclared,
     "engine-undeclared": rule_engine_undeclared,
     "loader-policy-conflict": rule_loader_policy_conflict,
     "capability-undeclared": rule_capability_undeclared,
@@ -2441,6 +2462,25 @@ def main() -> int:
             ok_t, detail_t = schema_ok(doc, trigger_schema)
             report(f"link/data-schema/trigger-invalid/{v['name']}", ok and ok_t is False,
                    detail if not ok else detail_t)
+
+    # link-v1.md §6 "The work-ended profile": a work_ended data schema passes the general and AI
+    # profiles AND names a reason of the closed list, an optional progress, nothing else. A refused
+    # golden passes the AI profile, so it proves the work-ended profile is what refuses it.
+    if "data_schema_profile_work_ended" in vectors["link"]:
+        ended_schema = load_schema(vectors["link"]["data_schema_profile_work_ended"])
+        for v in vectors["link"]["data_schemas"].get("work_ended_valid", []):
+            doc = load_doc(v["file"])
+            ok, detail = schema_ok(doc, profile_schema)
+            ok_ai, detail_ai = schema_ok(doc, ai_schema)
+            ok_w, detail_w = schema_ok(doc, ended_schema)
+            report(f"link/data-schema/work-ended-valid/{v['name']}", ok and ok_ai and ok_w, detail or detail_ai or detail_w)
+        for v in vectors["link"]["data_schemas"].get("work_ended_invalid", []):
+            doc = load_doc(v["file"])
+            ok, detail = schema_ok(doc, profile_schema)
+            ok_ai, detail_ai = schema_ok(doc, ai_schema)
+            ok_w, detail_w = schema_ok(doc, ended_schema)
+            report(f"link/data-schema/work-ended-invalid/{v['name']}", ok and ok_ai and ok_w is False,
+                   detail if not ok else detail_ai if not ok_ai else detail_w)
 
     print(f"\n{checked} goldens checked, {len(failures)} failed.")
     if failures:

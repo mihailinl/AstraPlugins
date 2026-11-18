@@ -42,7 +42,7 @@
       "properties": {
         "t": { "const": "event" },
         "name": {
-          "enum": ["session_started", "session_ended", "player_hurt", "player_fell", "player_died", "player_revived", "goal_reached"],
+          "enum": ["session_started", "session_ended", "player_hurt", "player_fell", "player_died", "player_revived", "goal_reached", "work_ended"],
           "description": "link-v1.md §5 'Event words': the closed v1 list. Any other word is refused with error{unknown_event}."
         },
         "data": { "type": "object" }

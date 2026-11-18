@@ -226,8 +226,12 @@ The full grammar, limits and the wire protocol it drives are normative in
 that document's status note). This table's shape in the TOML is the example
 in §2 above: an optional `context` schema path, `shares_other_players`, an
 optional `skill` path, and the three repeatable arrays `tools`, `triggers`,
-`events`. Limits enforced by `gi-probe check`, unchanged from the earlier
-marketplace plan: at most 16 tools, 16 triggers and 32 events; every named
+`events`. Limits enforced by `gi-probe check`: at most 16 tools, 16 triggers
+and 32 events, as in the earlier marketplace plan, except that a GI with a
+`game` tool may have up to 24 tools (semantic rule
+`tools-over-16-without-game`): while it plays, the game agent's turns put only
+that GI's tools on the wire (`link-v1.md` §5 "The game agent"), so there is room
+for the actions a game needs; every named
 JSON Schema file (`context`, `params`, `result`, `data`) may use only a local `$ref`
 and only linear-time regex patterns (§6 of `link-v1.md` gives the exact
 restricted profile and its own schema).
@@ -238,8 +242,11 @@ restricted profile and its own schema).
   `link-v1.md` §6). Absent means the GI sends no context.
 - **An event's `name`** is one word of `link-v1.md` §5's closed list
   ("Event words"): `session_started`, `session_ended`, `player_hurt`,
-  `player_fell`, `player_died`, `player_revived`, `goal_reached`. Any other
-  name is refused. Its `data` schema follows the AI profile too.
+  `player_fell`, `player_died`, `player_revived`, `goal_reached`,
+  `work_ended`. Any other name is refused. Its `data` schema follows the AI
+  profile too. `work_ended` is declared only by a GI with a `game` tool and
+  never with `speaks = true` (semantic rule `work-ended-misdeclared`), and its
+  `data` schema also passes the work-ended profile (`link-v1.md` §6).
 - **A tool's `name`** is at most 32 characters of `[a-z0-9_]`, so its exposed
   name `game_<entryhash8>_<name>` stays inside the 64 characters AI providers
   accept.

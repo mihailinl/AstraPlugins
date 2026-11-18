@@ -110,7 +110,8 @@
         "talk": { "type": "boolean", "description": "manifest.md §2.6, link-v1.md §5 'Voice key'. Absent = false." },
         "tools": {
           "type": "array",
-          "maxItems": 16,
+          "maxItems": 24,
+          "description": "manifest.md §2.6: at most 16 tools, or 24 for a GI with a danger = \"game\" tool (semantic rule tools-over-16-without-game).",
           "items": {
             "type": "object",
             "required": ["name", "description", "params", "result"],
@@ -148,7 +149,7 @@
             "required": ["name", "data"],
             "additionalProperties": false,
             "properties": {
-              "name": { "enum": ["session_started", "session_ended", "player_hurt", "player_fell", "player_died", "player_revived", "goal_reached"], "description": "link-v1.md §5 'Event words': the closed v1 list." },
+              "name": { "enum": ["session_started", "session_ended", "player_hurt", "player_fell", "player_died", "player_revived", "goal_reached", "work_ended"], "description": "link-v1.md §5 'Event words': the closed v1 list. work_ended only with a game tool and never speaks (semantic rule work-ended-misdeclared)." },
               "data": { "type": "string" },
               "speaks": { "type": "boolean", "description": "link-v1.md §5 'Speaking on her own' (pending the owner's approval). Absent = false." }
             }

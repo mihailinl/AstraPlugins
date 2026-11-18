@@ -248,8 +248,8 @@ to the model only while all of these hold:
   A turn a `talk` opened is not one (§5 "Voice key").
 
 It is never offered in any other turn: a turn a `talk` opened, a `speaks`
-turn, a turn a plugin asks for, an automation or a trigger, a sub-agent's,
-background or «Code» turn. There it is absent from the tools, and a call to
+turn, a work-ended turn, a turn a plugin asks for, an automation or a
+trigger, a sub-agent's, background or «Code» turn. There it is absent from the tools, and a call to
 it all the same (a name kept in the history, a model that calls a tool it
 was not offered) is refused by the daemon with `not_granted` before it
 reaches the game. The daemon pins both with a canary and a test. That is
@@ -290,7 +290,8 @@ Besides:
 - **Long work answers at once.** A call that starts work lasting longer than
   a call may (10 s, §4) returns as soon as it has started. How the work goes
   is the game's `context` or a later call's result, never a `result` held
-  back.
+  back; that it ended is the game's `work_ended` event, when it declares one
+  (§5 "Event words").
 
 **Tools that act on her.** A tool that moves, turns or shows the companion
 declares `companion = true`. While the game does not hold her — she is not
@@ -346,7 +347,8 @@ destructive action on the user's own auto-approve trust.
 game go only into:
 - the person's own turn in the main chat (§5 "The person's own turn"),
   never one a `talk` opened;
-- a `speaks` turn (below).
+- a `speaks` turn (below);
+- a work-ended turn (below, "When her work ends").
 
 Never into a «Code» turn (an external coding agent), a sub-agent's turn or a
 background one. The context goes into a turn only when it changed since the
@@ -385,6 +387,7 @@ the chat history (Astra's spoken reply to a `speaks` event is, below).
 | `player_died` | the player dies |
 | `player_revived` | the player is back after dying |
 | `goal_reached` | the player reaches a goal of the game: a summit, a boss down, a level done |
+| `work_ended` | her work for the player in the game ended: a job a `game` tool started (§5 "Actions in the game"), whatever ended it |
 
 A manifest that declares any other name is refused by the catalogue. A live
 `event` whose name is not on the list, or is on it but not declared by this
@@ -392,6 +395,26 @@ GI, is refused with `error{unknown_event}` and goes no further: not to the
 AI, not to a plugin, not to an automation. The list grows only by a change to
 this document; each event's `data` is the GI's own, under its declared
 schema.
+
+**`work_ended`.** It says how a job the person asked for went, so that she can
+say so ("I have the wood") without being asked. Only a GI with a `game` tool
+declares it, and never with `speaks = true` (semantic rule
+`work-ended-misdeclared`). Its `data` schema passes the work-ended profile
+(§6), so its data is:
+- `reason`, always: one of `done` (she did what was asked), `bag_full`,
+  `no_tool`, `tool_too_weak`, `tool_broken`, `nothing_left` (nothing more of
+  it within reach), `too_far` (the player went too far from her), `stopped`
+  (its `stops` tool, or any of the ends of "Work never outlives its
+  permission" below) and `failed` (anything else). A GI declares the ones it
+  sends;
+- `progress`, when the GI has a count: how many she gathered, killed or did
+  in that job, an integer of at least 0, in the GI's own unit;
+- nothing else.
+
+A game sends it once, when the job ends, like every event. The daemon reads a
+`reason` it does not know (a later version's word) as `failed`. It is game
+data like any event, and may start a turn of its own (below, "When her work
+ends").
 
 **Events are edges, not levels.** An event is sent once, at the moment of the
 change: when the player falls, not while they lie on the ground. A state that
@@ -421,17 +444,21 @@ parses `plugin.toml` with and from which `docs/en/reference/manifest.md` is
 generated. It is named here so that the daemon and the SDKs agree on it
 before it lands there.
 
-**AI turns that game events start.** That is a `speaks` turn (below), or a
-turn a plugin asks for (`send_chat_message`) in reaction to a game event it
-received. The daemon cannot follow a cause through a plugin's own process, so
-it counts a plugin's turn as one when the plugin asks for it within 60 seconds
+**AI turns that game events start.** That is a `speaks` turn (below), a
+work-ended turn (below, "When her work ends"), or a turn a plugin asks for
+(`send_chat_message`) in reaction to a game event it received. The daemon
+cannot follow a cause through a plugin's own process, so it counts a
+plugin's turn as one when the plugin asks for it within 60 seconds
 after a game event was delivered to that plugin. Every such turn:
-- is off by default: a `speaks` turn needs "She may speak on her own", and a
-  plugin's turn needs the plugin's own `send_chat_message` grant, besides
-  the "Plugins hear game events" that let the event reach it;
-- starts at most once per 2 minutes for each GI (a `speaks` turn) or each
-  plugin (a plugin's turn), at most 10 times per hour for each GI, and at most
-  10 times per hour for all games together;
+- is off by default: a `speaks` turn needs "She may speak on her own", a
+  work-ended turn "She may act in the game" (the work exists only under it),
+  and a plugin's turn needs the plugin's own `send_chat_message` grant,
+  besides the "Plugins hear game events" that let the event reach it;
+- starts, for a `speaks` turn or a plugin's turn, at most once per 2 minutes
+  for each GI (a `speaks` turn) or each plugin (a plugin's turn), at most 10
+  times per hour for each GI, and at most 10 times per hour for all games
+  together; a work-ended turn has a window of its own, at most 10 per hour for
+  each GI, counted apart from those;
 - carries game data only as "Which turns carry game data" allows, and so to
   a cloud model only behind its global switch;
 - is paid from the user's ordinary credits;
@@ -459,6 +486,34 @@ A `speaks` event that cannot start a turn is kept like any other event, for
 the next turn that carries game data. That includes a chat whose model is a
 cloud model while "Game data may go to a cloud model" is off: the `speaks`
 turn does not start at all.
+
+**When her work ends** (`work_ended`). The daemon itself, never a plugin, may
+start a short turn for a `work_ended` event, so that she says how the job the
+person asked for went. It needs "Tell Astra what happens" and "She may act in
+the game", not "She may speak on her own": it answers a request the person
+made. It is not the person's own turn, nor a turn of the game agent run for
+the person (§5 "The game agent"): it is a turn of the game's, like a `speaks`
+turn, under the same rules:
+- it never starts while the user is speaking, while a user turn runs, while
+  Astra is already speaking, or while the game last said `quiet{on:true}`;
+  until one of those ends the event waits, and a newer `work_ended` replaces
+  it;
+- it is a short turn with no extended reasoning, and its context is that
+  event and the current `context` value, quoted and labelled like any game
+  data;
+- it may call only this GI's own `low` tools, never a `game` one, no built-in
+  or other tool;
+- with a cloud model while "Game data may go to a cloud model" is off it does
+  not start at all;
+- its reply is spoken and kept like a `speaks` turn's: in the last
+  conversation in which a turn carried game data (where the person asked),
+  with a band saying it reacts to a game event;
+- at most 10 per hour for each GI, its own window (above).
+
+A `work_ended` that cannot start a turn is kept like any other event, for the
+next turn that carries game data. Plugins get it as any other game event
+(above, "Events and plugins"), and a plugin's turn in reaction to it is a
+plugin's turn, under that turn's own rules and limits.
 
 **Voice key** (`talk`). A GI that declares `talk = true` may send `talk` when
 the player presses its key on the companion. The daemon treats it as a press
@@ -665,6 +720,13 @@ them as such and refuses a name that is an instruction rather than a name.
 is that stricter meta-schema. A `string` with `maxLength` stays allowed in
 `.triggers[].data`, which never reaches the model, and in `.tools[].params`,
 which the model writes and the game reads.
+
+**The work-ended profile.** A `work_ended` event's `data` schema (§5
+"`work_ended`") passes the general profile, the AI profile and
+[`schemas/link-v1-work-ended-data-profile.schema.json`](schemas/link-v1-work-ended-data-profile.schema.json):
+an object with a required `reason`, a string `enum` whose values are drawn from
+the closed list of §5, an optional `progress` integer with a `minimum` of at
+least 0, and no other property.
 
 **The trigger profile.** Every `.triggers[].data` schema must also name its
 properties as ids, `^[a-z][a-z0-9_]{0,31}$`. Each property reaches an

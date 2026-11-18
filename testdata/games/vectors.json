@@ -12,7 +12,8 @@
       { "name": "content-parts", "file": "manifests/valid/content-parts.toml", "verdict": "accept" },
       { "name": "link-danger-speaks-talk", "file": "manifests/valid/link-danger-speaks-talk.toml", "verdict": "accept" },
       { "name": "link-danger-game", "file": "manifests/valid/link-danger-game.toml", "verdict": "accept" },
-      { "name": "link-knowledge", "file": "manifests/valid/link-knowledge.toml", "verdict": "accept" }
+      { "name": "link-knowledge", "file": "manifests/valid/link-knowledge.toml", "verdict": "accept" },
+      { "name": "link-24-tools", "file": "manifests/valid/link-24-tools.toml", "verdict": "accept" }
     ],
     "invalid": [
       { "name": "engine-undeclared", "file": "manifests/invalid/engine-undeclared.toml", "verdict": "refuse", "check": "semantic", "rule": "engine-undeclared" },
@@ -27,6 +28,9 @@
       { "name": "link-danger-unknown", "file": "manifests/invalid/link-danger-unknown.toml", "verdict": "refuse", "check": "schema" },
       { "name": "link-game-without-stop", "file": "manifests/invalid/link-game-without-stop.toml", "verdict": "refuse", "check": "semantic", "rule": "game-without-stop" },
       { "name": "link-stops-not-low", "file": "manifests/invalid/link-stops-not-low.toml", "verdict": "refuse", "check": "semantic", "rule": "stops-not-low" },
+      { "name": "link-tools-over-16-without-game", "file": "manifests/invalid/link-tools-over-16-without-game.toml", "verdict": "refuse", "check": "semantic", "rule": "tools-over-16-without-game" },
+      { "name": "link-work-ended-without-game", "file": "manifests/invalid/link-work-ended-without-game.toml", "verdict": "refuse", "check": "semantic", "rule": "work-ended-misdeclared" },
+      { "name": "link-work-ended-speaks", "file": "manifests/invalid/link-work-ended-speaks.toml", "verdict": "refuse", "check": "semantic", "rule": "work-ended-misdeclared" },
       { "name": "link-knowledge-without-licence", "file": "manifests/invalid/link-knowledge-without-licence.toml", "verdict": "refuse", "check": "semantic", "rule": "knowledge-without-licence" },
       { "name": "link-knowledge-path-escapes", "file": "manifests/invalid/link-knowledge-path-escapes.toml", "verdict": "refuse", "check": "schema" },
       { "name": "link-speaks-on-trigger", "file": "manifests/invalid/link-speaks-on-trigger.toml", "verdict": "refuse", "check": "schema" },
@@ -410,10 +414,11 @@
     "data_schema_profile": "spec/games/schemas/link-v1-data-schema-profile.schema.json",
     "data_schema_profile_ai": "spec/games/schemas/link-v1-ai-data-profile.schema.json",
     "data_schema_profile_trigger": "spec/games/schemas/link-v1-trigger-data-profile.schema.json",
+    "data_schema_profile_work_ended": "spec/games/schemas/link-v1-work-ended-data-profile.schema.json",
     "transcript": { "file": "link/transcript.json", "verdict": "accept", "note": "every message in messages[] must validate against the message schema", "result_schemas": { "drop_item": "link/data-schemas/ai-valid/drop_item.result.json" } },
     "transcripts": [
       { "name": "speaks-talk", "file": "link/transcript-speaks-talk.json", "verdict": "accept", "note": "link-v1.md §5: talk, quiet, the speaks and talk grants, a refusal code; every message must validate", "result_schemas": { "come_here": "link/data-schemas/ai-valid/come_here.result.json", "map_pin_add": "link/data-schemas/ai-valid/map_pin_add.result.json", "drop_item": "link/data-schemas/ai-valid/drop_item.result.json" } },
-      { "name": "game-acts", "file": "link/transcript-game-acts.json", "verdict": "accept", "note": "link-v1.md §5 'Actions in the game': world{alone}, the acts grant, not_alone, the low stop_work; every message must validate", "result_schemas": { "gather": "link/data-schemas/ai-valid/gather.result.json", "stop_work": "link/data-schemas/ai-valid/stop_work.result.json" } },
+      { "name": "game-acts", "file": "link/transcript-game-acts.json", "verdict": "accept", "note": "link-v1.md §5 'Actions in the game': world{alone}, the acts grant, not_alone, the low stop_work and its work_ended; every message must validate", "result_schemas": { "gather": "link/data-schemas/ai-valid/gather.result.json", "stop_work": "link/data-schemas/ai-valid/stop_work.result.json" } },
       { "name": "world-not-boolean", "file": "link/transcript-world-not-boolean.json", "verdict": "refuse", "note": "link-v1.md §4: world's alone is a boolean, never a word" },
       { "name": "world-no-alone", "file": "link/transcript-world-no-alone.json", "verdict": "refuse", "note": "link-v1.md §4: world needs alone" },
       { "name": "talk-with-text", "file": "link/transcript-talk-with-text.json", "verdict": "refuse", "note": "a talk carrying text: some message must fail the schema" },
@@ -437,7 +442,8 @@
         { "name": "drop_item-result", "file": "link/data-schemas/ai-valid/drop_item.result.json", "verdict": "accept", "note": "the result schema of game-specific-link's drop_item (link/transcript.json)" },
         { "name": "map_pin_add-result", "file": "link/data-schemas/ai-valid/map_pin_add.result.json", "verdict": "accept", "note": "the result schema of link-danger-speaks-talk's map_pin_add" },
         { "name": "gather-result", "file": "link/data-schemas/ai-valid/gather.result.json", "verdict": "accept", "note": "the result schema of link-danger-game's gather: it answers once the work has started" },
-        { "name": "stop_work-result", "file": "link/data-schemas/ai-valid/stop_work.result.json", "verdict": "accept", "note": "the result schema of link-danger-game's stop_work" }
+        { "name": "stop_work-result", "file": "link/data-schemas/ai-valid/stop_work.result.json", "verdict": "accept", "note": "the result schema of link-danger-game's stop_work" },
+        { "name": "work_ended", "file": "link/data-schemas/ai-valid/work_ended.json", "verdict": "accept", "note": "link-danger-game's work_ended data: a reason of the closed list, a progress count" }
       ],
       "ai_invalid": [
         { "name": "free-string", "file": "link/data-schemas/ai-invalid/free-string.json", "verdict": "refuse", "check": "schema", "note": "passes the general profile; the AI profile refuses a string that is not an enum" },
@@ -451,6 +457,14 @@
       "trigger_invalid": [
         { "name": "key-not-id", "file": "link/data-schemas/trigger-invalid/key-not-id.json", "verdict": "refuse", "check": "schema", "note": "passes the general profile; 'fall-height' would be no {game_<key>} variable" },
         { "name": "key-capital", "file": "link/data-schemas/trigger-invalid/key-capital.json", "verdict": "refuse", "check": "schema", "note": "a capital letter: not an id" }
+      ],
+      "work_ended_valid": [
+        { "name": "work_ended", "file": "link/data-schemas/ai-valid/work_ended.json", "verdict": "accept", "note": "a required reason drawn from the closed list, an optional progress of at least 0" }
+      ],
+      "work_ended_invalid": [
+        { "name": "reason-unknown", "file": "link/data-schemas/work-ended-invalid/reason-unknown.json", "verdict": "refuse", "check": "schema", "note": "passes the AI profile; 'exhausted' is not on link-v1.md §5's closed list" },
+        { "name": "extra-property", "file": "link/data-schemas/work-ended-invalid/extra-property.json", "verdict": "refuse", "check": "schema", "note": "passes the AI profile; work_ended carries a reason and a progress, nothing else" },
+        { "name": "reason-not-required", "file": "link/data-schemas/work-ended-invalid/reason-not-required.json", "verdict": "refuse", "check": "schema", "note": "passes the AI profile; a work_ended always says why it ended" }
       ]
     }
   },

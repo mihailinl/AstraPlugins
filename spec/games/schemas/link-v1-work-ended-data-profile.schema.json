@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://astraplugins.minice.ai/spec/games/schemas/link-v1-work-ended-data-profile.schema.json",
+  "title": "The Link work-ended data profile (a meta-schema)",
+  "description": "link-v1.md section 6 'The work-ended profile'. Validates the JSON Schema FILE named by the data of an [integration.link].events[] entry named work_ended -- not game data itself. On top of the general and AI profiles: a required reason, a string enum drawn from the closed list of link-v1.md section 5 'work_ended'; an optional progress, an integer of at least 0; nothing else. The daemon reads a reason it does not know as failed.",
+  "type": "object",
+  "required": [
+    "type",
+    "properties",
+    "additionalProperties",
+    "required"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "type": {
+      "const": "object"
+    },
+    "additionalProperties": {
+      "const": false
+    },
+    "required": {
+      "enum": [
+        [
+          "reason"
+        ],
+        [
+          "reason",
+          "progress"
+        ],
+        [
+          "progress",
+          "reason"
+        ]
+      ],
+      "description": "reason is always required; progress may be"
+    },
+    "properties": {
+      "type": "object",
+      "required": [
+        "reason"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "reason": {
+          "type": "object",
+          "required": [
+            "enum"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "string"
+            },
+            "enum": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "enum": [
+                  "done",
+                  "bag_full",
+                  "no_tool",
+                  "tool_too_weak",
+                  "tool_broken",
+                  "nothing_left",
+                  "too_far",
+                  "stopped",
+                  "failed"
+                ]
+              }
+            },
+            "description": {
+              "type": "string"
+            }
+          }
+        },
+        "progress": {
+          "type": "object",
+          "required": [
+            "type",
+            "minimum"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "integer"
+            },
+            "minimum": {
+              "type": "number",
+              "minimum": 0
+            },
+            "maximum": {
+              "type": "number"
+            },
+            "description": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}
