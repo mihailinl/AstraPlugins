@@ -93,6 +93,8 @@
         "context": { "type": "boolean", "description": "games-index-v1.md §2.1: true when the link table names a context schema." },
         "shares_other_players": { "type": "boolean" },
         "skill_digest": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$" },
+        "knowledge_digest": { "type": ["string", "null"], "pattern": "^[0-9a-f]{64}$", "description": "games-index-v1.md §2.1: the knowledge folder's part digest (spec/content/part-digest-v1.md); null when none." },
+        "knowledge_licence": { "type": ["string", "null"], "maxLength": 128, "description": "games-index-v1.md §2.1: the table's knowledge_licence; null when none." },
         "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
         "talk": { "type": "boolean", "description": "games-index-v1.md §2.1: the table's talk. Absent = false." },
         "low_tools": {

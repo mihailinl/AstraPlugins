@@ -37,7 +37,9 @@ A Link-capable GI may:
   "Speaking on her own"), if the user switched that on;
 - act in the game when the user asks: gather, fight, pick up, hand over
   (`danger = "game"` tools, §5 "Actions in the game"), only in a world where
-  the player is alone, and only if the user switched that on.
+  the player is alone, and only if the user switched that on;
+- give the game agent a knowledge base: guides to the game, its author's own
+  text, signed with the entry (§5 "The game agent", "Knowledge").
 
 Allowed only as declared in `[integration.link]` and only once the user has
 switched it on (§5). **Never available to a game:** chat as the user or as
@@ -493,6 +495,65 @@ a game's own string (at most 64 characters, §6) may appear.
 
 **Skill.** A read-only skills source, at most 16 KiB, labelled as coming
 from the GI, visible to the AI only while the session is live.
+
+**The game agent.** While a Link session of a GI is live, the person talks
+to the game agent: the assistant's "Game" profile, one more of its modes
+(as "Fast" and "Work" are), not a second assistant. It answers about the game
+and acts in it, and hands anything else to the ordinary assistant. A human
+turn runs as the game agent when all of these hold:
+- it is a direct human turn in the main chat: typed text, or Astra's own
+  voice key or wake word. Never a turn a `talk` opened (§5 "Voice key"),
+  never a `speaks` turn, a turn a plugin asks for, an automation or a
+  trigger, a sub-agent's, background or «Code» turn;
+- the session is live, the player is in the world (not `quiet` in a menu),
+  and the game's per-game switch "Answer as the game agent" is on. It is on
+  by default: the profile grants nothing by itself, every tool is still
+  behind its own switch;
+- the conversation is not bound to another mode («Code», «Work»): such a
+  conversation keeps its mode.
+
+**The cloud gate comes first.** The game agent runs on the model of the
+"Fast" role. When that model is a cloud model and "Game data may go to a
+cloud model" is off, the profile is not used at all: the turn runs in the
+conversation's ordinary mode, with no game data and no game tool, and the
+chat says why, once a session. There is no way around the gate through the
+profile.
+
+What the game agent is offered, and nothing else:
+- this GI's tools, under every rule above (`low`, `game` and `high`, the
+  `acts` switch, alone, the turn limit);
+- `game_knowledge`, when the GI ships a knowledge base (below);
+- `ask_astra`, the handoff to the ordinary assistant: "write it in my
+  notes", "open the wiki in the browser". It carries **only the text of the
+  person's own message**, never game data, a game tool's result or a
+  knowledge passage; the ordinary assistant runs it under its own approval
+  policy, and its answer comes back to the conversation. A daemon canary
+  pins what the handoff carries.
+
+No built-in tool that reaches the computer is on the game agent's wire. Its
+prompt is short and about the game, with the GI's skill. Each of its turns
+carries a "Game" badge in the chat, so the person sees who answered.
+
+**Knowledge** (`knowledge`). A GI may ship a knowledge base for the game
+agent: a folder of Markdown files that `[integration.link] knowledge` names
+(`manifest.md` §2.6): guides, recipes, bosses, biomes. It is the author's
+own text, like the skill, and never the game's live data:
+- at most 256 files, each a `.md` file of UTF-8 text, each at most 256 KiB,
+  together at most 4 MiB;
+- signed with the entry: `link.knowledge_digest` is the folder's part digest
+  (`spec/content/part-digest-v1.md`, paths relative to the folder), so a
+  changed base asks for consent again;
+- its licence is declared (`knowledge_licence`, an SPDX id or text, required
+  with `knowledge`) and shown on the consent sheet. Text taken from a wiki
+  under CC BY-SA keeps its attribution in the files;
+- the catalogue's review reads it as text that reaches the model, as it
+  reads the skill, and refuses a base that instructs the model rather than
+  informs it;
+- the daemon indexes it per installed GI version and offers
+  `game_knowledge(query)` to the game agent only. A call returns at most 4
+  passages, at most 2 KiB together, and at most 8 KiB of passages reach one
+  turn. Each passage reaches the model labelled as untrusted text from the
+  GI, as a tool's output does, never as the model's own context.
 
 ## 6. The restricted data-schema profile
 

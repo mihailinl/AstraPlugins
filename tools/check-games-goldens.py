@@ -2068,7 +2068,14 @@ def rule_stops_not_low(manifest: dict) -> bool:
     return all(t.get("danger") == "low" for t in _link_tools(manifest) if t.get("stops") is True)
 
 
+def rule_knowledge_without_licence(manifest: dict) -> bool:
+    """link-v1.md §5 'Knowledge', manifest.md §2.6: a knowledge base declares its licence."""
+    link = manifest.get("integration", {}).get("link", {}) or {}
+    return "knowledge" not in link or bool(link.get("knowledge_licence"))
+
+
 SEMANTIC_MANIFEST_RULES = {
+    "knowledge-without-licence": rule_knowledge_without_licence,
     "game-without-stop": rule_game_without_stop,
     "stops-not-low": rule_stops_not_low,
     "engine-undeclared": rule_engine_undeclared,
