@@ -11210,6 +11210,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "domAccess": {
               "type": "bool",
               "id": 4
+            },
+            "mayRestyle": {
+              "type": "bool",
+              "id": 5
             }
           }
         },
