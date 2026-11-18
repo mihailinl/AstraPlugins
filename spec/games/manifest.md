@@ -253,7 +253,7 @@ one allows is normative in `link-v1.md` §5.
 | key | where | value | absent means |
 |---|---|---|---|
 | `talk` | the table | boolean: the GI may send `talk`, the user's voice key pressed on the companion | `false` |
-| `danger` | a `[[integration.link.tools]]` entry | `"low"` or `"high"` | `"high"` |
+| `danger` | a `[[integration.link.tools]]` entry | `"low"`, `"game"` or `"high"`: `game` is an action in the player's own game, when they ask, in a world where they are alone (`link-v1.md` §5 "Actions in the game") | `"high"` |
 | `companion` | a `[[integration.link.tools]]` entry | boolean: the tool moves, turns or shows the companion, so the daemon refuses it while the game does not hold her | `false` |
 | `speaks` | a `[[integration.link.events]]` entry | boolean: the event may start a short turn of its own (pending the owner's approval, `link-v1.md` §5) | `false` |
 

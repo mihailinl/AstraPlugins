@@ -10,7 +10,8 @@
       { "name": "foundation-dependency-claim", "file": "manifests/valid/foundation-dependency-claim.toml", "verdict": "accept" },
       { "name": "runner-builtin", "file": "manifests/valid/runner-builtin.toml", "verdict": "accept" },
       { "name": "content-parts", "file": "manifests/valid/content-parts.toml", "verdict": "accept" },
-      { "name": "link-danger-speaks-talk", "file": "manifests/valid/link-danger-speaks-talk.toml", "verdict": "accept" }
+      { "name": "link-danger-speaks-talk", "file": "manifests/valid/link-danger-speaks-talk.toml", "verdict": "accept" },
+      { "name": "link-danger-game", "file": "manifests/valid/link-danger-game.toml", "verdict": "accept" }
     ],
     "invalid": [
       { "name": "engine-undeclared", "file": "manifests/invalid/engine-undeclared.toml", "verdict": "refuse", "check": "semantic", "rule": "engine-undeclared" },
@@ -394,6 +395,8 @@
     "transcript": { "file": "link/transcript.json", "verdict": "accept", "note": "every message in messages[] must validate against the message schema", "result_schemas": { "drop_item": "link/data-schemas/ai-valid/drop_item.result.json" } },
     "transcripts": [
       { "name": "speaks-talk", "file": "link/transcript-speaks-talk.json", "verdict": "accept", "note": "link-v1.md §5: talk, quiet, the speaks and talk grants, a refusal code; every message must validate", "result_schemas": { "come_here": "link/data-schemas/ai-valid/come_here.result.json", "map_pin_add": "link/data-schemas/ai-valid/map_pin_add.result.json", "drop_item": "link/data-schemas/ai-valid/drop_item.result.json" } },
+      { "name": "game-acts", "file": "link/transcript-game-acts.json", "verdict": "accept", "note": "link-v1.md §5 'Actions in the game': world{alone}, the acts grant, not_alone, the low stop_work; every message must validate", "result_schemas": { "gather": "link/data-schemas/ai-valid/gather.result.json", "stop_work": "link/data-schemas/ai-valid/stop_work.result.json" } },
+      { "name": "world-not-boolean", "file": "link/transcript-world-not-boolean.json", "verdict": "refuse", "note": "link-v1.md §4: world carries a boolean alone, never a count" },
       { "name": "talk-with-text", "file": "link/transcript-talk-with-text.json", "verdict": "refuse", "note": "a talk carrying text: some message must fail the schema" },
       { "name": "context-text", "file": "link/transcript-context-text.json", "verdict": "refuse", "note": "link-v1.md §5 'Events and context': a context carrying text, not facts" },
       { "name": "unknown-event", "file": "link/transcript-unknown-event.json", "verdict": "refuse", "note": "link-v1.md §5 'Event words': a word not on the closed v1 list" }
@@ -413,7 +416,9 @@
         { "name": "context", "file": "link/data-schemas/ai-valid/context.json", "verdict": "accept", "note": "a context schema: facts only" },
         { "name": "come_here-result", "file": "link/data-schemas/ai-valid/come_here.result.json", "verdict": "accept", "note": "a tool's result schema: a boolean, a number, an enum of ids" },
         { "name": "drop_item-result", "file": "link/data-schemas/ai-valid/drop_item.result.json", "verdict": "accept", "note": "the result schema of game-specific-link's drop_item (link/transcript.json)" },
-        { "name": "map_pin_add-result", "file": "link/data-schemas/ai-valid/map_pin_add.result.json", "verdict": "accept", "note": "the result schema of link-danger-speaks-talk's map_pin_add" }
+        { "name": "map_pin_add-result", "file": "link/data-schemas/ai-valid/map_pin_add.result.json", "verdict": "accept", "note": "the result schema of link-danger-speaks-talk's map_pin_add" },
+        { "name": "gather-result", "file": "link/data-schemas/ai-valid/gather.result.json", "verdict": "accept", "note": "the result schema of link-danger-game's gather: it answers once the work has started" },
+        { "name": "stop_work-result", "file": "link/data-schemas/ai-valid/stop_work.result.json", "verdict": "accept", "note": "the result schema of link-danger-game's stop_work" }
       ],
       "ai_invalid": [
         { "name": "free-string", "file": "link/data-schemas/ai-invalid/free-string.json", "verdict": "refuse", "check": "schema", "note": "passes the general profile; the AI profile refuses a string that is not an enum" },

@@ -116,6 +116,16 @@
     },
     {
       "type": "object",
+      "required": ["t", "alone"],
+      "additionalProperties": false,
+      "description": "link-v1.md §4, §5 'Actions in the game': whether the player is alone in the world (the game hosts it and no other player is in it). Until the first one, not alone.",
+      "properties": {
+        "t": { "const": "world" },
+        "alone": { "type": "boolean" }
+      }
+    },
+    {
+      "type": "object",
       "required": ["t", "granted"],
       "additionalProperties": false,
       "properties": {
@@ -153,7 +163,8 @@
         "context": { "type": "boolean" },
         "skill": { "type": "boolean" },
         "speaks": { "type": "boolean" },
-        "talk": { "type": "boolean" }
+        "talk": { "type": "boolean" },
+        "acts": { "type": "boolean", "description": "link-v1.md §5 item 4, 'Actions in the game': the game tools may be offered ('She may act in the game' and 'AI may act' both on). Absent = false." }
       }
     }
   }

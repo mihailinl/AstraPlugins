@@ -101,7 +101,13 @@
           "maximum": 16,
           "description": "games-index-v1.md §2.1: how many tools declare danger = low (they run without an approval card). Absent = 0."
         },
-        "speaks": { "type": "boolean", "description": "games-index-v1.md §2.1: true when any event declares speaks = true. Absent = false." }
+        "speaks": { "type": "boolean", "description": "games-index-v1.md §2.1: true when any event declares speaks = true. Absent = false." },
+        "game_tools": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 16,
+          "description": "games-index-v1.md §2.1: how many tools declare danger = game (actions in the player's own game when asked, without an approval card; link-v1.md §5 'Actions in the game'). Absent = 0."
+        }
       }
     },
 

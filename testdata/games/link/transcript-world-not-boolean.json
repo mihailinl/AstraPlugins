@@ -1,0 +1,18 @@
+{
+  "schema": "astra.link.transcript/1",
+  "note": "link-v1.md §4: world carries a boolean alone; a count of players is not it, so the schema refuses the message.",
+  "messages": [
+    {
+      "t": "hello",
+      "token": "4d8e2a1f6b9c3075d2e8a1f6b7c94e2a9d3e7b6c4815a2c9e3f6b7d84e1a9c2f",
+      "integration": "someone.viking-helper",
+      "v": 1,
+      "client": "BepInEx 5.4.23"
+    },
+    {
+      "t": "world",
+      "alone": "yes",
+      "players": 1
+    }
+  ]
+}
