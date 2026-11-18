@@ -535,8 +535,12 @@ runs as the game agent when all of these hold:
   such a conversation keeps what it has, and is never taken over.
 
 The daemon checks these, and the cloud gate below, again before every model
-call of the turn: a switch turned off, a session that ended or a model
-changed in the middle of a turn ends the Game profile for the rest of it.
+call of the turn. When one no longer holds (a switch turned off, a session
+that ended, a model changed in the middle of the turn), **the turn stops
+there**: no further model call is made in it, nothing gathered in the Game
+profile (game data, a game tool's result, a knowledge passage) is sent to
+any other model, and the chat says the turn stopped and why. The person's
+next message starts afresh.
 
 **The cloud gate comes first.** The game agent runs on the model of the
 "Fast" role. When that model is a cloud model and "Game data may go to a
@@ -553,6 +557,15 @@ local or "Game data may go to a cloud model" is on; otherwise the daemon
 leaves them out of what that turn sends. They are never written to long-term
 memory. A daemon canary pins this for every path that reads a conversation's
 history.
+
+**Passages and game results stay in Game turns.** A knowledge passage is the
+author's free text, and a game tool's result is the game's. Both are
+replayed only into a later Game turn. Any other turn (the ordinary
+assistant's, a handoff, a summary) sees a Game turn by its reply alone, so
+an ordinary turn with the computer's tools never reads a guide's words on
+the user's auto-approve. A turn whose replayed history would hold a passage
+or a game result anyway counts as carrying game data (the per-call approval
+of "Game data in a turn").
 
 What the game agent is offered, and nothing else:
 - this GI's tools, under every rule above (`low`, `game` and `high`, the

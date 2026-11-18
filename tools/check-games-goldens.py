@@ -2068,6 +2068,16 @@ def rule_stops_not_low(manifest: dict) -> bool:
     return all(t.get("danger") == "low" for t in _link_tools(manifest) if t.get("stops") is True)
 
 
+def rule_knowledge_digest_missing(index: dict) -> bool:
+    """link-v1.md §5 'Knowledge': an entry that declares a knowledge base (its licence) carries its
+    knowledge_digest, and an entry with a digest declares the licence: neither without the other."""
+    for e in index.get("entries", []):
+        link = e.get("link") or {}
+        if (link.get("knowledge_licence") is None) != (link.get("knowledge_digest") is None):
+            return False
+    return True
+
+
 def rule_knowledge_without_licence(manifest: dict) -> bool:
     """link-v1.md §5 'Knowledge', manifest.md §2.6: a knowledge base declares its licence."""
     link = manifest.get("integration", {}).get("link", {}) or {}
@@ -2218,6 +2228,8 @@ def main() -> int:
                 semantic_ok = rule_issued_at_too_far_ahead(doc, reference_now)
             elif v["rule"] == "expiry-span-too-long":
                 semantic_ok = rule_expiry_span_too_long(doc)
+            elif v["rule"] == "knowledge-digest-missing":
+                semantic_ok = rule_knowledge_digest_missing(doc)
             else:
                 raise NotImplementedError(v["rule"])
             report(f"index/invalid/{v['name']}", sok is True and semantic_ok is False)
