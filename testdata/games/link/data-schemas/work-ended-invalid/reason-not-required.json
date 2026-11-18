@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "progress"
+  ],
+  "properties": {
+    "reason": {
+      "type": "string",
+      "enum": [
+        "done",
+        "bag_full",
+        "no_tool",
+        "tool_broken",
+        "nothing_left",
+        "too_far",
+        "stopped",
+        "failed"
+      ]
+    },
+    "progress": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 999
+    }
+  }
+}

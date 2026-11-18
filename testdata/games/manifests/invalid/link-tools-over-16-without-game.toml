@@ -1,0 +1,147 @@
+# Invalid (semantic, tools-over-16-without-game): 17 tools and none of them danger = "game": a GI
+# without actions in the game keeps the limit of 16 (manifest.md §2.6). The schema alone passes it.
+schema = 1
+
+[integration]
+id = "someone.viking-helper"
+name = "Astra helps in a viking game"
+version = "0.3.0"
+authors = ["someone"]
+license = "MIT"
+repo = "https://github.com/someone/viking-helper"
+
+[integration.capabilities]
+companion = ["presentation"]
+
+[integration.link]
+context = "astra/context.json"
+shares_other_players = false
+
+[[integration.link.tools]]
+name = "look_00"
+description = "Tool look_00"
+params = "astra/tools/look_00.json"
+result = "astra/tools/look_00.result.json"
+danger = "low"
+
+[[integration.link.tools]]
+name = "look_01"
+description = "Tool look_01"
+params = "astra/tools/look_01.json"
+result = "astra/tools/look_01.result.json"
+danger = "low"
+
+[[integration.link.tools]]
+name = "look_02"
+description = "Tool look_02"
+params = "astra/tools/look_02.json"
+result = "astra/tools/look_02.result.json"
+danger = "low"
+
+[[integration.link.tools]]
+name = "look_03"
+description = "Tool look_03"
+params = "astra/tools/look_03.json"
+result = "astra/tools/look_03.result.json"
+danger = "low"
+
+[[integration.link.tools]]
+name = "look_04"
+description = "Tool look_04"
+params = "astra/tools/look_04.json"
+result = "astra/tools/look_04.result.json"
+danger = "low"
+
+[[integration.link.tools]]
+name = "look_05"
+description = "Tool look_05"
+params = "astra/tools/look_05.json"
+result = "astra/tools/look_05.result.json"
+danger = "low"
+
+[[integration.link.tools]]
+name = "look_06"
+description = "Tool look_06"
+params = "astra/tools/look_06.json"
+result = "astra/tools/look_06.result.json"
+danger = "low"
+
+[[integration.link.tools]]
+name = "look_07"
+description = "Tool look_07"
+params = "astra/tools/look_07.json"
+result = "astra/tools/look_07.result.json"
+danger = "low"
+
+[[integration.link.tools]]
+name = "look_08"
+description = "Tool look_08"
+params = "astra/tools/look_08.json"
+result = "astra/tools/look_08.result.json"
+danger = "low"
+
+[[integration.link.tools]]
+name = "look_09"
+description = "Tool look_09"
+params = "astra/tools/look_09.json"
+result = "astra/tools/look_09.result.json"
+danger = "low"
+
+[[integration.link.tools]]
+name = "look_10"
+description = "Tool look_10"
+params = "astra/tools/look_10.json"
+result = "astra/tools/look_10.result.json"
+danger = "low"
+
+[[integration.link.tools]]
+name = "look_11"
+description = "Tool look_11"
+params = "astra/tools/look_11.json"
+result = "astra/tools/look_11.result.json"
+danger = "low"
+
+[[integration.link.tools]]
+name = "look_12"
+description = "Tool look_12"
+params = "astra/tools/look_12.json"
+result = "astra/tools/look_12.result.json"
+danger = "low"
+
+[[integration.link.tools]]
+name = "look_13"
+description = "Tool look_13"
+params = "astra/tools/look_13.json"
+result = "astra/tools/look_13.result.json"
+danger = "low"
+
+[[integration.link.tools]]
+name = "look_14"
+description = "Tool look_14"
+params = "astra/tools/look_14.json"
+result = "astra/tools/look_14.result.json"
+danger = "low"
+
+[[integration.link.tools]]
+name = "look_15"
+description = "Tool look_15"
+params = "astra/tools/look_15.json"
+result = "astra/tools/look_15.result.json"
+danger = "low"
+
+[[integration.link.tools]]
+name = "look_16"
+description = "Tool look_16"
+params = "astra/tools/look_16.json"
+result = "astra/tools/look_16.result.json"
+danger = "low"
+
+[target]
+steam_appid = 892970
+exe = "valheim.exe"
+platforms = ["windows-x64", "linux-proton"]
+anti_cheat = "none"
+
+[[files]]
+from = "BepInEx/plugins/**"
+to = "${profile}/BepInEx/plugins/"

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://astraplugins.minice.ai/spec/games/schemas/link-v1-data-schema-profile.schema.json",
   "title": "The restricted Link data-schema profile (a meta-schema)",
-  "description": "link-v1.md §6. Validates a JSON Schema FILE named by [integration.link].context / .tools[].params / .tools[].result / .triggers[].data / .events[].data -- not game data itself. The context schema, every .events[].data and every .tools[].result must ALSO pass link-v1-ai-data-profile.schema.json, and every .triggers[].data link-v1-trigger-data-profile.schema.json. A params/data file must pass THIS schema before it is ever used to validate a live event/trigger/call payload. The linear-time-regex requirement on 'pattern' is not structurally expressible here; gi-probe enforces it at the byte level.",
+  "description": "link-v1.md §6. Validates a JSON Schema FILE named by [integration.link].context / .tools[].params / .tools[].result / .triggers[].data / .events[].data -- not game data itself. The context schema, every .events[].data and every .tools[].result must ALSO pass link-v1-ai-data-profile.schema.json, every .triggers[].data link-v1-trigger-data-profile.schema.json, and the .events[].data of work_ended link-v1-work-ended-data-profile.schema.json. A params/data file must pass THIS schema before it is ever used to validate a live event/trigger/call payload. The linear-time-regex requirement on 'pattern' is not structurally expressible here; gi-probe enforces it at the byte level.",
   "type": "object",
   "required": ["type", "properties", "additionalProperties"],
   "additionalProperties": false,
