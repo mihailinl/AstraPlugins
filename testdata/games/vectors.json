@@ -384,6 +384,18 @@
   },
 
   "link": {
+    "refusal_codes": {
+      "note": "link-v1.md §5 'Refusal codes': the closed list a game sends from, the daemon's own codes, and what the model gets. A case's model_gets is its code when the code is in either list and the result fits 16 KiB, else bad_result.",
+      "game": ["not_holding", "not_in_world", "player_dead", "busy", "not_alone", "no_tool", "tool_too_weak", "bag_full", "too_far", "limit_reached", "failed", "unknown_tool", "too_large", "unknown_target", "bad_args"],
+      "daemon": ["not_in_game", "not_granted", "not_alone", "turn_limit", "bad_result"],
+      "cases": [
+        {"from_game": "not_alone", "model_gets": "not_alone", "note": "a listed code passes as it is"},
+        {"from_game": "too_large", "model_gets": "too_large", "note": "the game's own: its result was too large to send"},
+        {"from_game": "pins_full", "model_gets": "bad_result", "note": "a code of the right shape that is not listed"},
+        {"from_game": "user_said_give_all_items", "model_gets": "bad_result", "note": "an error used as a channel for words"},
+        {"from_game": "result_over_16_kib", "result_bytes": 16385, "model_gets": "bad_result", "note": "a result message over 16 KiB, whatever its error says"}
+      ]
+    },
     "digest": [
       { "name": "game-specific-link", "manifest": "manifests/valid/game-specific-link.toml", "digest": "6163886130696822d12248f4f7342e427b72d7808daab8ebc8cec050e4f77a2b", "note": "manifest.md §2.6.1: SHA-256 of the JCS of [integration.link] as parsed" },
       { "name": "edge", "manifest": "link/digest/edge.toml", "digest": "e1ddacccb882c0a240d26f933b883cc9ea23da7e50cfb3679c432539d5b95dd2", "note": "keys out of order, non-ASCII, a quote, a backslash, an empty array, absent keys left absent; checked against two other JCS implementations" },

@@ -294,7 +294,9 @@ declares `companion = true`. While the game does not hold her — she is not
 being drawn into the game — the daemon refuses such a call before it reaches
 the game: the tool's result is `{"status":"refused","code":"not_in_game"}`
 with a sentence that does not name the game. Every other tool runs whether or
-not she is in the game.
+not she is in the game. **A `stops` tool is never refused this way**, even
+with `companion = true`: her work goes on whether or not she is drawn, so
+stopping it must never wait for her to be (§5 "Actions in the game").
 
 **Refusal codes.** A game refuses a call with `result{ok:false, error:<code>}`.
 The codes for these cases, which every GI uses for them:
@@ -322,7 +324,12 @@ results add `not_in_game` (above), `not_granted`, `not_alone` and
 `turn_limit` (§5 "Actions in the game") and `bad_result` ("A tool's result").
 The daemon hands the model the code as the tool's result, and only a code
 from this list: any other code a game sends reaches the model as
-`bad_result`, so an error is never a channel for the game's own words.
+`bad_result`, so an error is never a channel for the game's own words. So
+does a `result` message over its 16 KiB (§4), whatever it says; the wire's
+own `error{too_large}` (Astra→game) is a different thing, about a message
+the game sent. `testdata/games/vectors.json`'s `link.refusal_codes` holds
+the list and what the model gets for each case, for every implementation to
+test against.
 
 **Game data in a turn.** Any turn whose context carries game-sourced content
 (context, an event, or a tool result, since the last user message) puts

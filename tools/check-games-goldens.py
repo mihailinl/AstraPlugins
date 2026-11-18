@@ -2355,6 +2355,25 @@ def main() -> int:
                     print(f"  {rel} message {i} ({msg.get('t')}): {detail}")
         return all_ok
 
+    # link-v1.md §5 "Refusal codes": the closed list in the spec text is the vector's, and every
+    # case's model_gets follows the rule (a listed code as it is, anything else bad_result).
+    codes = vectors["link"].get("refusal_codes")
+    if codes:
+        spec_text = (ROOT / "spec" / "games" / "link-v1.md").read_text(encoding="utf-8")
+        section = spec_text.split("**Refusal codes.**", 1)[1].split("**The list is closed.**", 1)[0]
+        listed = []
+        for line in section.splitlines():
+            if line.startswith("- "):
+                listed += re.findall(r"`([a-z][a-z0-9_]*)`", line.split(":", 1)[0])
+        report("link/refusal-codes/spec-list", sorted(listed) == sorted(codes["game"]),
+               f"spec lists {sorted(listed)}, vector {sorted(codes['game'])}")
+        known = set(codes["game"]) | set(codes["daemon"])
+        for c in codes["cases"]:
+            fits = c.get("result_bytes", 0) <= 16 * 1024
+            want = c["from_game"] if (c["from_game"] in known and fits) else "bad_result"
+            report(f"link/refusal-codes/{c['from_game']}", c["model_gets"] == want,
+                   f"model_gets {c['model_gets']!r}, the rule gives {want!r}")
+
     v = vectors["link"]["transcript"]
     report("link/transcript", transcript_ok(v["file"], False, v.get("result_schemas")) == (v["verdict"] == "accept"))
     # More sessions, each with its own verdict: a refused one must have a message the schema refuses.
