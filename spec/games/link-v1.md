@@ -404,15 +404,18 @@ declares it, and never with `speaks = true` (semantic rule
 - `reason`, always: one of `done` (she did what was asked), `bag_full`,
   `no_tool`, `tool_too_weak`, `tool_broken`, `nothing_left` (nothing more of
   it within reach), `too_far` (the player went too far from her), `stopped`
-  (its `stops` tool, or any of the ends of "Work never outlives its
-  permission" below) and `failed` (anything else). A GI declares the ones it
-  sends;
+  (any of the ends of "Work never outlives its permission" below) and
+  `failed` (anything else). A GI declares the ones it sends;
 - `progress`, when the GI has a count: how many she gathered, killed or did
   in that job, an integer of at least 0, in the GI's own unit;
 - nothing else.
 
-A game sends it once, when the job ends, like every event. The daemon reads a
-`reason` it does not know (a later version's word) as `failed`. It is game
+A game sends it once, when the job ends, like every event. A job the
+person's own call ended — the `stops` tool, or a `game` tool that starts
+another job in its place — is answered by that call's result in their turn,
+so the game sends no `work_ended` for it: no second turn says what the first
+already did. The daemon reads a `reason` it does not know (a later version's
+word) as `failed`. It is game
 data like any event, and may start a turn of its own (below, "When her work
 ends").
 
