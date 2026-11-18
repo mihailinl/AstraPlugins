@@ -309,6 +309,10 @@ The codes for these cases, which every GI uses for them:
 - `tool_too_weak`: the tool she has cannot do it (a pickaxe of too low a tier);
 - `bag_full`: her bag has no room;
 - `too_far`: the target is beyond where she may go;
+- `limit_reached`: a limit the game sets is reached (her map marks, say);
+- `failed`, `unknown_tool`, `too_large`: the game's own Link client says
+  these for any tool: the game's handler failed, the game has no such tool,
+  or the result was too large to send;
 - `unknown_target`: the thing the call names is not there;
 - `bad_args`: the arguments are valid against the schema but make no sense
   in the game.
