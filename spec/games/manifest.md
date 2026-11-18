@@ -247,12 +247,14 @@ restricted profile and its own schema).
   checked against before the model sees it (the AI profile; `link-v1.md` §5,
   "A tool's result").
 
-Five optional keys say how far the GI's AI-facing surface reaches. What each
+Seven optional keys say how far the GI's AI-facing surface reaches. What each
 one allows is normative in `link-v1.md` §5.
 
 | key | where | value | absent means |
 |---|---|---|---|
 | `talk` | the table | boolean: the GI may send `talk`, the user's voice key pressed on the companion | `false` |
+| `knowledge` | the table | the path of a folder of Markdown files: the game agent's knowledge base (`link-v1.md` §5 "Knowledge"); at most 256 `.md` files, each at most 256 KiB, together at most 4 MiB | no knowledge base |
+| `knowledge_licence` | the table | the knowledge base's licence: an SPDX id or text, at most 128 characters. Required with `knowledge` (semantic rule `knowledge-without-licence`) | — |
 | `danger` | a `[[integration.link.tools]]` entry | `"low"`, `"game"` or `"high"`: `game` is an action in the player's own game, when they ask, in a world where they are alone (`link-v1.md` §5 "Actions in the game") | `"high"` |
 | `stops` | a `[[integration.link.tools]]` entry | boolean: the tool ends all of her `game` work. A GI with a `game` tool must have one, and it must be `low` (`link-v1.md` §5 "Actions in the game") | `false` |
 | `companion` | a `[[integration.link.tools]]` entry | boolean: the tool moves, turns or shows the companion, so the daemon refuses it while the game does not hold her | `false` |
@@ -278,9 +280,9 @@ data = "astra/events/goal_reached.json"
 speaks = true
 ```
 
-All five are in the table, so all five are in the digest (§2.6.1): a changed
-`danger`, `stops`, `companion`, `speaks` or `talk` asks the player to consent
-again.
+All seven are in the table, so all seven are in the digest (§2.6.1): a
+changed `danger`, `stops`, `companion`, `speaks`, `talk`, `knowledge` or
+`knowledge_licence` asks the player to consent again.
 
 #### 2.6.1 The link digest
 
@@ -315,9 +317,10 @@ its catalogue entry (games-index-v1.md §2.1). The catalogue's ingest and
 
 A GI with no `[integration.link]` table has `link: null` and no digest. The
 digest covers the table's text only. The bytes of the files it names are
-covered separately: `link.skill_digest` covers the skill file, and
-`schema_digests` covers every `context`/`params`/`result`/`data` schema. A
-client asks for consent again when any of the three changes.
+covered separately: `link.skill_digest` covers the skill file,
+`link.knowledge_digest` the knowledge folder, and `schema_digests` every
+`context`/`params`/`result`/`data` schema. A client asks for consent again
+when any of the four changes.
 
 **What asks for consent again on an update**, all of it read from the
 catalogue entry (games-index-v1.md §2.1), so a client can be tested against
@@ -327,6 +330,7 @@ two entries that differ in one member:
 |---|---|
 | `link.digest` | the `[integration.link]` table differs in any way (the rule above) |
 | `link.skill_digest` | the skill file's bytes differ |
+| `link.knowledge_digest` | a file of the knowledge folder is added, removed or differs (its part digest) |
 | `schema_digests` | a `context`/`params`/`result`/`data` schema is added, removed or differs |
 | `capabilities` | the list differs as a set: a capability added, removed or replaced (§2.3) |
 

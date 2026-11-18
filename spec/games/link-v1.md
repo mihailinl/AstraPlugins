@@ -37,7 +37,9 @@ A Link-capable GI may:
   "Speaking on her own"), if the user switched that on;
 - act in the game when the user asks: gather, fight, pick up, hand over
   (`danger = "game"` tools, §5 "Actions in the game"), only in a world where
-  the player is alone, and only if the user switched that on.
+  the player is alone, and only if the user switched that on;
+- give the game agent a knowledge base: guides to the game, its author's own
+  text, signed with the entry (§5 "The game agent", "Knowledge").
 
 Allowed only as declared in `[integration.link]` and only once the user has
 switched it on (§5). **Never available to a game:** chat as the user or as
@@ -241,8 +243,9 @@ to the model only while all of these hold:
 - the session is live, and "AI may act" and "She may act in the game" are on
   (§5 item 4; the granted set's `acts`);
 - the game's last `world` said `alone: true`;
-- the turn is a direct human turn in the main chat. A turn a `talk` opened is
-  not one (§5 "Voice key").
+- the turn is the person's own (below, "The person's own turn": typed
+  text, Astra's own voice key, or the wake word only under its flag).
+  A turn a `talk` opened is not one (§5 "Voice key").
 
 It is never offered in any other turn: a turn a `talk` opened, a `speaks`
 turn, a turn a plugin asks for, an automation or a trigger, a sub-agent's,
@@ -341,8 +344,8 @@ destructive action on the user's own auto-approve trust.
 
 **Which turns carry game data.** Context, events and tool results from a
 game go only into:
-- a direct human turn in the main chat, never one a `talk` opened (§5
-  "Voice key");
+- the person's own turn in the main chat (§5 "The person's own turn"),
+  never one a `talk` opened;
 - a `speaks` turn (below).
 
 Never into a «Code» turn (an external coding agent), a sub-agent's turn or a
@@ -493,6 +496,134 @@ a game's own string (at most 64 characters, §6) may appear.
 
 **Skill.** A read-only skills source, at most 16 KiB, labelled as coming
 from the GI, visible to the AI only while the session is live.
+
+**The person's own turn.** While a Link session is live, a turn in the main
+chat counts as the person's own (for `game` tools and for the game agent)
+only when it was opened by:
+- text typed in Astra;
+- Astra's own voice key (its hotkey or push-to-talk);
+- the wake word, **only** when all of these hold:
+  - the capture that heard it ran with echo cancellation against the
+    machine's whole output (the system loopback: a PipeWire monitor, WASAPI
+    loopback), not only Astra's own voice;
+  - the words recognised do not match what was playing from the speakers;
+  - the daemon declares this capability with a flag, and turns the flag on
+    only after false wake-ups have been measured on real game sound.
+
+  Until the flag is on (it is not today: Astra's echo cancellation removes
+  only her own voice), a wake-word turn while a session is live is treated
+  like a turn a `talk` opened: no `game` tool, no game data, no game
+  agent. A game that plays "Astra, …" must never open the person's turn.
+  The person types, or uses Astra's voice key.
+
+Never a turn a `talk` opened (§5 "Voice key"), a `speaks` turn, a turn a
+plugin asks for, an automation or a trigger, a sub-agent's, background,
+handoff or «Code» turn.
+
+**The game agent.** While a Link session of a GI is live, the person talks
+to the game agent: the assistant's "Game" profile, one more of its modes
+(as "Fast" and "Work" are), not a second assistant. It answers about the game
+and acts in it, and hands anything else to the ordinary assistant. A turn
+runs as the game agent when all of these hold:
+- it is the person's own turn in the main chat (above);
+- the session is live, the player is in the world (not `quiet` in a menu),
+  and the game's per-game switch "Answer as the game agent" is on. It is on
+  by default: the profile grants nothing by itself, every tool is still
+  behind its own switch;
+- the conversation is not bound to another mode («Code», «Work»), and the
+  person has not picked a mode or a model for it by hand («Fast» included):
+  such a conversation keeps what it has, and is never taken over.
+
+The daemon checks these, and the cloud gate below, again before every model
+call of the turn. When one no longer holds (a switch turned off, a session
+that ended, a model changed in the middle of the turn), **the turn stops
+there**: no further model call is made in it, nothing gathered in the Game
+profile (game data, a game tool's result, a knowledge passage) is sent to
+any other model, and the chat says the turn stopped and why. The person's
+next message starts afresh.
+
+**The cloud gate comes first.** The game agent runs on the model of the
+"Fast" role. When that model is a cloud model and "Game data may go to a
+cloud model" is off, the profile is not used at all: the turn runs in the
+conversation's ordinary mode, with no game data and no game tool, and the
+chat says why, once a session. There is no way around the gate through the
+profile.
+
+**Game data stays out of the cloud, in history too.** A Game turn's
+messages, its tool results, its knowledge passages and its replies are game
+data. They are carried into a later turn (the history it replays, a
+compaction or a summary, the memory digest) only when that turn's model is
+local or "Game data may go to a cloud model" is on; otherwise the daemon
+leaves them out of what that turn sends. They are never written to long-term
+memory. A daemon canary pins this for every path that reads a conversation's
+history.
+
+**Passages and game results stay in Game turns.** A knowledge passage is the
+author's free text, and a game tool's result is the game's. Both are
+replayed only into a later Game turn. Any other turn (the ordinary
+assistant's, a handoff, a summary) sees a Game turn by its reply alone, so
+an ordinary turn with the computer's tools never reads a guide's words on
+the user's auto-approve. A turn whose replayed history would hold a passage
+or a game result anyway counts as carrying game data (the per-call approval
+of "Game data in a turn").
+
+What the game agent is offered, and nothing else:
+- this GI's tools, under every rule above (`low`, `game` and `high`, the
+  `acts` switch, alone, the turn limit);
+- `game_knowledge`, when the GI ships a knowledge base (below);
+- `ask_astra`, the handoff to the ordinary assistant: "write it in my
+  notes", "open the wiki in the browser". It takes **no argument**: the
+  daemon hands over the person's own last message, verbatim, and nothing
+  the model wrote. The handoff turn starts with that message and no history
+  of Game turns, so no game data, game tool result or knowledge passage goes
+  with it, and its answer comes back to the conversation without sending
+  them anywhere. At most one handoff per turn of the person's.
+- **A handoff turn is never the person's turn for approval.** The decision
+  to hand off was made by a model that had read the game's data and the
+  knowledge base, so every tool of the high-risk class in the handoff turn is
+  on per-call approval, whatever the user's auto-approve setting (the same
+  rule as "Game data in a turn"). A daemon canary pins what the handoff
+  carries and this rule.
+
+No built-in tool that reaches the computer is on the game agent's wire. Its
+prompt is short and about the game, with the GI's skill. Each of its turns
+carries a "Game" badge in the chat, so the person sees who answered. A Game
+turn's reply is shown with no remote image loaded and no link followed
+without the person's click: a passage or a reply cannot send data out by
+being rendered.
+
+**Knowledge** (`knowledge`). A GI may ship a knowledge base for the game
+agent: a folder of Markdown files that `[integration.link] knowledge` names
+(`manifest.md` §2.6): guides, recipes, bosses, biomes. It is the author's
+own text, like the skill, and never the game's live data:
+- at most 256 files, each a `.md` file of UTF-8 text, each at most 256 KiB,
+  together at most 4 MiB, at most 4 folders deep, no link of any kind
+  (symbolic or hard) and no `..` in a path. Ingest refuses a release that
+  breaks any of these;
+- signed with the entry: `link.knowledge_digest` is the folder's part digest
+  (`spec/content/part-digest-v1.md`, paths relative to the folder), so a
+  changed base asks for consent again. Ingest refuses an entry that declares
+  `knowledge` and has no `knowledge_digest`, or the other way round, and so
+  does the daemon;
+- its licence is declared (`knowledge_licence`, an SPDX id or text, required
+  with `knowledge`) and shown on the consent sheet. Text taken from a wiki
+  under CC BY-SA keeps its attribution in the files;
+- the catalogue's review reads it as text that reaches the model, as it
+  reads the skill, and refuses a base that instructs the model rather than
+  informs it;
+- the daemon indexes only **its own extracted copy** of the base (beside
+  the link table, `<data>/games/link/<entry>/<version>/`), never the
+  profile's, which the GI's own code can rewrite. It checks the copy against
+  `knowledge_digest` before it indexes it, and builds the index again when
+  the digest changes;
+- the index and the search are local: words (BM25) or an embedding model
+  that runs on this machine. A query carries game context, so it never goes
+  to a cloud embedding service;
+- the daemon offers `game_knowledge(query)` to the game agent only. A call
+  returns at most 4 passages, at most 2 KiB together, and at most 8 KiB of
+  passages reach one turn. Each passage reaches the model labelled as
+  untrusted text from the GI, as a tool's output does, never as the model's
+  own context.
 
 ## 6. The restricted data-schema profile
 
