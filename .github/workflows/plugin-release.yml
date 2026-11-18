@@ -450,12 +450,18 @@ jobs:
       # below in the same commit, so the CLI and the workflow that publishes
       # with it stay one version by construction.
       ASTRA_TOOLING_REPO: "mihailinl/AstraPlugins"
-      # This pin names the merge commit of the PR that added `macos-arm64` to
-      # the CLI. It must always name a commit whose CLI knows every target in
-      # the matrix below and in TARGETS: CI's `release-tooling-pin` job builds
-      # the CLI at this pin and fails if it does not, because an unknown target
-      # kills a leg and leaves the WHOLE release (every platform) a draft.
-      ASTRA_TOOLING_REF: "76126647f611a4e004b5954e87e7374a290a1d90"
+      # This pin names the commit tagged cli-v0.5.2 (the CLI published to
+      # crates.io as astra-plugin-cli 0.5.2), whose `check` knows the plugin-API
+      # permissions and host RPCs astra-registry took in #509 (image_provider,
+      # web_search, music_provider, GetAiSettings, ...). The previous pin
+      # (7612664, the macos-arm64 merge) refused a manifest declaring them, so
+      # an author's release using them failed at the tag. It must always name
+      # a commit whose CLI knows every target in the matrix below and in
+      # TARGETS: CI's `release-tooling-pin` job builds the CLI at this pin and
+      # fails if it does not, because an unknown target kills a leg and leaves
+      # the WHOLE release (every platform) a draft. Move it only AFTER the
+      # registry has the same names (R12: registry first, then this pin).
+      ASTRA_TOOLING_REF: "298b8bb534ccbe8adde228380bcce01dba072268"
       PLUGIN_DIR: plugin-src/${{ inputs.plugin-dir }}
       ARTIFACT: ${{ matrix.artifact }}
     steps:
