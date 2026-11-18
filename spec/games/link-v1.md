@@ -336,12 +336,28 @@ the list and what the model gets for each case, for every implementation to
 test against.
 
 **Game data in a turn.** Any turn whose context carries game-sourced content
-(context, an event, or a tool result, since the last user message) puts
-every tool in the policy's high-risk class onto **per-call approval**,
-regardless of the user's own auto-approve setting. A `game` tool is not in
-that class (above, "Actions in the game"). This is the prompt-
-injection mitigation: whatever a game sends, it cannot talk the AI into a
-destructive action on the user's own auto-approve trust.
+(context, an event, or a tool result, since the last user message) runs under
+the user's own approval policy, with three rules on top:
+- every tool in the policy's **most dangerous class** (in Astra, `Critical`:
+  a shell command, deleting files, pressing keys, anything irreversible on
+  the computer) goes onto **per-call approval**, regardless of the user's
+  own auto-approve setting;
+- the turn hands no work to anything that outlives it or runs out of the
+  person's sight: no delegated agent, no «Code» agent, no background
+  «Work» task (a reminder the person asked for is not one). A call to one is
+  refused;
+- it writes nothing to long-term memory. When the person asks in so many
+  words that something be remembered, Astra answers with one fixed sentence
+  instead: she cannot keep memories during a linked game, and they should
+  tell her again outside the game.
+
+A `game` tool is in none of these (above, "Actions in the game"), and an
+everyday action of the user's own trust (a reminder, music) needs no card.
+This is the prompt-injection mitigation, sized to its attacker: a game's
+data is names, numbers and booleans (§6), so what it could still steer is
+the model's choice of a tool; the card stands in front of every choice
+that could do lasting harm on the computer, and a game cannot reach a
+person's memory or a task that runs on without them.
 
 **Which turns carry game data.** Context, events and tool results from a
 game go only into:
@@ -354,11 +370,16 @@ Never into a «Code» turn (an external coding agent), a sub-agent's turn or a
 background one. The context goes into a turn only when it changed since the
 last turn that carried it, not into every turn.
 
-**A cloud model only behind a global switch.** In Settings, off by default:
-"Game data may go to a cloud model". While it is off, no game data goes into
-any turn whose model is not local. A model is local when its endpoint is a
-loopback address (`127.0.0.0/8`, `::1`, `localhost`); every other endpoint,
-Astra's own server included, is a cloud model.
+**A cloud model only with the person's consent, for each game.** Off by
+default for every game. The first time a turn whose model is not local would
+carry a game's data, Astra asks once in the chat, for that game: allow its
+game data to go to a cloud model, or not now. The answer is kept for that
+game key and can be changed in Settings at any time. While a game is not
+allowed ("its cloud consent is off"), none of its game data goes into any
+turn whose model is not local, and "Not now" runs the turn without it. A
+model is local when its endpoint is a loopback address (`127.0.0.0/8`,
+`::1`, `localhost`); every other endpoint, Astra's own server included, is a
+cloud model.
 
 **How much game data a turn carries.** At most **4 KiB** of game data per
 turn in all: the current `context` value first, then the events, newest
@@ -457,19 +478,19 @@ after a game event was delivered to that plugin. Every such turn:
   work-ended turn "She may act in the game" (the work exists only under it),
   and a plugin's turn needs the plugin's own `send_chat_message` grant,
   besides the "Plugins hear game events" that let the event reach it;
-- starts, for a `speaks` turn or a plugin's turn, at most once per 2 minutes
-  for each GI (a `speaks` turn) or each plugin (a plugin's turn), at most 10
-  times per hour for each GI, and at most 10 times per hour for all games
-  together; a work-ended turn has a window of its own, at most 10 per hour for
-  each GI, counted apart from those;
+- starts within its own window, each counted apart from the others:
+  - a `speaks` turn at most once per 60 seconds and 30 times per hour for
+    each GI, and 30 times per hour for all games together; Settings may
+    lower that rate, never raise it;
+  - a plugin's turn at most once per 2 minutes for each plugin, and 10 times
+    per hour for all plugins' game-caused turns together;
+  - a work-ended turn at most 10 times per hour for each GI;
 - carries game data only as "Which turns carry game data" allows, and so to
-  a cloud model only behind its global switch;
+  a cloud model only with that game's cloud consent;
 - is paid from the user's ordinary credits;
 - writes nothing to long-term memory.
 
-**Speaking on her own** (`speaks`). *Pending the owner's approval: it changes
-what people see, so the shapes are reserved here for the work to go on, and no
-client shows the switch until it is approved.* An event declared with
+**Speaking on her own** (`speaks`). An event declared with
 `speaks = true` (`manifest.md` §2.6) may start a short AI turn with no user
 message, but only while "She may speak on her own" is on (and "Tell Astra
 what happens" with it). Besides the limits above, that turn:
@@ -487,7 +508,7 @@ what happens" with it). Besides the limits above, that turn:
 
 A `speaks` event that cannot start a turn is kept like any other event, for
 the next turn that carries game data. That includes a chat whose model is a
-cloud model while "Game data may go to a cloud model" is off: the `speaks`
+cloud model while that game's cloud consent is off: the `speaks`
 turn does not start at all.
 
 **When her work ends** (`work_ended`). The daemon itself, never a plugin, may
@@ -506,7 +527,7 @@ turn, under the same rules:
   data;
 - it may call only this GI's own `low` tools, never a `game` one, no built-in
   or other tool;
-- with a cloud model while "Game data may go to a cloud model" is off it does
+- with a cloud model while that game's cloud consent is off it does
   not start at all;
 - its reply is spoken and kept like a `speaks` turn's: in the last
   conversation in which a turn carried game data (where the person asked),
@@ -601,8 +622,8 @@ any other model, and the chat says the turn stopped and why. The person's
 next message starts afresh.
 
 **The cloud gate comes first.** The game agent runs on the model of the
-"Fast" role. When that model is a cloud model and "Game data may go to a
-cloud model" is off, the profile is not used at all: the turn runs in the
+"Fast" role. When that model is a cloud model and the game's cloud consent
+is off, the profile is not used at all: the turn runs in the
 conversation's ordinary mode, with no game data and no game tool, and the
 chat says why, once a session. There is no way around the gate through the
 profile.
@@ -611,7 +632,7 @@ profile.
 messages, its tool results, its knowledge passages and its replies are game
 data. They are carried into a later turn (the history it replays, a
 compaction or a summary, the memory digest) only when that turn's model is
-local or "Game data may go to a cloud model" is on; otherwise the daemon
+local or that game's cloud consent is on; otherwise the daemon
 leaves them out of what that turn sends. They are never written to long-term
 memory. A daemon canary pins this for every path that reads a conversation's
 history.
@@ -638,9 +659,9 @@ What the game agent is offered, and nothing else:
   them anywhere. At most one handoff per turn of the person's.
 - **A handoff turn is never the person's turn for approval.** The decision
   to hand off was made by a model that had read the game's data and the
-  knowledge base, so every tool of the high-risk class in the handoff turn is
-  on per-call approval, whatever the user's auto-approve setting (the same
-  rule as "Game data in a turn"). A daemon canary pins what the handoff
+  knowledge base, so the handoff turn is under "Game data in a turn" (its
+  per-call approval of the most dangerous class, no hand-off of work, no
+  memory), whatever the user's auto-approve setting. A daemon canary pins what the handoff
   carries and this rule.
 
 No built-in tool that reaches the computer is on the game agent's wire. Its
