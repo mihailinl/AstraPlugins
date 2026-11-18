@@ -655,9 +655,11 @@ agent: a folder of Markdown files that `[integration.link] knowledge` names
 (`manifest.md` §2.6): guides, recipes, bosses, biomes. It is the author's
 own text, like the skill, and never the game's live data:
 - at most 256 files, each a `.md` file of UTF-8 text, each at most 256 KiB,
-  together at most 4 MiB, at most 4 folders deep, no link of any kind
-  (symbolic or hard) and no `..` in a path. Ingest refuses a release that
-  breaks any of these;
+  together at most 4 MiB, at most 4 folders deep below the knowledge folder
+  (`a/b/c/d/guide.md` in it is as deep as a file may be, `a/b/c/d/e/guide.md`
+  is refused), no link of any kind (symbolic or hard) and no `..` in a path.
+  Ingest refuses a release that breaks any of these (`vectors.json`
+  `link.knowledge_paths`);
 - signed with the entry: `link.knowledge_digest` is the folder's part digest
   (`spec/content/part-digest-v1.md`, paths relative to the folder), so a
   changed base asks for consent again. Ingest refuses an entry that declares

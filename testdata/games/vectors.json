@@ -392,6 +392,16 @@
   },
 
   "link": {
+    "knowledge_paths": {
+      "note": "link-v1.md §5 'Knowledge': where a file of a knowledge base may be, as its path relative to the knowledge folder. At most 4 folders deep below it, a .md file, no .. segment. The other limits (counts, sizes, UTF-8, links) need a real zip and are the ingest's and gi-probe check's to test.",
+      "cases": [
+        { "name": "at-the-top", "path": "guide.md", "verdict": "accept" },
+        { "name": "four-folders-deep", "path": "a/b/c/d/guide.md", "verdict": "accept" },
+        { "name": "five-folders-deep", "path": "a/b/c/d/e/guide.md", "verdict": "refuse", "rule": "too-deep" },
+        { "name": "not-markdown", "path": "bosses/notes.txt", "verdict": "refuse", "rule": "not-markdown" },
+        { "name": "dot-dot", "path": "bosses/../../saves/x.md", "verdict": "refuse", "rule": "dot-dot" }
+      ]
+    },
     "refusal_codes": {
       "note": "link-v1.md §5 'Refusal codes': the closed list a game sends from, the daemon's own codes, and what the model gets. A case's model_gets is its code when the code is in either list and the result fits 16 KiB, else bad_result.",
       "game": ["not_holding", "not_in_world", "player_dead", "busy", "not_alone", "no_tool", "tool_too_weak", "bag_full", "too_far", "limit_reached", "failed", "unknown_tool", "too_large", "unknown_target", "bad_args"],
