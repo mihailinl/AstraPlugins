@@ -649,7 +649,7 @@ of "Game data in a turn").
 What the game agent is offered, and nothing else:
 - this GI's tools, under every rule above (`low`, `game` and `high`, the
   `acts` switch, alone, the turn limit);
-- `game_knowledge`, when the GI ships a knowledge base (below);
+- `game_<entryhash8>-knowledge`, when the GI ships a knowledge base (below);
 - `ask_astra`, the handoff to the ordinary assistant: "write it in my
   notes", "open the wiki in the browser". It takes **no argument**: the
   daemon hands over the person's own last message, verbatim, and nothing
@@ -700,7 +700,10 @@ own text, like the skill, and never the game's live data:
 - the index and the search are local: words (BM25) or an embedding model
   that runs on this machine. A query carries game context, so it never goes
   to a cloud embedding service;
-- the daemon offers `game_knowledge(query)` to the game agent only. A call
+- the daemon offers `game_<entryhash8>-knowledge(query)` to the game agent
+  only, one per GI, named like the GI's tools (§5 "Tools"). The `-` is not
+  in a tool's `name`, so no GI's own tool can take the name. The daemon
+  answers it from its index and the call never reaches the game. A call
   returns at most 4 passages, at most 2 KiB together, and at most 8 KiB of
   passages reach one turn. Each passage reaches the model labelled as
   untrusted text from the GI, as a tool's output does, never as the model's
