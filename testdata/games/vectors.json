@@ -283,7 +283,8 @@
   "index": {
     "schema": "spec/games/schemas/games-index-v1.schema.json",
     "valid": [
-      { "name": "valid-index", "file": "index/valid-index.json", "verdict": "accept" }
+      { "name": "valid-index", "file": "index/valid-index.json", "verdict": "accept" },
+      { "name": "valid-index-wikis", "file": "index/valid-index-wikis.json", "verdict": "accept", "note": "games-index-v1.md §2.6: a wikis[] row" }
     ],
     "invalid": [
       { "name": "issued-at-too-far-ahead", "file": "index/invalid-issued-at-too-far-ahead.json", "verdict": "refuse", "check": "semantic", "rule": "issued-at-too-far-ahead" },
@@ -293,7 +294,10 @@
       { "name": "entry-missing-kind", "file": "index/invalid-entry-missing-kind.json", "verdict": "refuse", "check": "schema" },
       { "name": "anticheat-marker-bad-kind", "file": "index/invalid-anticheat-marker-bad-kind.json", "verdict": "refuse", "check": "schema" },
       { "name": "content-confirmed-bad-text-id", "file": "index/invalid-content-confirmed-bad-text-id.json", "verdict": "refuse", "check": "schema", "note": "a text_id is dot-separated segments [a-z][a-z0-9_-]* (market.rights.animations); an empty segment is refused." },
-      { "name": "knowledge-digest-missing", "file": "index/invalid-knowledge-digest-missing.json", "verdict": "refuse", "check": "semantic", "rule": "knowledge-digest-missing", "note": "link-v1.md §5 'Knowledge': a knowledge licence with no knowledge_digest (ingest and the daemon refuse it)" }
+      { "name": "knowledge-digest-missing", "file": "index/invalid-knowledge-digest-missing.json", "verdict": "refuse", "check": "semantic", "rule": "knowledge-digest-missing", "note": "link-v1.md §5 'Knowledge': a knowledge licence with no knowledge_digest (ingest and the daemon refuse it)" },
+      { "name": "wiki-api-http", "file": "index/invalid-wiki-api-http.json", "verdict": "refuse", "check": "schema", "note": "games-index-v1.md §2.6: a wiki's api is https only" },
+      { "name": "wiki-api-query", "file": "index/invalid-wiki-api-query.json", "verdict": "refuse", "check": "schema", "note": "games-index-v1.md §2.6: no query, user info or fragment; the path ends in /api.php" },
+      { "name": "wiki-row-duplicate", "file": "index/invalid-wiki-row-duplicate.json", "verdict": "refuse", "check": "semantic", "rule": "wiki-row-duplicate", "note": "games-index-v1.md §2.6: at most one wikis[] row per game" }
     ]
   },
 

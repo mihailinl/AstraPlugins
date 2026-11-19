@@ -16,6 +16,7 @@
     "games": { "type": "array", "items": { "$ref": "#/$defs/gameRow" } },
     "anticheat": { "type": "array", "items": { "$ref": "#/$defs/anticheatMarker" } },
     "loaders": { "type": "array", "items": { "$ref": "#/$defs/loaderAllow" } },
+    "wikis": { "type": "array", "items": { "$ref": "#/$defs/wikiRow" } },
     "engine_codes": {
       "type": "object",
       "propertyNames": { "pattern": "^[a-z][a-z0-9-]{1,31}$" },
@@ -236,6 +237,24 @@
         },
         "allow_foundations": { "type": "boolean" },
         "note": { "type": "string" }
+      }
+    },
+
+    "wikiRow": {
+      "type": "object",
+      "description": "games-index-v1.md §2.6: a game's public MediaWiki, for the game agent's wiki on demand (link-v1.md §5).",
+      "required": ["store", "id", "api", "name", "licence"],
+      "additionalProperties": false,
+      "properties": {
+        "store": { "const": "steam" },
+        "id": { "type": "integer", "minimum": 1 },
+        "api": {
+          "type": "string",
+          "maxLength": 256,
+          "pattern": "^https://[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+(?::[0-9]{1,5})?(?:/[A-Za-z0-9._~-]+)*/api\\.php$"
+        },
+        "name": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "licence": { "type": "string", "minLength": 1, "maxLength": 128 }
       }
     },
 
