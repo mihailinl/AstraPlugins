@@ -391,6 +391,7 @@ A plugin record, `signed.plugins[]`, is:
 | `platform_downloads` | object, platform key → `https://` URL | required: the projection of `releases[0].artifacts`. `{}` when that release is not installable — staging, or any artifact without both `sha256` and `size` |
 | `releases` | array of `signed.plugins[].releases[]`, at least one | required: newest first by semver precedence. A yanked version is not listed |
 | `publisher` | string | optional: the key into `signed.publishers` — the login of the reviewed publisher record that the owner half of `source.repo` resolves to, case-insensitively, as that record's own login or one it `covers`. **Absent** when no reviewed record exists, and the absence is the answer: a client that badges on this member being present badges every listing. Never the `author` string |
+| `owner_id` | integer, 1 to 2^53−1 | optional: the GitHub numeric id of the repository's owner, inside the signature: the listing's identity record's `repository_owner_id`, or failing that its effective baseline's while every later publication names the same owner. Absent for a listing with neither, and after an approved change of hands with no identity record. The same kind of id as `signed.publishers.<owner>.github_id`. A client **MUST** compare this id, never a login, and **MUST NOT** update silently when an entry that carried it now carries a different, malformed or no id. An entry that never carried one keeps the repository-name pin. It can first appear at a later serial than the entry: the registry publishes a newly gained `owner_id` with the next serial, never at one already served |
 
 The card in one other language, `signed.plugins[].i18n.<code>`, is:
 
@@ -421,6 +422,7 @@ One release, `signed.plugins[].releases[]`, is:
 | `staging` | boolean | optional: `true` on a release that exists on paper and has no artifact digest yet; never written as `false` |
 | `staging_reason` | string | optional: written only beside `staging: true`, copied through from the version file |
 | `review` | `unreviewed` or `reviewed` | optional: the review mark, copied byte for byte from the version file. Present on every release published since the registry adopted contract 3.0.0, absent from older ones. `reviewed` means an Astra moderator read that version, and nothing more. A reader treats any other value, or a non-string, as not reviewed and never refuses the document for it |
+| `low_tools` | array of unique strings | optional: the tools the release declares Low in `[tools.danger]`, copied byte for byte from the version record, `[]` included. Present means the release was probed (`[]`: it declares none); absent means it was never probed, and a client honours no declared Low tool for it. Astra runs a Low tool without asking only when this member lists it and the release's `review` is `reviewed` |
 | `release` | object, `signed.plugins[].releases[].release` | required: where the artifacts are served from, which is what their URLs must sit under (§5.2) |
 | `artifacts` | object, platform key → `signed.plugins[].releases[].artifacts.<platform>`, at least one | required |
 
