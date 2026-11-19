@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 48684fe12d2e0d33fd804731e356255f7a45144177eb28c175964c0a118705a8
+// surface-sha256: a66206231948e758fa826d46dc893e6c45740f9b41b19af6d8950deb1b3edadf
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -889,13 +889,6 @@ service ChatService {
     rpc SetConversationPermissionMode(SetConversationPermissionModeRequest) returns (ConversationPermissionsResponse);
 
     rpc RevokePermissionGrant(RevokePermissionGrantRequest) returns (Empty);
-
-    // Every persistent «разрешить так» rule — what Settings → AI → Saved permissions lists.
-    // Rules made for the keyboard and UI-input tools last only for their chat and are not here.
-    rpc ListAllowRules(Empty) returns (AllowRulesResponse);
-
-    // Remove one rule wherever it applies. Removing a rule that is gone is not an error.
-    rpc RemoveAllowRule(RemoveAllowRuleRequest) returns (Empty);
 }
 
 message ConversationPermissionsRequest {
@@ -927,36 +920,6 @@ message PermissionGrant {
 
     // The rule lasts beyond this chat (Settings lists it); revoking it removes it everywhere.
     bool persistent = 4;
-}
-
-message RemoveAllowRuleRequest {
-    string rule_id = 1;
-}
-
-message AllowRuleInfo {
-    string id = 1;
-
-    // The canonical tool name (namespaced for a plugin's or an MCP server's tool).
-    string tool_name = 2;
-
-    // The tool's name without its namespace.
-    string tool_label = 3;
-
-    // The plugin's or MCP server's name; empty for a built-in tool.
-    string source_label = 4;
-
-    // What the rule allows, in the UI language (`confirm.rule.*`).
-    string label = 5;
-
-    // What the approved call named (a path, a URL, a command).
-    string details = 6;
-
-    // Unix seconds.
-    int64 created_at = 7;
-}
-
-message AllowRulesResponse {
-    repeated AllowRuleInfo rules = 1;
 }
 
 message ConversationPermissionsResponse {

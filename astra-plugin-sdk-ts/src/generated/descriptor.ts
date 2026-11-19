@@ -1132,14 +1132,6 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "RevokePermissionGrant": {
               "requestType": "RevokePermissionGrantRequest",
               "responseType": "Empty"
-            },
-            "ListAllowRules": {
-              "requestType": "Empty",
-              "responseType": "AllowRulesResponse"
-            },
-            "RemoveAllowRule": {
-              "requestType": "RemoveAllowRuleRequest",
-              "responseType": "Empty"
             }
           }
         },
@@ -1208,55 +1200,6 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "persistent": {
               "type": "bool",
               "id": 4
-            }
-          }
-        },
-        "RemoveAllowRuleRequest": {
-          "fields": {
-            "ruleId": {
-              "type": "string",
-              "id": 1
-            }
-          }
-        },
-        "AllowRuleInfo": {
-          "fields": {
-            "id": {
-              "type": "string",
-              "id": 1
-            },
-            "toolName": {
-              "type": "string",
-              "id": 2
-            },
-            "toolLabel": {
-              "type": "string",
-              "id": 3
-            },
-            "sourceLabel": {
-              "type": "string",
-              "id": 4
-            },
-            "label": {
-              "type": "string",
-              "id": 5
-            },
-            "details": {
-              "type": "string",
-              "id": 6
-            },
-            "createdAt": {
-              "type": "int64",
-              "id": 7
-            }
-          }
-        },
-        "AllowRulesResponse": {
-          "fields": {
-            "rules": {
-              "rule": "repeated",
-              "type": "AllowRuleInfo",
-              "id": 1
             }
           }
         },
