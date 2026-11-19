@@ -1132,6 +1132,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "RevokePermissionGrant": {
               "requestType": "RevokePermissionGrantRequest",
               "responseType": "Empty"
+            },
+            "ListAllowRules": {
+              "requestType": "Empty",
+              "responseType": "AllowRulesResponse"
+            },
+            "RemoveAllowRule": {
+              "requestType": "RemoveAllowRuleRequest",
+              "responseType": "Empty"
             }
           }
         },
@@ -1196,6 +1204,59 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "description": {
               "type": "string",
               "id": 3
+            },
+            "persistent": {
+              "type": "bool",
+              "id": 4
+            }
+          }
+        },
+        "RemoveAllowRuleRequest": {
+          "fields": {
+            "ruleId": {
+              "type": "string",
+              "id": 1
+            }
+          }
+        },
+        "AllowRuleInfo": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "toolName": {
+              "type": "string",
+              "id": 2
+            },
+            "toolLabel": {
+              "type": "string",
+              "id": 3
+            },
+            "sourceLabel": {
+              "type": "string",
+              "id": 4
+            },
+            "label": {
+              "type": "string",
+              "id": 5
+            },
+            "details": {
+              "type": "string",
+              "id": 6
+            },
+            "createdAt": {
+              "type": "int64",
+              "id": 7
+            }
+          }
+        },
+        "AllowRulesResponse": {
+          "fields": {
+            "rules": {
+              "rule": "repeated",
+              "type": "AllowRuleInfo",
+              "id": 1
             }
           }
         },
@@ -2220,6 +2281,26 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "causedBy": {
               "type": "string",
               "id": 2
+            },
+            "gameTurn": {
+              "type": "GameTurnMsg",
+              "id": 3
+            }
+          }
+        },
+        "GameTurnMsg": {
+          "fields": {
+            "entryId": {
+              "type": "string",
+              "id": 1
+            },
+            "appid": {
+              "type": "string",
+              "id": 2
+            },
+            "giName": {
+              "type": "string",
+              "id": 3
             }
           }
         },

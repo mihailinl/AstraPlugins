@@ -673,6 +673,16 @@ class ChatServiceStub(object):
                 request_serializer=plugin__pb2.RevokePermissionGrantRequest.SerializeToString,
                 response_deserializer=plugin__pb2.Empty.FromString,
                 _registered_method=True)
+        self.ListAllowRules = channel.unary_unary(
+                '/astra.ChatService/ListAllowRules',
+                request_serializer=plugin__pb2.Empty.SerializeToString,
+                response_deserializer=plugin__pb2.AllowRulesResponse.FromString,
+                _registered_method=True)
+        self.RemoveAllowRule = channel.unary_unary(
+                '/astra.ChatService/RemoveAllowRule',
+                request_serializer=plugin__pb2.RemoveAllowRuleRequest.SerializeToString,
+                response_deserializer=plugin__pb2.Empty.FromString,
+                _registered_method=True)
 
 
 class ChatServiceServicer(object):
@@ -821,6 +831,21 @@ class ChatServiceServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ListAllowRules(self, request, context):
+        """Every persistent «разрешить так» rule — what Settings → AI → Saved permissions lists.
+        Rules made for the keyboard and UI-input tools last only for their chat and are not here.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def RemoveAllowRule(self, request, context):
+        """Remove one rule wherever it applies. Removing a rule that is gone is not an error.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_ChatServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -912,6 +937,16 @@ def add_ChatServiceServicer_to_server(servicer, server):
             'RevokePermissionGrant': grpc.unary_unary_rpc_method_handler(
                     servicer.RevokePermissionGrant,
                     request_deserializer=plugin__pb2.RevokePermissionGrantRequest.FromString,
+                    response_serializer=plugin__pb2.Empty.SerializeToString,
+            ),
+            'ListAllowRules': grpc.unary_unary_rpc_method_handler(
+                    servicer.ListAllowRules,
+                    request_deserializer=plugin__pb2.Empty.FromString,
+                    response_serializer=plugin__pb2.AllowRulesResponse.SerializeToString,
+            ),
+            'RemoveAllowRule': grpc.unary_unary_rpc_method_handler(
+                    servicer.RemoveAllowRule,
+                    request_deserializer=plugin__pb2.RemoveAllowRuleRequest.FromString,
                     response_serializer=plugin__pb2.Empty.SerializeToString,
             ),
     }
@@ -1403,6 +1438,60 @@ class ChatService(object):
             target,
             '/astra.ChatService/RevokePermissionGrant',
             plugin__pb2.RevokePermissionGrantRequest.SerializeToString,
+            plugin__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def ListAllowRules(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ChatService/ListAllowRules',
+            plugin__pb2.Empty.SerializeToString,
+            plugin__pb2.AllowRulesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def RemoveAllowRule(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/astra.ChatService/RemoveAllowRule',
+            plugin__pb2.RemoveAllowRuleRequest.SerializeToString,
             plugin__pb2.Empty.FromString,
             options,
             channel_credentials,
