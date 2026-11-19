@@ -64,8 +64,10 @@ never a Link event (§5 "Events are edges").
 ## 2. Discovery: the link file
 
 - On every Play through Astra, the daemon mints a 256-bit link token.
-- Launcher ≥0.6.0 `launch_with_link` writes `<profile>/astra-link.json` — a reserved
-  profile file name (`reserved.yaml`):
+- Launcher ≥0.6.1 `launch_with_link` writes `<profile>/link/astra-link.json`, in the profile's
+  folder `link/` (both reserved profile names; 0.6.0 wrote `<profile>/astra-link.json`, which
+  every later Play removes). A GI looks for the file in `link/` first, then at the profile's
+  root, for an older launcher:
   ```json
   {"schema":1,"url":"ws://127.0.0.1:<port>/link","token":"…",
    "integration":"<id>","game":"<key>","issued_unix_ms":…,"expires_unix_ms":…}
@@ -83,9 +85,12 @@ never a Link event (§5 "Events are edges").
 - **Flatpak Steam** (Linux, from Flathub): the game's sandbox sees only
   `<profile>/BepInEx` of the profile, and a game Steam starts gets no
   environment from Astra, so there is no `ASTRA_LINK_FILE` either. Astra
-  grants that sandbox read access to `<profile>/astra-link.json` alone, by a
-  Flatpak permission of its own (the daemon's half): the GI reads the file at
-  the same path, read-only. The socket works there unchanged, since Flatpak
+  grants that sandbox read access to the folder `<profile>/link` alone (a
+  folder, because Flatpak binds a granted path once, when the sandbox starts),
+  by a Flatpak permission of its own (the launcher's `grant_sandbox_access`):
+  the GI reads the file at the same path, read-only. A game Steam starts
+  outside Flatpak gets no `ASTRA_LINK_FILE` either, so `link/` is how every
+  such game finds the file. The socket works there unchanged, since Flatpak
   Steam shares the host's network, loopback included.
 - **An old daemon or launcher writes no file at all**, and the GI runs
   presentation-only — it must degrade, not crash, when the file is absent.
