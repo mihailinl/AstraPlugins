@@ -403,6 +403,7 @@ A publisher record, `signed.publishers.<owner>`, is what the registry knows abou
 | `tier` | `astra_team` or `verified` | required: a client **MUST** render on explicit membership — equal to `astra_team` or equal to `verified` — and never on the value merely being present or non-empty. An unrecognised tier is not a badge |
 | `verified_at` | `YYYY-MM-DD` | required: when the evidence behind the tier was first accepted |
 | `last_confirmed_at` | `YYYY-MM-DD` | optional: when that evidence last held |
+| `github_id` | integer, 1 to 2^53−1 | optional: the GitHub numeric id of the account this record is for, inside the signature. The generator writes it on every record; it is optional only so an older catalogue still validates. A login can be given away and registered by anybody, and this id is never reissued, so a client that needs to know the account compares this, never the login. `astra_team` is granted only when it is one of Astra's own accounts |
 
 ### 5.2 构件摘要，以及 URL 可以指向哪里
 
