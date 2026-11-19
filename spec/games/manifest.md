@@ -265,7 +265,7 @@ one allows is normative in `link-v1.md` §5.
 | `danger` | a `[[integration.link.tools]]` entry | `"low"`, `"game"` or `"high"`: `game` is an action in the player's own game, when they ask, in a world where they are alone (`link-v1.md` §5 "Actions in the game") | `"high"` |
 | `stops` | a `[[integration.link.tools]]` entry | boolean: the tool ends all of her `game` work. A GI with a `game` tool must have one, and it must be `low` (`link-v1.md` §5 "Actions in the game") | `false` |
 | `companion` | a `[[integration.link.tools]]` entry | boolean: the tool moves, turns or shows the companion, so the daemon refuses it while the game does not hold her | `false` |
-| `speaks` | a `[[integration.link.events]]` entry | boolean: the event may start a short turn of its own (pending the owner's approval, `link-v1.md` §5) | `false` |
+| `speaks` | a `[[integration.link.events]]` entry | boolean: the event may start a short turn of its own (`link-v1.md` §5) | `false` |
 
 ```toml
 [integration.link]
