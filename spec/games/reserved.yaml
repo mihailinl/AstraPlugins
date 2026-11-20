@@ -35,11 +35,12 @@
 #
 #   profile_file_names   The names `[[files]]`/`[[config_writes]]` may not
 #                        place at the top of a profile (case-insensitive):
-#                        the launcher's own bookkeeping, plus the two Link
-#                        files B§3.1 adds in 0.5.0. `paths::is_reserved` in
-#                        the launcher checks the first three today
-#                        (astra-game-launcher main, src/paths.rs:87-91); the
-#                        other two land with the 0.5.0 Link file writer.
+#                        the launcher's own files: the ledger, its lock, the
+#                        backups, the play-arm file, the mods choice, the
+#                        `link` folder, 0.6.0's `astra-link.json` and the
+#                        Flathub grant — exactly `reserved::PROFILE_FILE_NAMES`
+#                        (astra-game-launcher main, src/reserved.rs), which
+#                        `paths::is_reserved` reads.
 #
 #   integration_reserved_keys   An `[integration.*]` table key schema 1 does
 #                        not define yet, but will mean something specific
@@ -108,8 +109,11 @@ profile_file_names:
   - astra-launcher-ledger.json   # mirrors: src/paths.rs LEDGER_FILE
   - astra-launcher-ledger.lock   # mirrors: src/paths.rs LOCK_FILE
   - astra-launcher-backup        # mirrors: src/paths.rs BACKUP_DIR
-  - astra-link.json              # new in 0.5.0: the Link token file (B§3.1)
+  - astra-link.json              # new in 0.5.0: the Link token file (B§3.1); 0.6.1 moved it into link/, reserved one more release
   - play-arm.json                # new in 0.5.0: written beside astra-link.json (B§3.1)
+  - mods-choice.json             # mirrors: src/paths.rs MODS_CHOICE_FILE
+  - link                         # mirrors: src/paths.rs LINK_DIR — 0.6.1's folder for astra-link.json
+  - flatpak-grant.json           # mirrors: src/paths.rs FLATPAK_GRANT_FILE — what Play granted Flathub's Steam
 
 # mirrors: manifest.md §2.8. Not consumed by any loader today (the schema's
 # own "uses": false already refuses the key); this is the registry entry so
