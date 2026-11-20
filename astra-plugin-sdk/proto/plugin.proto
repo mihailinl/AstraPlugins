@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 5a350f9088f5e775c702a36a6944c423bf3924e66b95e210968a9c12a8c4691d
+// surface-sha256: a66206231948e758fa826d46dc893e6c45740f9b41b19af6d8950deb1b3edadf
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -917,6 +917,9 @@ message PermissionGrant {
     string id = 1;
     string tool_name = 2;
     string description = 3;
+
+    // The rule lasts beyond this chat (Settings lists it); revoking it removes it everywhere.
+    bool persistent = 4;
 }
 
 message ConversationPermissionsResponse {
@@ -1601,6 +1604,26 @@ message AssistantStartEvt {
     // model is still streaming — and in the overlay's single-slot form the
     // parent's own completion then never matches, leaving `busy` stuck on.
     string caused_by = 2;
+
+    // The Game profile turn this bubble belongs to (AstraPlugins `link-v1.md` §5, "The game
+    // agent"): set on EVERY bubble of such a turn, continuations included; absent for every
+    // other turn, an `ask_astra` handoff's included. Kept in the conversation's log, so a
+    // reloaded history shows it. A client draws the «Игра» badge from it, and renders the reply
+    // with no remote image loaded and no link followed without a click.
+    GameTurnMsg game_turn = 3;
+}
+
+// Which game integration a Game turn answered as.
+message GameTurnMsg {
+    // The catalogue entry id of the GI (e.g. "knlce/valheim-astra"): the identity.
+    string entry_id = 1;
+
+    // The game key of its live session (a Steam appid, `local-…`, `epic-…`).
+    string appid = 2;
+
+    // The GI's display name for the badge: a stranger's text, already one visible line of at most
+    // 64 characters (`sanitize_inline_visible`). Never used as an identity.
+    string gi_name = 3;
 }
 
 message AssistantTextDeltaEvt {

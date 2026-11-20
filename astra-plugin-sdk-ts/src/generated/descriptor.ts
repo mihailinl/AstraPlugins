@@ -1196,6 +1196,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "description": {
               "type": "string",
               "id": 3
+            },
+            "persistent": {
+              "type": "bool",
+              "id": 4
             }
           }
         },
@@ -2220,6 +2224,26 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "causedBy": {
               "type": "string",
               "id": 2
+            },
+            "gameTurn": {
+              "type": "GameTurnMsg",
+              "id": 3
+            }
+          }
+        },
+        "GameTurnMsg": {
+          "fields": {
+            "entryId": {
+              "type": "string",
+              "id": 1
+            },
+            "appid": {
+              "type": "string",
+              "id": 2
+            },
+            "giName": {
+              "type": "string",
+              "id": 3
             }
           }
         },

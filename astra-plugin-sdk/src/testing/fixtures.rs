@@ -146,6 +146,8 @@ pub fn firehose_events() -> Vec<proto::FirehoseEventMsg> {
                 message_id: message_id.clone(),
                 // A turn a person started, so nothing caused it but them.
                 caused_by: String::new(),
+                // An ordinary chat turn, not one a game integration answered (#391).
+                game_turn: None,
             }),
         ),
         evt(
@@ -214,6 +216,7 @@ pub fn firehose_error_turn() -> Vec<proto::FirehoseEventMsg> {
                 E::AssistantStart(proto::AssistantStartEvt {
                     message_id: "msg-2".into(),
                     caused_by: String::new(),
+                    game_turn: None,
                 }),
             )),
         },
