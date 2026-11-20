@@ -720,11 +720,17 @@ public wiki. The game agent may look things up in it, under these rules:
   guesses a wiki.
 - **Asking first.** Looking something up tells that wiki which game is being
   played. The first time a Game turn would look something up for a game, the
-  chat asks once, naming the wiki's host: "Look this up on <host>? That site
-  will see which game you are playing." (Allow / Not now). The answer is kept
-  per game and can be changed in that game's Link settings. "Not now", or no
-  answer, means no request is made; the call answers that the wiki is not
-  allowed and the agent answers without it.
+  chat asks once: "Look this up on `<host>`? That site will see which game you
+  are playing." (Allow / Not now). `<host>` is the wiki address's host, one
+  visible line (no invisible or control characters).
+  - The question is the daemon's own card, with the daemon's text and
+    buttons: never words the model wrote, and never answered by the model,
+    by an auto-approve setting or by anything but the person's own press.
+  - Both answers are kept per game, "Not now" exactly as "Allow", until the
+    person changes it in that game's Link settings: the question is not asked
+    again turn after turn.
+  - "Not now", or no answer yet, means no request is made: the call answers
+    that the wiki is not allowed, and the agent answers without it.
 - **The tool.** It is the GI's own `game_<entryhash8>-knowledge(query)`
   (above): offered to the game agent only, when the GI has no base of its own
   and the game has a wiki. A GI's own base always wins: when there is one, the
