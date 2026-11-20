@@ -610,10 +610,13 @@ to the game agent: the assistant's "Game" profile, one more of its modes
 and acts in it, and hands anything else to the ordinary assistant. A turn
 runs as the game agent when all of these hold:
 - it is the person's own turn in the main chat (above);
-- the session is live, the player is in the world (not `quiet` in a menu),
-  and the game's per-game switch "Answer as the game agent" is on. It is on
-  by default: the profile grants nothing by itself, every tool is still
-  behind its own switch;
+- the session is live, and the game's per-game switch "Answer as the game
+  agent" is on. It is on by default: the profile grants nothing by itself,
+  every tool is still behind its own switch. The game agent answers while
+  the game is `quiet` too (paused, in a menu): a person often pauses to type
+  the question, and a turn that stopped there would end mid-answer. Only
+  Astra's own unprompted speech (`speaks`, `work_ended`) waits for the
+  world. A tool a game cannot run in a menu says so itself (`not_in_world`);
 - the conversation is not bound to another mode («Code», «Work»), and the
   person has not picked a mode or a model for it by hand («Fast» included):
   such a conversation keeps what it has, and is never taken over.
