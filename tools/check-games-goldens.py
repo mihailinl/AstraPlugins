@@ -2097,6 +2097,17 @@ def rule_knowledge_digest_missing(index: dict) -> bool:
     return True
 
 
+def rule_wiki_row_duplicate(index: dict) -> bool:
+    """games-index-v1.md §2.6: at most one `wikis[]` row per game (`store` + `id`)."""
+    seen = set()
+    for row in index.get("wikis", []):
+        key = (row.get("store"), row.get("id"))
+        if key in seen:
+            return False
+        seen.add(key)
+    return True
+
+
 def knowledge_path_problem(rel: str):
     """link-v1.md §5 'Knowledge': why a file at `rel` (relative to the knowledge folder) may not be
     in a knowledge base, or None. At most 4 folders deep below the folder (`a/b/c/d/x.md` is the
@@ -2262,6 +2273,7 @@ def main() -> int:
     for v in vectors["index"]["valid"]:
         doc = load_doc(v["file"])
         ok, detail = schema_ok(doc, index_schema)
+        ok = ok and rule_wiki_row_duplicate(doc)
         report(f"index/valid/{v['name']}", ok == (v["verdict"] == "accept"), detail)
     reference_now = load_doc(vectors["index"]["valid"][0]["file"])["issued_at"]
 
@@ -2277,6 +2289,8 @@ def main() -> int:
                 semantic_ok = rule_expiry_span_too_long(doc)
             elif v["rule"] == "knowledge-digest-missing":
                 semantic_ok = rule_knowledge_digest_missing(doc)
+            elif v["rule"] == "wiki-row-duplicate":
+                semantic_ok = rule_wiki_row_duplicate(doc)
             else:
                 raise NotImplementedError(v["rule"])
             report(f"index/invalid/{v['name']}", sok is True and semantic_ok is False)

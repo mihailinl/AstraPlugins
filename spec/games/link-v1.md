@@ -717,6 +717,56 @@ own text, like the skill, and never the game's live data:
   untrusted text from the GI, as a tool's output does, never as the model's
   own context.
 
+**Wiki on demand.** A game whose GI ships no knowledge base (a game played
+through a runner such as "Astra for any Unity game", say) may still have a
+public wiki. The game agent may look things up in it, under these rules:
+- **Which wiki.** The catalogue's signed `wikis[]` row for the game
+  (`games-index-v1.md` §2.6) names it. Without one, the person may give an
+  address for that game themselves; the daemon accepts it only over `https`,
+  only as a MediaWiki API endpoint (`…/api.php`, its `siteinfo` answering),
+  and never one on the person's own machine or network. The daemon never
+  guesses a wiki.
+- **Asking first.** Looking something up tells that wiki which game is being
+  played. The first time a Game turn would look something up for a game, the
+  chat asks once: "Look this up on `<host>`? That site will see which game you
+  are playing." (Allow / Not now). `<host>` is the wiki address's host, one
+  visible line (no invisible or control characters).
+  - The question is the daemon's own card, with the daemon's text and
+    buttons: never words the model wrote, and never answered by the model,
+    by an auto-approve setting or by anything but the person's own press.
+  - Both answers are kept per game, "Not now" exactly as "Allow", until the
+    person changes it in that game's Link settings: the question is not asked
+    again turn after turn.
+  - "Not now", or no answer yet, means no request is made: the call answers
+    that the wiki is not allowed, and the agent answers without it.
+- **The tool.** It is the GI's own `game_<entryhash8>-knowledge(query)`
+  (above): offered to the game agent only, when the GI has no base of its own
+  and the game has a wiki. A GI's own base always wins: when there is one, the
+  wiki is not searched.
+- **What is fetched**, and only on such a call: the wiki's own search (at
+  most 3 results), then the plain text of those pages (at most 256 KiB each).
+  Nothing else: no image, no link followed, no other host (a redirect off the
+  wiki's host is refused).
+- **How.** `https` only, no cookies, at most one request in flight and at most
+  20 a minute per wiki, the API's `maxlag` honoured; a refusal or an outage
+  answers the call as unavailable. The `User-Agent` names Astra and its
+  version only: no account, device id or other personal data goes to the
+  wiki, and the query goes to no one else (no search engine, no cloud model,
+  no cloud embedding service).
+- **Kept on this machine.** Page text is cached per game with its revision
+  id and indexed like a GI's base (local words or a local embedding model);
+  a page is fetched again when the wiki's search reports a newer revision.
+  At most 64 MiB per game, the least recently used pages dropped first.
+- **Reaching the model.** The same caps and labels as a GI's base (at most 4
+  passages, 2 KiB a call, 8 KiB a turn), each passage labelled as untrusted
+  text from that wiki, with its attribution: the wiki's name, the page's
+  title, the licence, the revision and its address. Anyone can edit a wiki, so
+  a passage is game data like any other: it stays in Game turns and behind
+  the cloud gate (above).
+- **Licence.** Wiki text (usually CC BY-SA) is fetched for this person's own
+  session and kept on their machine: it is never redistributed, and no
+  catalogue artefact holds it. Its attribution goes with every passage.
+
 ## 6. The restricted data-schema profile
 
 Every schema file a manifest names (`[integration.link].context`,

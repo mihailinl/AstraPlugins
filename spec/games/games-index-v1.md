@@ -53,6 +53,7 @@ One JCS document, detached Ed25519 signatures, in the plugin envelope.
   "games": [ /* GameRow, §2.2 */ ],
   "anticheat": [ /* AnticheatMarker, §2.3 */ ],
   "loaders": [ /* LoaderAllow, §2.4 */ ],
+  "wikis": [ /* WikiRow, §2.6 */ ],
   "engine_codes": { "source2": { "account": "someone", "repo_id": 123456789 } }
 }
 ```
@@ -192,6 +193,24 @@ gate on every unchecked foundation and so worked against auto-publish).
 Online PvP, PvP and MMO games get no engine-wide foundation offer unless
 `games[].allow_foundations` is set (§2.2); a game-specific entry for such a
 game is still allowed, just never "Recommended".
+
+### 2.6 `wikis[]` — a game's wiki
+
+```jsonc
+{ "store": "steam", "id": 892970, "api": "https://valheim.fandom.com/api.php",
+  "name": "Valheim Wiki", "licence": "CC-BY-SA-3.0" }
+```
+
+Moderator data, like `games[]`: which public MediaWiki the game agent may
+look things up in for a game whose GI ships no knowledge base (`link-v1.md`
+§5 "Wiki on demand"). `api` is the wiki's API endpoint: `https`, no user
+info, query or fragment, its path ending in `/api.php`. `name` (at most 64
+characters) is what the consent question and every passage's attribution show
+beside the host. `licence` is an SPDX id or text (at most 128 characters).
+At most one row per game (`store` + `id`): a document with two is invalid
+(semantic rule `wiki-row-duplicate`). It is a separate array, not a field
+of `games[]`, so a client older than it ignores it whole rather than
+skipping a `games[]` row whose shape it does not know (§4).
 
 ## 3. Keys
 
@@ -425,8 +444,10 @@ A pack member, or a command's or pack's dependency, names a registry or catalogu
 - An entry of unknown `kind` is skipped — it affects only that entry.
 - A descriptor with an unknown atom never matches (engine-descriptor-v1.md
   §0, rule 5) — it affects only that entry's offer, never the document.
-- An unknown `games[]`/`anticheat[]`/`loaders[]` row shape is skipped with
-  the same scoping.
+- An unknown `games[]`/`anticheat[]`/`loaders[]`/`wikis[]` row shape is
+  skipped with the same scoping.
+- An unknown top-level array (`wikis[]`, to a client older than §2.6) is
+  ignored.
 
 ## 5. Schema
 
