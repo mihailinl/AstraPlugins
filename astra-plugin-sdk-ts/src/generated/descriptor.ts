@@ -1339,6 +1339,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "allowLikeThis": {
               "type": "bool",
               "id": 3
+            },
+            "allowInChat": {
+              "type": "bool",
+              "id": 4
             }
           }
         },
