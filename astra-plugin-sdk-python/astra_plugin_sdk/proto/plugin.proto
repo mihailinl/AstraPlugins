@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: a66206231948e758fa826d46dc893e6c45740f9b41b19af6d8950deb1b3edadf
+// surface-sha256: fd1bbde2846b265d465e259ba62f38f2dce12977d3de0e650ed8143461b691c8
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -992,7 +992,14 @@ message DocumentAttachment {
 message ConfirmationResponse {
     string request_id = 1;
     bool allowed = 2;
+
+    // "Allow like this": the rule the card describes (`rule_description`), kept as the tool keeps
+    // its rules — persistent, or this chat's for a chat-only tool.
     bool allow_like_this = 3;
+
+    // "Allow in this chat": the same rule, kept to this chat and the threads it handed work to,
+    // in memory only (the daemon's `RememberIn::ThisChat`). Implies `allow_like_this`.
+    bool allow_in_chat = 4;
 }
 
 message ClearConversationRequest {

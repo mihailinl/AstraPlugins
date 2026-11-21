@@ -335,6 +335,7 @@
     "--ui-advanced-gap",
     "--ui-slider-knob-h",
     "--ui-slider-knob-w",
+    "--ui-slider-length",
     "--ui-slider-track-h",
     "--ui-spinner-size",
     "--ui-toggle-h",
@@ -490,5 +491,5 @@
       "jsxDEV"
     ]
   },
-  "sourceHash": "65dd7328b1f847de24b6b41a010ad9721b7cc50304596b4a2eab9f698bbdb27f"
+  "sourceHash": "dd573db3bc19b0eee5bfa350b4a0890ce14e00e456a360589979af79e5ebf0c8"
 }

@@ -14,7 +14,7 @@ export interface AnchoredMenuProps {
     maxHeight?: number;
     overflowRowSelector?: string;
     matchAnchorWidth?: boolean | "minimum";
-    align?: "start" | "end";
+    align?: "start" | "end" | "center";
     side?: "bottom" | "top";
     onDismiss?: () => void;
     onMouseDown?: React.MouseEventHandler<HTMLDivElement>;

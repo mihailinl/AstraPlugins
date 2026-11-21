@@ -13,7 +13,8 @@ export interface SliderProps {
     className?: string;
     formatValue?: (value: number) => string;
     marks?: boolean;
+    orientation?: "horizontal" | "vertical";
     "aria-label"?: string;
     "aria-valuetext"?: string;
 }
-export declare function Slider({ value, onChange, min, max, step, showValue, disabled, id, className, formatValue, marks, "aria-label": ariaLabel, "aria-valuetext": ariaValueText, }: SliderProps): import("react/jsx-runtime").JSX.Element;
+export declare function Slider({ value, onChange, min, max, step, showValue, disabled, id, className, formatValue, marks, orientation, "aria-label": ariaLabel, "aria-valuetext": ariaValueText, }: SliderProps): import("react/jsx-runtime").JSX.Element;
