@@ -200,6 +200,11 @@ impl Daemon for DaemonClient {
                 request_id: request_id.to_string(),
                 allowed,
                 allow_like_this,
+                // "Allow in this chat" (the daemon's in-memory, this-chat rule)
+                // is not offered to plugins: `false` is what this method sent
+                // before the field existed. Widening the signature to expose it
+                // is a product decision, not a resync's.
+                allow_in_chat: false,
             })
             .await?;
         Ok(())
