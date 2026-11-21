@@ -2,7 +2,7 @@
 // Copyright (C) 2026 Minice
 import type { HTMLAttributes, ReactNode } from "react";
 import { type ButtonProps } from "./type-5";
-import { type IconName } from "./type-12";
+import { type IconName } from "./type-13";
 
 export declare function WidgetHead({ icon, title, meta, trailing, className }: {
     icon: IconName;

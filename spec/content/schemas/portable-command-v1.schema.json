@@ -1907,16 +1907,26 @@
       "type": "object"
     },
     "SetVolumeAction": {
-      "description": "Set system volume (absolute or relative)",
+      "description": "Set a volume (absolute or relative): the system's, the current player's own\napp's, or one app's.",
       "properties": {
+        "app": {
+          "default": "",
+          "description": "For target \"app\": the app's key or name (`discord`); supports variables.",
+          "type": "string"
+        },
         "mode": {
           "default": "set",
-          "description": "Mode: \"set\" (absolute 0-100) or \"add\" (relative, can be negative)",
+          "description": "Mode: \"set\" (absolute 0-100), \"add\" (relative, can be negative), or\n\"mute\" / \"unmute\" / \"toggle_mute\" (the level is kept).",
+          "type": "string"
+        },
+        "target": {
+          "default": "system",
+          "description": "Whose volume: \"system\" (the default — what every command saved before\nthis field meant), \"player\" (the app the current media session plays in)\nor \"app\" (the app named in `app`).",
           "type": "string"
         },
         "value": {
           "default": "",
-          "description": "Volume value as string (supports variables like {myVar}).\nParsed to f64 at runtime. Range: 0-100 for \"set\", any signed value for \"add\".",
+          "description": "Volume value as string (supports variables like {myVar}).\nParsed to f64 at runtime (digits, or a number said in words). Range: 0-100\nfor \"set\", any signed value for \"add\".",
           "type": "string"
         }
       },
@@ -2004,7 +2014,8 @@
         "sleep",
         "hibernate",
         "lock",
-        "logoff"
+        "logoff",
+        "cancel_shutdown"
       ],
       "type": "string"
     },
