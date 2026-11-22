@@ -332,6 +332,8 @@ A plugin record, `signed.plugins[]`, is:
 | `homepage` | string, `^https://` | optional: `plugin.json`'s `homepage` |
 | `repository_url` | string, `^https://github\.com/` | required: `https://github.com/` followed by `source.repo` |
 | `icon_url` | string: a `data:image/…;base64,…` URI, or empty | required: the store card's picture, inlined from the icon committed beside the listing so that it is inside the signature; the empty string when there is none. Never an `https://` URL |
+| `icon` | object, `signed.plugins[].icon` | optional: the same icon `icon_url` inlines, as a content-addressed file beside the catalogue (contract 6.28.0). A client that reads it fetches `path` against the URL it fetched `index.json` from, checks the size, the SHA-256 and the magic bytes, and falls back to `icon_url` on any failure. Absent for an SVG or ICO icon and for a listing with none |
+| `readme_file` | object, `signed.plugins[].readme_file` | optional: the same README `readme` inlines, as a content-addressed UTF-8 file beside the catalogue (contract 6.28.0), checked the same way, with `readme` as its fallback. Absent when the listing has no README or an empty one |
 | `source` | object, `signed.plugins[].source` | required: where the bytes come from |
 | `downloads` | integer ≥ 0 | required: always `0` |
 | `stars` | integer ≥ 0 | required: always `0` |
@@ -350,6 +352,23 @@ The card in one other language, `signed.plugins[].i18n.<code>`, is:
 |---|---|---|
 | `name` | string, 1–64 characters | required: the card's title in that language, from the locale's `listing.name` |
 | `description` | string, 1–200 characters | required: the one-line card text in that language, from the locale's `listing.description`. A half the locale does not translate is filled from English, so a block always has both, and a block identical to the English card is left out |
+
+The icon as a file, `signed.plugins[].icon`, is:
+
+| member | type | rule |
+|---|---|---|
+| `path` | string, `^assets/[0-9a-f]{64}\.(png\|webp\|jpg)$` | required: relative to the URL `index.json` was fetched from, never carrying a host; its hex is `sha256` |
+| `sha256` | string, 64 lowercase hex | required: the SHA-256 of the file's bytes |
+| `size` | integer, 1 to 131072 | required: the file's length in bytes; a client reads no more than this |
+| `media_type` | `image/png`, `image/webp` or `image/jpeg` | required: agrees with `path`'s extension and with the file's magic bytes |
+
+The README as a file, `signed.plugins[].readme_file`, is:
+
+| member | type | rule |
+|---|---|---|
+| `path` | string, `^assets/[0-9a-f]{64}\.md$` | required: relative to the URL `index.json` was fetched from, never carrying a host; its hex is `sha256` |
+| `sha256` | string, 64 lowercase hex | required: the SHA-256 of the file's bytes |
+| `size` | integer, 1 to 16384 | required: the file's length in bytes; the bytes are UTF-8 markdown, the same text as `readme` |
 
 Where a plugin's bytes come from, `signed.plugins[].source`, is:
 
