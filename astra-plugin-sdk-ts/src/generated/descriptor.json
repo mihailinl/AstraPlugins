@@ -2224,6 +2224,10 @@
             "gameTurn": {
               "type": "GameTurnMsg",
               "id": 3
+            },
+            "spoken": {
+              "type": "bool",
+              "id": 4
             }
           }
         },
@@ -2885,6 +2889,10 @@
             "activeId": {
               "type": "string",
               "id": 2
+            },
+            "savedMissing": {
+              "type": "bool",
+              "id": 3
             }
           }
         },
@@ -3019,6 +3027,10 @@
             "activeId": {
               "type": "string",
               "id": 2
+            },
+            "savedMissing": {
+              "type": "bool",
+              "id": 3
             }
           }
         },

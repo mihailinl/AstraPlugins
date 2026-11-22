@@ -2232,6 +2232,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "gameTurn": {
               "type": "GameTurnMsg",
               "id": 3
+            },
+            "spoken": {
+              "type": "bool",
+              "id": 4
             }
           }
         },
@@ -2893,6 +2897,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "activeId": {
               "type": "string",
               "id": 2
+            },
+            "savedMissing": {
+              "type": "bool",
+              "id": 3
             }
           }
         },
@@ -3027,6 +3035,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "activeId": {
               "type": "string",
               "id": 2
+            },
+            "savedMissing": {
+              "type": "bool",
+              "id": 3
             }
           }
         },
