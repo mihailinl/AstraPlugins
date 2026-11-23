@@ -199,7 +199,13 @@ The granted set a live session actually has is the **intersection** of:
 tool's `name` is at most 32 characters of `[a-z0-9_]` (`manifest.md` §2.6),
 so the whole name is at most 46 characters, inside the 64 characters of
 `[a-zA-Z0-9_-]` that AI providers accept. Tools exist only while the session
-is live, are approved by their declared danger (below), and a result reaches
+is live, and only in the game's own turns: a turn of the game mode (below,
+"The game agent"), a `speaks` turn and a work-ended turn, each under its own
+rules. Every other turn, the ordinary «Chat» and «Task» modes included, has
+none of them, not even deferred behind a tool search, and a call to one all
+the same is refused before it reaches the game (`not_granted` for a `game`
+tool, below; `not_this_turn` for any other). Tools are
+approved by their declared danger (below), and a result reaches
 the model labelled as **untrusted** tool output — never silently merged into
 the model's own context as if it had said it.
 
@@ -248,9 +254,9 @@ to the model only while all of these hold:
 - the session is live, and "AI may act" and "She may act in the game" are on
   (§5 item 4; the granted set's `acts`);
 - the game's last `world` said `alone: true`;
-- the turn is the person's own (below, "The person's own turn": typed
-  text, Astra's own voice key, or the wake word only under its flag).
-  A turn a `talk` opened is not one (§5 "Voice key").
+- the turn is the person's own turn in the game mode (below, "The person's
+  own turn" and "The game agent"). A turn a `talk` opened is not one (§5
+  "Voice key").
 
 It is never offered in any other turn: a turn a `talk` opened, a `speaks`
 turn, a work-ended turn, a turn a plugin asks for, an automation or a
@@ -366,8 +372,8 @@ person's memory or a task that runs on without them.
 
 **Which turns carry game data.** Context, events and tool results from a
 game go only into:
-- the person's own turn in the main chat (§5 "The person's own turn"),
-  never one a `talk` opened;
+- the person's own turn in the game mode (§5 "The person's own turn",
+  "The game agent"), never one a `talk` opened;
 - a `speaks` turn (below);
 - a work-ended turn (below, "When her work ends").
 
@@ -506,7 +512,9 @@ what happens" with it). Besides the limits above, that turn:
   and the current `context` value, quoted and labelled like any game data;
 - may call only this GI's own `low` tools, never a `game` one, no built-in or
   other tool;
-- is spoken like any other reply. That reply is kept in the last
+- is spoken like any other reply, and only when the person's voice output
+  is on: with Astra's voice switched off it is written, never heard. That
+  reply is kept in the last
   conversation in which a turn carried game data ("Which turns carry game
   data"), or in the main conversation when none has, with a band saying it
   reacts to a game event; the event itself is not written there.
@@ -534,7 +542,8 @@ turn, under the same rules:
   or other tool;
 - with a cloud model while that game's cloud consent is off it does
   not start at all;
-- its reply is spoken and kept like a `speaks` turn's: in the last
+- its reply is spoken (only with the person's voice output on) and kept like
+  a `speaks` turn's: in the last
   conversation in which a turn carried game data (where the person asked),
   with a band saying it reacts to a game event;
 - at most 10 per hour for each GI, its own window (above).
@@ -583,43 +592,58 @@ from the GI, visible to the AI only while the session is live.
 
 **The person's own turn.** While a Link session is live, a turn in the main
 chat counts as the person's own (for `game` tools and for the game agent)
-only when it was opened by:
+when the person opened it the ways they talk to Astra anywhere else:
 - text typed in Astra;
 - Astra's own voice key (its hotkey or push-to-talk);
-- the wake word, **only** when all of these hold:
-  - the capture that heard it ran with echo cancellation against the
-    machine's whole output (the system loopback: a PipeWire monitor, WASAPI
-    loopback), not only Astra's own voice;
-  - the words recognised do not match what was playing from the speakers;
-  - the daemon declares this capability with a flag, and turns the flag on
-    only after false wake-ups have been measured on real game sound.
+- Astra's own microphone: the wake word, a follow-up, listening without one.
 
-  Until the flag is on (it is not today: Astra's echo cancellation removes
-  only her own voice), a wake-word turn while a session is live is treated
-  like a turn a `talk` opened: no `game` tool, no game data, no game
-  agent. A game that plays "Astra, …" must never open the person's turn.
-  The person types, or uses Astra's voice key.
+The wake word is the person's in a game as everywhere (the owner's decision,
+2026-11-23): a person playing speaks to her the way they always do, and a
+rule that sent "Astra, …" to an assistant that knows nothing of the game
+broke the common case to guard a rare one. What such a turn may do is held
+by the grants, not by how the microphone opened: a `game` tool still needs
+`acts`, a world where the player is alone and the turn limit, the `stops`
+tool is always there, and nothing in a game reaches the computer (§5
+"Tool danger"). A game that plays "Astra, …" through the speakers can at
+most ask her for what the person already let her do in that game.
 
-Never a turn a `talk` opened (§5 "Voice key"), a `speaks` turn, a turn a
-plugin asks for, an automation or a trigger, a sub-agent's, background,
-handoff or «Code» turn.
+Never a turn a `talk` opened (§5 "Voice key": the game itself opened it), a
+`speaks` turn, a turn a plugin asks for, an automation or a trigger, a
+sub-agent's, background, handoff or «Code» turn.
 
 **The game agent.** While a Link session of a GI is live, the person talks
-to the game agent: the assistant's "Game" profile, one more of its modes
-(as "Fast" and "Work" are), not a second assistant. It answers about the game
-and acts in it, and hands anything else to the ordinary assistant. A turn
-runs as the game agent when all of these hold:
+to the game agent: the assistant's **game mode**, one more entry of the mode
+selector beside «Chat», «Task» and «Code», not a second assistant. It answers
+about the game and acts in it, and hands anything else to the ordinary
+assistant. The mode lives as long as the session:
+- **It appears when the session goes live**, named after the game as the
+  person's game library names it (cut to 14 characters, the whole name on
+  hover), and at that moment becomes the mode of the conversation open in
+  the main chat. A conversation bound to «Code», or scoped to a project or a
+  task, is not switched; neither is any other conversation.
+- **The person may leave it by hand.** Picking another mode while the game
+  runs keeps that conversation in the mode picked until the person picks the
+  game's entry again; the daemon never switches it back by itself.
+- **It disappears when the session ends** (the game closed, a switch turned
+  off, the session dropped), and every conversation in the game mode goes
+  back to «Chat».
+- While more than one session is live, the entry is the session's that went
+  live last.
+
+A turn runs as the game agent when all of these hold:
 - it is the person's own turn in the main chat (above);
+- the conversation's mode is the game mode;
 - the session is live, and the game's per-game switch "Answer as the game
-  agent" is on. It is on by default: the profile grants nothing by itself,
-  every tool is still behind its own switch. The game agent answers while
-  the game is `quiet` too (paused, in a menu): a person often pauses to type
-  the question, and a turn that stopped there would end mid-answer. Only
-  Astra's own unprompted speech (`speaks`, `work_ended`) waits for the
-  world. A tool a game cannot run in a menu says so itself (`not_in_world`);
-- the conversation is not bound to another mode («Code», «Work»), and the
-  person has not picked a mode or a model for it by hand («Fast» included):
-  such a conversation keeps what it has, and is never taken over.
+  agent" is on. It is on by default: the mode grants nothing by itself,
+  every tool is still behind its own switch, and with the switch off the
+  game's entry does not appear. The game agent answers while the game is
+  `quiet` too (paused, in a menu): a person often pauses to type the
+  question, and a turn that stopped there would end mid-answer. Only Astra's
+  own unprompted speech (`speaks`, `work_ended`) waits for the world. A tool
+  a game cannot run in a menu says so itself (`not_in_world`).
+
+Any other turn, the ordinary «Chat» while the game runs included, has no game
+tool and no game data (§5 "Tools", "Which turns carry game data").
 
 The daemon checks these, and the cloud gate below, again before every model
 call of the turn. When one no longer holds (a switch turned off, a session
@@ -631,10 +655,9 @@ next message starts afresh.
 
 **The cloud gate comes first.** The game agent runs on the model of the
 "Fast" role. When that model is a cloud model and the game's cloud consent
-is off, the profile is not used at all: the turn runs in the
-conversation's ordinary mode, with no game data and no game tool, and the
-chat says why, once a session. There is no way around the gate through the
-profile.
+is off, the game mode does not run its turns: a turn sent in it runs as
+«Chat», with no game data and no game tool, and the chat says why, once a
+session. There is no way around the gate through the mode.
 
 **Game data stays out of the cloud, in history too.** A Game turn's
 messages, its tool results, its knowledge passages and its replies are game
