@@ -512,9 +512,10 @@ what happens" with it). Besides the limits above, that turn:
   and the current `context` value, quoted and labelled like any game data;
 - may call only this GI's own `low` tools, never a `game` one, no built-in or
   other tool;
-- is spoken like any other reply, and only when the person's voice output
-  is on: with Astra's voice switched off it is written, never heard. That
-  reply is kept in the last
+- is spoken like any other reply, in the language of the user's settings
+  (it has no message of the user's to take a language from), and only when
+  the person's voice output is on: with Astra's voice switched off it is
+  written, never heard. That reply is kept in the last
   conversation in which a turn carried game data ("Which turns carry game
   data"), or in the main conversation when none has, with a band saying it
   reacts to a game event; the event itself is not written there.
@@ -674,9 +675,17 @@ author's free text, and a game tool's result is the game's. Both are
 replayed only into a later Game turn. Any other turn (the ordinary
 assistant's, a handoff, a summary) sees a Game turn by its reply alone, so
 an ordinary turn with the computer's tools never reads a guide's words on
-the user's auto-approve. A turn whose replayed history would hold a passage
+the user's auto-approve. One exception: a `speaks` or work-ended turn of a
+GI also reads the results of that same GI's own tools in its Game turns
+(never a passage, never another GI's or another game's), so that she can
+say how the job went; that turn already carries this GI's data behind the
+same cloud gate. A turn whose replayed history would hold a passage
 or a game result anyway counts as carrying game data (the per-call approval
-of "Game data in a turn").
+of "Game data in a turn"). Where a result is not replayed, the history says
+in words that it was left out of this turn, never in a form a model could
+take for the call's own status (such as `{"status":"withheld"}`): a model
+that reads a left-out result as a failure tells the person their work
+failed.
 
 What the game agent is offered, and nothing else:
 - this GI's tools, under every rule above (`low`, `game` and `high`, the
