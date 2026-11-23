@@ -6,9 +6,10 @@ export interface PopoverProps {
     onOpenChange: (open: boolean) => void;
     trigger: React.ReactNode;
     children: React.ReactNode;
-    placement?: "bottom-start" | "bottom-end" | "top-start" | "top-end";
+    placement?: "bottom-start" | "bottom-end" | "top-start" | "top-end" | "bottom-center" | "top-center";
     matchTriggerWidth?: boolean;
     className?: string;
+    panelClassName?: string;
     ariaLabel?: string;
 }
-export declare function Popover({ open, onOpenChange, trigger, children, placement, matchTriggerWidth, className, ariaLabel, }: PopoverProps): import("react/jsx-runtime").JSX.Element;
+export declare function Popover({ open, onOpenChange, trigger, children, placement, matchTriggerWidth, className, panelClassName, ariaLabel, }: PopoverProps): import("react/jsx-runtime").JSX.Element;

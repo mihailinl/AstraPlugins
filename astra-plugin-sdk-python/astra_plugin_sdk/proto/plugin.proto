@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: a66206231948e758fa826d46dc893e6c45740f9b41b19af6d8950deb1b3edadf
+// surface-sha256: d174303bc1d613b5470c7ed7f81b946a02f1346ad40ef4d40812b21e111174eb
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -992,7 +992,14 @@ message DocumentAttachment {
 message ConfirmationResponse {
     string request_id = 1;
     bool allowed = 2;
+
+    // "Allow like this": the rule the card describes (`rule_description`), kept as the tool keeps
+    // its rules — persistent, or this chat's for a chat-only tool.
     bool allow_like_this = 3;
+
+    // "Allow in this chat": the same rule, kept to this chat and the threads it handed work to,
+    // in memory only (the daemon's `RememberIn::ThisChat`). Implies `allow_like_this`.
+    bool allow_in_chat = 4;
 }
 
 message ClearConversationRequest {
@@ -1611,6 +1618,11 @@ message AssistantStartEvt {
     // reloaded history shows it. A client draws the «Игра» badge from it, and renders the reply
     // with no remote image loaded and no link followed without a click.
     GameTurnMsg game_turn = 3;
+
+    // The turn is spoken as its text streams, so the words a round writes before its tool call
+    // are heard too. A client keeps them in the reply instead of folding them into the activity
+    // trace: what Astra said aloud stays readable. Kept in the log, like `game_turn`.
+    bool spoken = 4;
 }
 
 // Which game integration a Game turn answered as.
@@ -2093,6 +2105,10 @@ service VoiceService {
 message MicrophoneListResponse {
     repeated Microphone microphones = 1;
     string active_id = 2;
+
+    // A microphone is saved as the choice, but it is not connected now and
+    // listening uses Auto in its place (it moves back when the device returns).
+    bool saved_missing = 3;
 }
 
 message Microphone {
@@ -2176,7 +2192,14 @@ message SetMicrophoneRequest {
 
 message OutputDeviceListResponse {
     repeated OutputDevice devices = 1;
+
+    // The device Astra plays through: empty (Auto) while the default stands
+    // in for a chosen device that is not connected.
     string active_id = 2;
+
+    // An output is saved as the choice, but it is not connected now and the
+    // default plays in its place (the output moves back when it returns).
+    bool saved_missing = 3;
 }
 
 message OutputDevice {

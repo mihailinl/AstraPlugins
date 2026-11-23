@@ -148,6 +148,8 @@ pub fn firehose_events() -> Vec<proto::FirehoseEventMsg> {
                 caused_by: String::new(),
                 // An ordinary chat turn, not one a game integration answered (#391).
                 game_turn: None,
+                // Not spoken as it streamed: a quiet chat turn (#426).
+                spoken: false,
             }),
         ),
         evt(
@@ -217,6 +219,7 @@ pub fn firehose_error_turn() -> Vec<proto::FirehoseEventMsg> {
                     message_id: "msg-2".into(),
                     caused_by: String::new(),
                     game_turn: None,
+                    spoken: false,
                 }),
             )),
         },
