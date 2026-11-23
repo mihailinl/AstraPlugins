@@ -627,8 +627,9 @@ assistant. The mode lives as long as the session:
 - **It disappears when the session ends** (the game closed, a switch turned
   off, the session dropped), and every conversation in the game mode goes
   back to «Chat».
-- While more than one session is live, the entry is the session's that went
-  live last.
+- While more than one such session is live, no game's entry shows: which
+  game the person means is not the daemon's guess. Every conversation in the
+  game mode goes back to «Chat», as when the session ends.
 
 A turn runs as the game agent when all of these hold:
 - it is the person's own turn in the main chat (above);
