@@ -1780,7 +1780,8 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
                 "automationToolTrace",
                 "assistantImage",
                 "assistantNotice",
-                "assistantFiles"
+                "assistantFiles",
+                "builtinPhrase"
               ]
             }
           },
@@ -1904,6 +1905,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "assistantFiles": {
               "type": "AssistantFilesEvt",
               "id": 35
+            },
+            "builtinPhrase": {
+              "type": "BuiltinPhraseEvt",
+              "id": 36
             }
           }
         },
@@ -1999,6 +2004,18 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "id": 1
             },
             "content": {
+              "type": "string",
+              "id": 2
+            }
+          }
+        },
+        "BuiltinPhraseEvt": {
+          "fields": {
+            "messageId": {
+              "type": "string",
+              "id": 1
+            },
+            "family": {
               "type": "string",
               "id": 2
             }
@@ -4836,6 +4853,19 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "reminders": {
               "type": "RemindersSettings",
               "id": 25
+            },
+            "builtinPhrases": {
+              "type": "BuiltinPhrasesSettings",
+              "id": 26
+            }
+          }
+        },
+        "BuiltinPhrasesSettings": {
+          "fields": {
+            "off": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 1
             }
           }
         },
@@ -5585,6 +5615,22 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "options": {
                 "proto3_optional": true
               }
+            },
+            "timeFormat": {
+              "type": "string",
+              "id": 24
+            },
+            "weekStart": {
+              "type": "string",
+              "id": 25
+            },
+            "clock_12h": {
+              "type": "bool",
+              "id": 26
+            },
+            "weekStartsSunday": {
+              "type": "bool",
+              "id": 27
             }
           }
         },
@@ -8079,6 +8125,24 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "hasApiKey": {
               "type": "bool",
               "id": 12
+            },
+            "configFields": {
+              "rule": "repeated",
+              "type": "FieldDefinitionMsg",
+              "id": 13
+            },
+            "configValues": {
+              "keyType": "string",
+              "type": "string",
+              "id": 14
+            },
+            "unavailableForCoding": {
+              "type": "bool",
+              "id": 15
+            },
+            "apiKeyLabel": {
+              "type": "string",
+              "id": 16
             }
           }
         },

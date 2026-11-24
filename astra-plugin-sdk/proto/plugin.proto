@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: d174303bc1d613b5470c7ed7f81b946a02f1346ad40ef4d40812b21e111174eb
+// surface-sha256: 8b0b027fbce723023576ecc0f83c5b1260ce85f6fd149382ea5ef7df8d974f72
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -1369,6 +1369,7 @@ message ConversationEventMsg {
         AssistantImageEvt assistant_image = 33;
         AssistantNoticeEvt assistant_notice = 34;
         AssistantFilesEvt assistant_files = 35;
+        BuiltinPhraseEvt builtin_phrase = 36;
     }
 }
 
@@ -1406,6 +1407,14 @@ message ActOnResultFileResponse {
 message AssistantNoticeEvt {
     string message_id = 1;
     string content = 2;
+}
+
+// The reply was a built-in phrase's: Astra did it herself, with no command of the
+// person's own and no AI. DISPLAY only: a client draws a quiet line under the reply that
+// opens the family in Commands. `family` is the daemon's family key (`volume`, `folders`…).
+message BuiltinPhraseEvt {
+    string message_id = 1;
+    string family = 2;
 }
 
 // A picture the assistant drew (`generate_image`), attached to its message.
@@ -3030,6 +3039,14 @@ message SettingsResponse {
     ScreenWidgetsSettings screen_widgets = 23;
     WidgetPanelSettings widget_panel = 24;
     RemindersSettings reminders = 25;
+    BuiltinPhrasesSettings builtin_phrases = 26;
+}
+
+// The built-in phrases' families switched off, by key ("apps", "folders", "sites",
+// "timers", "reminders", "player", "volume", "power"). Written through SetSetting
+// (`builtin_phrases.off`); this is the read-only projection.
+message BuiltinPhrasesSettings {
+    repeated string off = 1;
 }
 
 // Reminders-widget preferences that apply to every reminder. Written through
@@ -3396,6 +3413,18 @@ message GeneralSettings {
     // Experimental Windows foreground activation. Absent on a partial update
     // preserves the saved choice; new and existing profiles default to false.
     optional bool activate_external_windows = 23;
+
+    // The clock and the calendar's week (`astra_core::config::region`). `time_format` is the
+    // person's choice — "auto", "24h", "12h" — and `week_start` likewise ("auto", "monday",
+    // "sunday"); "" on a partial update keeps the saved one. `clock_12h` and
+    // `week_starts_sunday` are what those choices read as on this system, "auto" resolved by
+    // the daemon from the system's region: the UI shows them and never resolves "auto" itself,
+    // so it and the daemon's own sentences ("at 9:30 PM") agree. Read-only: UpdateSettings
+    // ignores both.
+    string time_format = 24;
+    string week_start = 25;
+    bool clock_12h = 26;
+    bool week_starts_sunday = 27;
 }
 
 message VoiceSettings {
@@ -4657,6 +4686,13 @@ message AiProviderInfo {
     // the wire — this is the whole of what a client needs to render "a key is
     // saved" on a field it must not be able to read back.
     bool has_api_key = 12;
+
+    // Additional settings rendered from the provider's schema. Values are
+    // non-secret and indexed by field id. Keys still use the normal key store.
+    repeated FieldDefinitionMsg config_fields = 13;
+    map<string, string> config_values = 14;
+    bool unavailable_for_coding = 15;
+    string api_key_label = 16;
 }
 
 message AiProvidersResponse {
