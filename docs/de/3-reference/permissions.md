@@ -99,39 +99,6 @@ danach greifst, lies zuerst
 [das Sicherheitsmodell](../1-orientation/security.md) und stell sicher,
 dass `push_to_ui` in dein eigenes Panel nicht ausreicht.
 
-## Argumente
-
-Zwei IDs nehmen Argumente, und beide schränken ein, was du bekommst.
-
-<!-- doctest: toml-manifest -->
-```toml
-[plugin]
-id = "meeting-notes"
-name = "Meeting Notes"
-version = "0.1.0"
-license = "MIT"
-author = "You"
-
-[entry]
-command = "bin/meeting_notes"
-
-[capabilities]
-tools = true
-event_handlers = true
-
-[permissions]
-subscribe_events = { types = ["command_completed", "state_changed"], reason = "Notices when a recording command finishes so it can write the summary" }
-set_variable = { scopes = ["plugin"], reason = "Stores the id of the note it just wrote so your commands can open it" }
-fire_trigger = { reason = "Fires meeting_summarised when a summary is ready" }
-```
-
-- **`subscribe_events.types` ist eine Allowlist, vom Daemon durchgesetzt** —
-  nicht vom Filter, den dein Plugin sendet. Ohne sie erhielt jeder
-  Abonnent jedes Event, einschließlich `speech_recognized`, das die
-  Transkripte des Nutzers trägt. Eine leere Liste erlaubt nichts.
-- **`set_variable.scopes`** ist `"plugin"`, `"session"` oder
-  `"persistent"`.
-
 ## Die KI-Einstellungen des Nutzers lesen
 
 Ein Plugin, das das Modell des Nutzers selbst aufruft — ein eigener Assistent, ein Zusammenfasser —, muss wissen, welchen Provider, welches Modell und welchen Endpunkt der Nutzer gewählt hat. **Frag Astra danach; lies niemals Astras Dateien.** Deklariere `read_ai_settings` und rufe `GetAiSettings` auf (`get_ai_settings()` in Rust und Python, `getAiSettings()` in TypeScript):
@@ -289,6 +256,81 @@ Die Person sieht eine Karte, die dein Plugin und den Befehl nennt, mit deinem `r
 | `write_refused` | Der Befehl ließ sich nicht speichern |
 
 Die Grenzen gehören dem Daemon: Die SDKs exportieren `PROPOSE_COMMAND_MAX_BYTES` und `PROPOSE_COMMAND_REASON_MAX_CHARS` und prüfen keine davon selbst. Neben der Berechtigung braucht der Aufruf **ein Konto, das Astra freischaltet**; eine fehlende Berechtigung oder ein Konto, das Astra nicht freischaltet, ist ein fehlgeschlagener Aufruf wie jeder Host-Aufruf, kein Ergebnis. `propose_commands` ist **hochriskant**: Ein behaltener Befehl läuft später, auf seine eigenen Auslöser hin, aber nie mit dem vollen Vertrauen eines eigenen Befehls der Person: Astra fragt die Person vor jeder gefährlichen Aktion (etwa einem Shell-Befehl), und seine KI-Schritte sind keine vertrauenswürdige Automatisierung, deshalb bekommt es eine eigene Zustimmungs-Checkbox. Bei einem lokalen Import wird es nicht verweigert: Das Blatt ist die Entscheidung, jedes Mal. Ein Astra älter als dieser Aufruf antwortet `UNIMPLEMENTED`.
+
+## Argumente
+
+Zwei IDs nehmen Argumente, und beide schränken ein, was du bekommst.
+
+<!-- doctest: toml-manifest -->
+```toml
+[plugin]
+id = "meeting-notes"
+name = "Meeting Notes"
+version = "0.1.0"
+license = "MIT"
+author = "You"
+
+[entry]
+command = "bin/meeting_notes"
+
+[capabilities]
+tools = true
+event_handlers = true
+
+[permissions]
+subscribe_events = { types = ["command_completed", "state_changed"], reason = "Notices when a recording command finishes so it can write the summary" }
+set_variable = { scopes = ["plugin"], reason = "Stores the id of the note it just wrote so your commands can open it" }
+fire_trigger = { reason = "Fires meeting_summarised when a summary is ready" }
+```
+
+- **`subscribe_events.types` ist eine Allowlist, vom Daemon durchgesetzt** —
+  nicht vom Filter, den dein Plugin sendet. Ohne sie erhielt jeder
+  Abonnent jedes Event, einschließlich `speech_recognized`, das die
+  Transkripte des Nutzers trägt. Eine leere Liste erlaubt nichts.
+- **`set_variable.scopes`** ist `"plugin"`, `"session"` oder
+  `"persistent"`.
+
+### Spielereignisse (`game_event`)
+
+`game_event` ist ein Ereignistyp, den ein Plugin in `subscribe_events` nennen kann. Nur der Astra-Link-Server des Daemons löst ihn aus, wenn ein Spiel etwas meldet. Er existiert nur in einem Build mit dem Spielekatalog und ist daher noch nicht in einem Release.
+
+Die Nutzlast hat bis zu drei Felder:
+
+- `word` ist eines von `session_started`, `session_ended`, `player_hurt`, `player_fell`, `player_died`, `player_revived`, `goal_reached`.
+- `data` enthält die eigenen Felder der Spielintegration. Nach dem deklarierten Schema sind es nur Enum-Namen, Zahlen und Booleans.
+- `game` ist der Schlüssel des Spiels. Er ist nur vorhanden, wenn `[plugin] target` des Plugins dieses Spiel nennt ([`target`](../reference/manifest.md)), und nie für ein Spiel, das die Person von Hand hinzugefügt hat (`local-…`).
+
+Die Nutzlast enthält nie den Namen des Spiels.
+
+<!-- doctest: toml-manifest -->
+```toml
+[plugin]
+id = "game-companion"
+name = "Game Companion"
+version = "0.1.0"
+license = "MIT"
+author = "You"
+target = ["3527290"]
+
+[entry]
+command = "bin/game_companion"
+
+[capabilities]
+event_handlers = true
+
+[permissions]
+subscribe_events = { types = ["game_event"], reason = "Reacts when the game you play reports that you died or reached a goal" }
+```
+
+Ein Ereignis wird nur zugestellt, wenn alle drei Bedingungen gelten:
+
+- das Plugin hält `subscribe_events` für `game_event`;
+- die Link-Sitzung des Spiels ist aktiv;
+- der globale Schalter der Person „Plugins hear game events“ ist an. Er ist standardmäßig aus und unabhängig von „Tell Astra what happens“.
+
+Ein `send_chat_message` oder ein `fire_trigger`, der einen Befehl startet, gilt als vom Spiel verursacht, wenn er innerhalb von 60 Sekunden nach der Zustellung eines `game_event` an dein Plugin kommt. Solche Anfragen sind begrenzt: einmal pro 2 Minuten je Plugin und 10 pro Stunde für alle Spiele zusammen, ein Kontingent, das mit Astras eigenen Reaktionen auf Spiele geteilt wird. Über dem Limit schlägt der Aufruf mit `RESOURCE_EXHAUSTED` fehl, und die Meldung beginnt mit `rate_limited` und enthält `retry_after_ms=`. Ein vom Spiel verursachter Turn gibt dem Modell keine Spieldaten und schreibt nichts ins Langzeitgedächtnis. Nach 60 Sekunden ist eine Anfrage eine gewöhnliche.
+
+Die Regeln stehen in [`spec/games/link-v1.md`](../../../spec/games/link-v1.md), §5 „Events and plugins“ und „AI turns that game events start“.
 
 ## Einen Reason schreiben
 

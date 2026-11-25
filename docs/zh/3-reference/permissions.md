@@ -86,39 +86,6 @@
 [安全模型](../1-orientation/security.md)，并确认在自己面板里用
 `push_to_ui` 真的不够用。
 
-## 参数
-
-有两个 id 接受参数，两者都是用来收窄你能获得的范围。
-
-<!-- doctest: toml-manifest -->
-```toml
-[plugin]
-id = "meeting-notes"
-name = "Meeting Notes"
-version = "0.1.0"
-license = "MIT"
-author = "You"
-
-[entry]
-command = "bin/meeting_notes"
-
-[capabilities]
-tools = true
-event_handlers = true
-
-[permissions]
-subscribe_events = { types = ["command_completed", "state_changed"], reason = "Notices when a recording command finishes so it can write the summary" }
-set_variable = { scopes = ["plugin"], reason = "Stores the id of the note it just wrote so your commands can open it" }
-fire_trigger = { reason = "Fires meeting_summarised when a summary is ready" }
-```
-
-- **`subscribe_events.types` 是一个白名单，由守护进程强制执行** ——
-  而不是靠你的插件发送的过滤器。没有它，每个订阅者会收到每一个事件，
-  包括携带用户转写内容的 `speech_recognized`。空列表意味着什么都不
-  允许。
-- **`set_variable.scopes`** 的取值是 `"plugin"`、`"session"` 或
-  `"persistent"`。
-
 ## 读取用户的 AI 设置
 
 自己调用用户模型的插件——自带的助手、摘要工具——需要知道用户选了哪个提供方、哪个模型和哪个端点。**向 Astra 询问；绝不要读取 Astra 的文件。** 声明 `read_ai_settings`，然后调用 `GetAiSettings`（Rust 和 Python 中是 `get_ai_settings()`，TypeScript 中是 `getAiSettings()`）：
@@ -276,6 +243,81 @@ Astra 记住的东西比看上去要少，所以不要在每次启动时简单�
 | `write_refused` | 无法保存命令 |
 
 限制由守护进程掌握：SDK 导出 `PROPOSE_COMMAND_MAX_BYTES` 和 `PROPOSE_COMMAND_REASON_MAX_CHARS`，自己不检查其中任何一个。除了授予之外，调用还需要**一个有权使用 Astra 的账号**；缺少授予，或账号无权使用 Astra，都和任何 host 调用一样是一次失败的调用，而不是一个结果。`propose_commands` 属于**高风险**——被保留的命令以后会按自己的触发器、但绝不具有本人自己命令那样的完全信任：Astra 会在每个危险操作（例如 shell 命令）之前询问本人，它的 AI 步骤也不算受信任的自动化——所以它有自己的同意勾选框。在本地导入时它不会被拒绝：每一次的表单本身就是决定。早于这个调用的 Astra 会返回 `UNIMPLEMENTED`。
+
+## 参数
+
+有两个 id 接受参数，两者都是用来收窄你能获得的范围。
+
+<!-- doctest: toml-manifest -->
+```toml
+[plugin]
+id = "meeting-notes"
+name = "Meeting Notes"
+version = "0.1.0"
+license = "MIT"
+author = "You"
+
+[entry]
+command = "bin/meeting_notes"
+
+[capabilities]
+tools = true
+event_handlers = true
+
+[permissions]
+subscribe_events = { types = ["command_completed", "state_changed"], reason = "Notices when a recording command finishes so it can write the summary" }
+set_variable = { scopes = ["plugin"], reason = "Stores the id of the note it just wrote so your commands can open it" }
+fire_trigger = { reason = "Fires meeting_summarised when a summary is ready" }
+```
+
+- **`subscribe_events.types` 是一个白名单，由守护进程强制执行** ——
+  而不是靠你的插件发送的过滤器。没有它，每个订阅者会收到每一个事件，
+  包括携带用户转写内容的 `speech_recognized`。空列表意味着什么都不
+  允许。
+- **`set_variable.scopes`** 的取值是 `"plugin"`、`"session"` 或
+  `"persistent"`。
+
+### 游戏事件（`game_event`）
+
+`game_event` 是插件可以在 `subscribe_events` 中指定的事件类型。只有守护进程的 Astra Link 服务器会在游戏上报某件事时产生它。它只存在于带有游戏目录的构建中，因此还不在任何正式版本里。
+
+载荷最多有三个字段：
+
+- `word` 是 `session_started`、`session_ended`、`player_hurt`、`player_fell`、`player_died`、`player_revived`、`goal_reached` 之一。
+- `data` 是游戏集成自己的字段。按其声明的模式，只有枚举名、数字和布尔值。
+- `game` 是游戏的键。只有当插件的 `[plugin] target` 指明该游戏时才会出现（[`target`](../reference/manifest.md)），对用户手动添加的游戏（`local-…`）则永远不会出现。
+
+载荷从不包含游戏的名称。
+
+<!-- doctest: toml-manifest -->
+```toml
+[plugin]
+id = "game-companion"
+name = "Game Companion"
+version = "0.1.0"
+license = "MIT"
+author = "You"
+target = ["3527290"]
+
+[entry]
+command = "bin/game_companion"
+
+[capabilities]
+event_handlers = true
+
+[permissions]
+subscribe_events = { types = ["game_event"], reason = "Reacts when the game you play reports that you died or reached a goal" }
+```
+
+只有同时满足以下三点，事件才会送达：
+
+- 插件持有 `game_event` 的 `subscribe_events`；
+- 该游戏的 Link 会话处于活动状态；
+- 用户的全局开关“Plugins hear game events”已打开。它默认关闭，且与“Tell Astra what happens”相互独立。
+
+`send_chat_message`，或启动命令的 `fire_trigger`，如果在 `game_event` 送达你的插件后 60 秒内发出，就算作由游戏引起。这类请求受到限制：每个插件每 2 分钟最多一次，所有游戏合计每小时最多 10 次，这一额度与 Astra 自己对游戏的反应共用。超出限制时，调用以 `RESOURCE_EXHAUSTED` 失败，消息以 `rate_limited` 开头并带有 `retry_after_ms=`。由游戏引起的回合不会向模型提供游戏数据，也不会向长期记忆写入任何内容。60 秒之后，请求就是普通请求。
+
+规则见 [`spec/games/link-v1.md`](../../../spec/games/link-v1.md) 的 §5“Events and plugins”和“AI turns that game events start”。
 
 ## 编写 reason
 

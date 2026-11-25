@@ -558,6 +558,63 @@ lives in the daemon. Until that vocabulary can mark an event non-deliverable,
 this paragraph is the only thing between an author and a subscription that
 silently never fires.
 
+### Game events (`game_event`)
+
+`game_event` is an event type a plugin may name in `subscribe_events`. Only the
+daemon's Astra Link server raises it, when a game reports something. It exists
+only in a build with the games catalogue, so it is not yet in a release.
+
+Its payload has up to three fields:
+
+- `word` is one of `session_started`, `session_ended`, `player_hurt`,
+  `player_fell`, `player_died`, `player_revived`, `goal_reached`.
+- `data` holds the game integration's own fields. By its declared schema they
+  are only enum names, numbers and booleans.
+- `game` is the game's key. It is present only when the plugin's
+  `[plugin] target` names that game ([`target`](../reference/manifest.md)), and never for a game
+  the person added by hand (`local-…`).
+
+The payload never carries the game's name.
+
+<!-- doctest: toml-manifest -->
+```toml
+[plugin]
+id = "game-companion"
+name = "Game Companion"
+version = "0.1.0"
+license = "MIT"
+author = "You"
+target = ["3527290"]
+
+[entry]
+command = "bin/game_companion"
+
+[capabilities]
+event_handlers = true
+
+[permissions]
+subscribe_events = { types = ["game_event"], reason = "Reacts when the game you play reports that you died or reached a goal" }
+```
+
+An event is delivered only when all three hold:
+
+- the plugin holds `subscribe_events` for `game_event`;
+- the game's Link session is live;
+- the person's global switch "Plugins hear game events" is on. It is off by
+  default, and it does not depend on "Tell Astra what happens".
+
+A `send_chat_message`, or a `fire_trigger` that starts a command, counts as
+game-caused when it comes within 60 seconds after a `game_event` was delivered
+to your plugin. Such requests are limited to once per 2 minutes per plugin and
+10 per hour for all games together, a budget shared with Astra's own reactions
+to games. Over the limit, the call fails with `RESOURCE_EXHAUSTED` and a message
+that starts with `rate_limited` and carries `retry_after_ms=`. A game-caused
+turn gives the model no game data and writes nothing to long-term memory. After
+60 seconds, a request is an ordinary one.
+
+The rules are in [`spec/games/link-v1.md`](../../../spec/games/link-v1.md), §5 "Events and plugins" and
+"AI turns that game events start".
+
 ## Writing a reason
 
 The `reason` is rendered below Astra's own label for the permission, visually
