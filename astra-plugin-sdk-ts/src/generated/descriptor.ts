@@ -11402,6 +11402,11 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "domAccessTrusted": {
               "type": "bool",
               "id": 6
+            },
+            "trustedFileDigests": {
+              "keyType": "string",
+              "type": "string",
+              "id": 7
             }
           }
         },
