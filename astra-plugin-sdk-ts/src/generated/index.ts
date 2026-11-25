@@ -33,13 +33,14 @@ export const RESERVED_FIELD_NAMES: Readonly<Record<string, readonly string[]>> =
   "astra.AiProviderCredentialsMsg": ["api_key"],
   "astra.CustomAiProviderMsg": ["api_key"],
   "astra.HotkeySettings": ["toggle_listen", "stop_speaking", "open_chat"],
+  "astra.SafetySettings": ["confirmation_timeout_seconds"],
 };
 
 /** Repo-relative path of the proto this descriptor was generated from. */
 export const PROTO_SOURCE = "proto/plugin.proto";
 
 /** SHA-256 of that proto file, so a drifted descriptor is detectable in CI. */
-export const PROTO_SHA256 = "9af942e7170b94b98e12b0b4c3f977e6db922b8d1950453c1cf90b9b6bf29eab";
+export const PROTO_SHA256 = "b18cd0dd4f232c3e17a15ca7e2f3c16439fdcc63c66e644a91627b468f9f29e7";
 
 /** The protobuf package every Astra service lives in. */
 export const PROTO_PACKAGE = "astra";

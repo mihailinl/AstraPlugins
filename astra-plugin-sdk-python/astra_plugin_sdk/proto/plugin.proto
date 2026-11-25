@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 8b0b027fbce723023576ecc0f83c5b1260ce85f6fd149382ea5ef7df8d974f72
+// surface-sha256: 83615d1496b9915da9118d3c51a64f8a47403430c9eb9014602ec9eb0bd73df6
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -3846,7 +3846,11 @@ message SafetySettings {
     string default_level = 2;  // "all", "critical_only", "none"
     repeated string whitelisted_tools = 3;  // Tools that never need confirmation
     repeated string blacklisted_tools = 4;  // Tools that always need confirmation
-    int32 confirmation_timeout_seconds = 5;  // Default 120
+
+    // 5 was `confirmation_timeout_seconds`: a card used to expire after it. Retired 2026-11-18 —
+    // a card waits until it is answered, Stop, or its chat is cleared or deleted.
+    reserved 5;
+    reserved "confirmation_timeout_seconds";
 
     // SECURITY(B3): install plugins NOT signed by a pinned Astra publisher key
     // ("Developer Mode"). Default false — an untrusted plugin is a native
