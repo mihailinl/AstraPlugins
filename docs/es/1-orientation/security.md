@@ -164,6 +164,14 @@ consentimiento: `send_chat_message`, `push_to_ui`, `set_theme_contribution`,
 incluyendo cómo escribir un `reason` que valga la pena leer:
 [permisos](../3-reference/permissions.md).
 
+Un script `dom_access` también puede ejecutarse como **de confianza**: Astra
+entonces no pregunta a la persona en un diálogo del sistema por cada acción de la
+página. Solo lo obtiene una versión instalada desde el Registro, de un editor
+`verified` o `astra_team` y marcada como revisada por los moderadores, y solo
+mientras cada archivo bajo `ui/` sea byte a byte el revisado: un archivo
+cambiado, añadido o ilegible ahí devuelve la ventana a preguntar. Un archivo que
+falta es solo un 404.
+
 ## La procedencia de un plugin determina su techo
 
 | Nivel | Origen | Techo |

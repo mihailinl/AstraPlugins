@@ -150,6 +150,13 @@ Eight permissions are high-risk and each gets its own consent checkbox:
 `client`, `speak`, `receive_attachments`, `propose_commands`. `dom_access` gets a second screen. Details, including how to write a
 `reason` that is worth reading: [permissions](../3-reference/permissions.md).
 
+A `dom_access` script can also run **trusted**: Astra then does not ask the
+person in a system dialog about each action the page takes. Only a release
+installed from the Registry, from a `verified` or `astra_team` publisher and
+marked reviewed by moderators, gets it, and only while every file under `ui/`
+is byte-for-byte what was reviewed: a changed, extra or unreadable file there
+puts the window back to asking. A missing file is just a 404.
+
 ## Where a plugin came from decides its ceiling
 
 | Tier | Source | Ceiling |

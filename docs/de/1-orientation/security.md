@@ -170,6 +170,14 @@ Zustimmungs-Checkbox: `send_chat_message`, `push_to_ui`,
 zweiten Bildschirm. Details, einschließlich wie man einen `reason` schreibt,
 der sich zu lesen lohnt: [Permissions](../3-reference/permissions.md).
 
+Ein `dom_access`-Skript kann auch **vertrauenswürdig** laufen: Astra fragt die
+Person dann nicht in einem Systemdialog nach jeder Aktion der Seite. Das bekommt
+nur ein Release aus der Registry, von einem Herausgeber `verified` oder
+`astra_team`, das Moderatoren als geprüft markiert haben, und nur solange jede
+Datei unter `ui/` Byte für Byte der geprüften entspricht: eine geänderte,
+zusätzliche oder unlesbare Datei dort lässt das Fenster wieder fragen. Eine
+fehlende Datei ist nur ein 404.
+
 ## Die Herkunft eines Plugins bestimmt seine Obergrenze
 
 | Stufe | Quelle | Obergrenze |
