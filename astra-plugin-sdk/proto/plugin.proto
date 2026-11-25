@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 83615d1496b9915da9118d3c51a64f8a47403430c9eb9014602ec9eb0bd73df6
+// surface-sha256: 4c0f86fc58620c50d8b7a7188a7de7834ea8bc6fce16024f75a8aa79028641e6
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -5371,6 +5371,26 @@ message PluginStatusMsg {
     // `PluginRegistryEntry.review`; "" off the catalogue or before 3.0.0.
     string review = 22;
     string update_review = 23;
+
+    // **The over-security row "Обновления без диалога".** True when the update
+    // `latest_version` offers comes from the SAME OWNER as the installed version
+    // (the publisher's numeric GitHub id and the release's repository, both
+    // recorded from a production-signed catalogue) and declares no permission
+    // the installed version was not granted — so the daemon applies it without
+    // CLIENT-97's not-reviewed acknowledgement, and the card asks nothing first
+    // whatever `update_review` says. The daemon's own check
+    // (`update_gate::same_owner_update`) decides the install; this is the hint
+    // that keeps the card from asking a question the daemon will not.
+    bool update_same_owner = 24;
+
+    // **D1.** Non-empty when the production-signed catalogue says the plugin
+    // has a NEW OWNER for the update `latest_version` offers: the consent token
+    // (the version and the new identity) the card's «У плагина новый владелец —
+    // обновить?» prompt sends back as `UpdatePluginRequest.
+    // acknowledged_owner_change` on «Обновить». "" otherwise. `update_same_owner`
+    // is false whenever this is set. The daemon re-checks the token against the
+    // catalogue at the update; this is the hint that lets the card ask first.
+    string update_owner_change = 25;
 }
 
 message PluginListResponse {
@@ -5919,6 +5939,13 @@ message PluginRegistryEntry {
     // of an OLDER version — all three leave the listing exactly as it was.
     // See `PluginRevocationMsg`.
     PluginRevocationMsg revocation = 25;
+
+    // **Whether installing this listing is ONE screen**: its permissions and one
+    // Install button — no per-permission ticks, no `dom_access` second screen, no
+    // not-reviewed warning. True only for an `astra_team` publisher in a catalogue
+    // signed under a production root (`registry_client::one_screen_install`); the
+    // UI never judges the tier itself. "The official flag instead of reviewed."
+    bool one_screen_install = 26;
 }
 
 // §5.4's revocation, attached to a `PluginRegistryEntry` whose current
@@ -6190,6 +6217,11 @@ message ResolvePendingUpdateRequest {
     // Astra moderators have not reviewed that the user saw the warning for.
     // Approving a staged update to such a release is refused without it.
     string acknowledged_unreviewed_version = 4;
+
+    // **D1.** As on `UpdatePluginRequest`: the owner-change token the person
+    // agreed to before the update was staged. Approving a staged update of a
+    // plugin the catalogue says has a new owner is refused without it.
+    string acknowledged_owner_change = 5;
 }
 
 // `UpdatePlugin`'s request. Field 1 is `PluginIdRequest`'s, so a caller that
@@ -6202,10 +6234,19 @@ message UpdatePluginRequest {
     // the user was shown no such warning. A version, not a yes: if the catalogue
     // moved on to another unreviewed release, the answer was not about that one.
     string acknowledged_unreviewed_version = 2;
+
+    // **D1.** The person's «Обновить» on «У плагина новый владелец —
+    // обновить?»: the token `PluginStatusMsg.update_owner_change` or
+    // `UpdatePluginResponse.owner_change` carried, echoed untouched. It binds
+    // the version and the new identity, and the daemon admits it only when the
+    // signed catalogue still flags that owner change for that release. Empty
+    // when no such prompt was answered.
+    string acknowledged_owner_change = 3;
 }
 
 message UpdatePluginResponse {
-    // The plugin after the update. Unset when `not_reviewed_version` is set.
+    // The plugin after the update. Unset when `not_reviewed_version` or
+    // `owner_change` is set.
     PluginStatusMsg plugin = 1;
 
     // **CLIENT-97.** Set, and nothing installed, stopped or downloaded to the
@@ -6214,6 +6255,12 @@ message UpdatePluginResponse {
     // shows the warning for it and asks again. A refusal the UI READS, not a
     // sentence it parses.
     string not_reviewed_version = 2;
+
+    // **D1.** Set, and nothing installed, stopped or downloaded, when the
+    // catalogue says the plugin has a new owner and the request carried no
+    // consent for it: the token to send back as `acknowledged_owner_change`
+    // once the person answers «Обновить».
+    string owner_change = 3;
 }
 
 message PluginLogsRequest {
@@ -7399,6 +7446,13 @@ message PluginUiContributionWithMeta {
     // it (`capability_ceiling::restyle_served`). False: the renderer admits only
     // lowering its own `--z-plugin-front` (`astra-ui/src/lib/pluginRestyle.ts`).
     bool may_restyle = 5;
+
+    // Whether this plugin's DOM script is TRUSTED, so the shell's authority gate
+    // does not latch the window it runs in: dom_access, installed from the
+    // Registry, its publisher's signed tier is verified or astra_team, and the
+    // installed release is marked reviewed (`capability_ceiling::dom_access_trusted`).
+    // The daemon decides; a shell reads it in its main process from this answer.
+    bool dom_access_trusted = 6;
 }
 
 message AllUiContributionsResponse {
@@ -7406,6 +7460,18 @@ message AllUiContributionsResponse {
 
     // Capability document — see ActionTypeDefinitionsResponse.
     string capability_epoch = 2;
+
+    // Ids of the dom_access plugins that are enabled, verified and TRUSTED
+    // (dom_access_trusted) but not running right now (a crash, its own update, a
+    // restart). They have no contribution in this answer, yet their script may
+    // still be in a window: a shell must not read their absence as "turned off".
+    repeated string dom_trusted_idle_plugin_ids = 3;
+
+    // Ids of EVERY enabled dom_access plugin that is not running, trusted or not
+    // (a superset of the list above). Used only to tell "the last dom_access
+    // plugin is gone" from "one is down for a moment": a crash loop of an
+    // untrusted plugin must not reload the window.
+    repeated string dom_idle_plugin_ids = 4;
 }
 
 message PluginThemeContribution {

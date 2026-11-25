@@ -32,6 +32,7 @@ Deliberately **not** `deny_unknown_fields`: sections are added over releases —
 | [`[platform]`](#platform) | no | Platform requirements — `[platform]` in `plugin.toml`. |
 | [`[build]`](#build) | no | Build metadata added by `astra-plugin build`. |
 | [`[ui]`](#ui) | no | UI contribution definitions declared in plugin.toml. |
+| [`[tools]`](#tools) | no | **What the plugin declares about its own tools** (`[tools]`), read through [`PluginManifest::tool_danger`]. |
 
 A section this Astra does not know is **kept, not refused** — sections are added over releases and an older daemon has to be able to skip one. `[capabilities]` is the single exception and the reason is below. An unknown top-level key is kept too, except the two [reserved](#reserved-top-level-keys) ones.
 
@@ -289,6 +290,23 @@ A static UI contribution definition from the manifest.
 | `pointer_events` | boolean | no | `true` | — |
 | `z_index` | integer | no | `0` | — |
 | `props` | table of strings | no | empty | — |
+
+## `[tools]`
+
+**What the plugin declares about its own tools** (`[tools]`), read through [`PluginManifest::tool_danger`]. Kept as raw TOML on purpose: a value this build does not understand is ignored entry by entry, and never makes the whole manifest unparseable — a typo in `[tools.danger]` must cost that one declaration, not the plugin.
+
+Today it holds one table, `[tools.danger]`: tool name → `"low"`. It is a CLAIM, and only half the rule: the daemon honours a declared `low` solely for a catalogue release the moderators reviewed (the manifest is inside the reviewed bundle, so a running plugin cannot raise its own claim afterwards). Everywhere else every plugin tool is `High`.
+
+### `[tools.danger]`
+
+A table of tool name → `"low"`, the one level a plugin may declare. The name is the tool as the plugin registers it, without the `plugin__<id>__` prefix.
+
+```toml
+[tools.danger]
+read_board = "low"
+```
+
+Lenient by design: any other value is ignored for that entry alone, with a line in the log, and the manifest still loads. Any other key under `[tools]` belongs to a newer Astra and is skipped. Astra honours a declared level only for a catalogue release that the moderators reviewed; otherwise every plugin tool asks for confirmation as before.
 
 ## What is refused
 

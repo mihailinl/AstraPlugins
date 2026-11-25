@@ -8828,6 +8828,14 @@
             "updateReview": {
               "type": "string",
               "id": 23
+            },
+            "updateSameOwner": {
+              "type": "bool",
+              "id": 24
+            },
+            "updateOwnerChange": {
+              "type": "string",
+              "id": 25
             }
           }
         },
@@ -9240,6 +9248,10 @@
             "revocation": {
               "type": "PluginRevocationMsg",
               "id": 25
+            },
+            "oneScreenInstall": {
+              "type": "bool",
+              "id": 26
             }
           }
         },
@@ -9534,6 +9546,10 @@
             "acknowledgedUnreviewedVersion": {
               "type": "string",
               "id": 4
+            },
+            "acknowledgedOwnerChange": {
+              "type": "string",
+              "id": 5
             }
           }
         },
@@ -9546,6 +9562,10 @@
             "acknowledgedUnreviewedVersion": {
               "type": "string",
               "id": 2
+            },
+            "acknowledgedOwnerChange": {
+              "type": "string",
+              "id": 3
             }
           }
         },
@@ -9558,6 +9578,10 @@
             "notReviewedVersion": {
               "type": "string",
               "id": 2
+            },
+            "ownerChange": {
+              "type": "string",
+              "id": 3
             }
           }
         },
@@ -11366,6 +11390,10 @@
             "mayRestyle": {
               "type": "bool",
               "id": 5
+            },
+            "domAccessTrusted": {
+              "type": "bool",
+              "id": 6
             }
           }
         },
@@ -11379,6 +11407,16 @@
             "capabilityEpoch": {
               "type": "string",
               "id": 2
+            },
+            "domTrustedIdlePluginIds": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 3
+            },
+            "domIdlePluginIds": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 4
             }
           }
         },

@@ -28,6 +28,7 @@
 | [`[platform]`](#platform) | 否 | 平台要求 —— `plugin.toml` 中的 `[platform]`。 |
 | [`[build]`](#build) | 否 | `astra-plugin build` 添加的构建元数据。 |
 | [`[ui]`](#ui) | 否 | 在 plugin.toml 中声明的 UI 贡献定义。 |
+| [`[tools]`](#tools) | 否 | **插件对自身工具的声明**（`[tools]`），通过 [`PluginManifest::tool_danger`] 读取。 |
 
 一个这个 Astra 不认识的段会被**保留，而不是拒绝**——各个段是随发布
 版本陆续加入的，一个更旧的守护进程必须能够跳过其中之一。
@@ -361,6 +362,23 @@ author says:"前缀）。它永远不是标签本身 —— 措辞的修正随 A
 | `pointer_events` | boolean | 否 | `true` | — |
 | `z_index` | integer | 否 | `0` | — |
 | `props` | table of strings | 否 | 空 | — |
+
+## `[tools]`
+
+**插件对自身工具的声明**（`[tools]`），通过 [`PluginManifest::tool_danger`] 读取。有意保存为原始 TOML：本构建不理解的值会逐条忽略，绝不会让整个清单无法解析——`[tools.danger]` 中的笔误只应损失那一条声明，而不是整个插件。
+
+目前它只有一张表 `[tools.danger]`：工具名 → `"low"`。这是一项声明，且只是规则的一半：守护进程只在版主审核过的目录版本中才认可声明的 `low`（清单位于审核过的包内，因此运行中的插件事后无法提高自己的声明）。其他所有情况下，插件的每个工具都是 `High`。
+
+### `[tools.danger]`
+
+工具名 → `"low"` 的表，`"low"` 是插件唯一可以声明的级别。名称是插件注册时的工具名，不带 `plugin__<id>__` 前缀。
+
+```toml
+[tools.danger]
+read_board = "low"
+```
+
+有意宽松：任何其他值只会让该条目被忽略，并在日志中记一行，清单照常加载。`[tools]` 下的其他键属于更新版本的 Astra，会被跳过。Astra 只在版主审核过的目录版本中认可声明的级别；否则插件的每个工具仍像以前一样请求确认。
 
 ## 什么会被拒绝
 

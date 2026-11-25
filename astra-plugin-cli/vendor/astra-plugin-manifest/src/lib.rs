@@ -49,8 +49,9 @@ pub use capabilities::{
     is_known_capability,
 };
 pub use manifest::{
-    BuildSection, ConfigSection, EntryConfig, PluginLocales, PluginManifest, PluginMeta,
-    UiContributionDef, UiSection, check_reserved_keys, is_reserved_device_name,
+    BuildSection, ConfigSection, DECLARABLE_TOOL_DANGER, EntryConfig, PluginLocales,
+    PluginManifest, PluginMeta, ToolDangerDeclarations, UiContributionDef, UiSection,
+    check_reserved_keys, is_reserved_device_name,
 };
 pub use permissions::{
     ALL_PERMISSIONS, HIGH_RISK_PERMISSIONS, PERMISSION_NAMES, Permission, PermissionRequest,

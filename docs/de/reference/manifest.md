@@ -31,6 +31,7 @@ statt das Plugin abzulehnen. `[capabilities]` ist die Ausnahme, und
 | [`[platform]`](#platform) | nein | Plattform-Anforderungen — `[platform]` in `plugin.toml`. |
 | [`[build]`](#build) | nein | Build-Metadaten, die `astra-plugin build` hinzufügt. |
 | [`[ui]`](#ui) | nein | UI-Contribution-Definitionen, in plugin.toml deklariert. |
+| [`[tools]`](#tools) | nein | **Was das Plugin über seine eigenen Tools erklärt** (`[tools]`), gelesen über [`PluginManifest::tool_danger`]. |
 
 Ein Abschnitt, den dieses Astra nicht kennt, wird **behalten, nicht
 abgelehnt** — Abschnitte kommen über Releases hinweg hinzu, und ein
@@ -427,6 +428,23 @@ Eine statische UI-Contribution-Definition aus dem Manifest.
 | `pointer_events` | boolean | nein | `true` | — |
 | `z_index` | integer | nein | `0` | — |
 | `props` | Tabelle von Strings | nein | leer | — |
+
+## `[tools]`
+
+**Was das Plugin über seine eigenen Tools erklärt** (`[tools]`), gelesen über [`PluginManifest::tool_danger`]. Absichtlich als rohes TOML gehalten: Ein Wert, den dieser Build nicht versteht, wird Eintrag für Eintrag ignoriert und macht nie das ganze Manifest unlesbar — ein Tippfehler in `[tools.danger]` soll diese eine Erklärung kosten, nicht das Plugin.
+
+Heute enthält es eine Tabelle, `[tools.danger]`: Toolname → `"low"`. Es ist eine BEHAUPTUNG und nur die halbe Regel: Der Daemon berücksichtigt ein erklärtes `low` nur für ein Katalog-Release, das die Moderatoren geprüft haben (das Manifest liegt im geprüften Paket, ein laufendes Plugin kann seine Behauptung also nicht nachträglich anheben). Überall sonst ist jedes Plugin-Tool `High`.
+
+### `[tools.danger]`
+
+Eine Tabelle Toolname → `"low"`, die einzige Stufe, die ein Plugin erklären darf. Der Name ist das Tool, wie das Plugin es registriert, ohne das Präfix `plugin__<id>__`.
+
+```toml
+[tools.danger]
+read_board = "low"
+```
+
+Absichtlich nachsichtig: Jeder andere Wert wird nur für diesen Eintrag ignoriert, mit einer Zeile im Log, und das Manifest lädt trotzdem. Jeder andere Schlüssel unter `[tools]` gehört zu einer neueren Astra und wird übersprungen. Astra berücksichtigt eine erklärte Stufe nur für ein Katalog-Release, das die Moderatoren geprüft haben; sonst fragt jedes Plugin-Tool wie bisher nach Bestätigung.
 
 ## Was abgelehnt wird
 

@@ -70,6 +70,12 @@ SRC = {
 #: could draw a table for — so a NEW one is an error below, never a guess.
 RESERVED_KEYS = ("kind", "requires")
 
+#: Sections the crate keeps as a raw `toml::Value` on purpose, so that a value an
+#: older build does not understand costs one entry rather than the manifest. Each
+#: has its own branch in `_render_section`; a new free value has to be added here,
+#: so docgen never renders a section it knows nothing about.
+FREE_VALUE_SECTIONS = ("tools",)
+
 #: Rust type -> what an author writes in TOML.
 TOML_TYPES = {
     "String": "string",
@@ -362,7 +368,7 @@ def render() -> str:
         if f.name in RESERVED_KEYS:
             reserved.append(f)
             continue
-        if "toml::Value" in f.ty:
+        if "toml::Value" in f.ty and f.name not in FREE_VALUE_SECTIONS:
             raise DocgenError(
                 f"{SRC['manifest']}: `PluginManifest.{f.name}` is `{f.ty}`, a free value and not "
                 f"a section. If it is another reserved top-level key, add it to RESERVED_KEYS in "
@@ -426,6 +432,8 @@ def _render_section(
         return out + _render_permissions(structs, src, doc)
     if section.key == "platform":
         return out + _render_platform(structs, src)
+    if section.key == "tools":
+        return out + _render_tools(src)
     if section.key == "dependencies":
         return out + [
             "A free table of `name = \"version requirement\"`. Both halves are strings and "
@@ -453,6 +461,34 @@ def _render_section(
             out += [paragraphs(contribution.doc), ""]
         out += _field_table(contribution, src["manifest"], "ui.contributions")
     return out
+
+
+def _render_tools(src: dict[str, str]) -> list[str]:
+    m = re.search(r'pub const DECLARABLE_TOOL_DANGER: &str = "([^"]+)";', src["manifest"])
+    if m is None:
+        raise DocgenError(
+            f"{SRC['manifest']}: `[tools]` is documented from DECLARABLE_TOOL_DANGER, which "
+            f"docgen could not find. The constant moved or changed type."
+        )
+    level = m.group(1)
+    return [
+        "### `[tools.danger]`",
+        "",
+        f"A table of tool name → `\"{level}\"`, the one level a plugin may declare. The "
+        "name is the tool as the plugin registers it, without the `plugin__<id>__` prefix.",
+        "",
+        "```toml",
+        "[tools.danger]",
+        f'read_board = "{level}"',
+        "```",
+        "",
+        "Lenient by design: any other value is ignored for that entry alone, with a line in "
+        "the log, and the manifest still loads. Any other key under `[tools]` belongs to a "
+        "newer Astra and is skipped. Astra honours a declared level only for a catalogue "
+        "release that the moderators reviewed; otherwise every plugin tool asks for "
+        "confirmation as before.",
+        "",
+    ]
 
 
 def _render_capabilities(

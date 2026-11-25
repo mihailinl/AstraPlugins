@@ -30,6 +30,7 @@ rechazar el plugin. `[capabilities]` es la excepción, y
 | [`[platform]`](#platform) | no | Requisitos de plataforma — `[platform]` en `plugin.toml`. |
 | [`[build]`](#build) | no | Metadatos de compilación añadidos por `astra-plugin build`. |
 | [`[ui]`](#ui) | no | Definiciones de contribución de UI declaradas en plugin.toml. |
+| [`[tools]`](#tools) | no | **Lo que el plugin declara sobre sus propias herramientas** (`[tools]`), leído mediante [`PluginManifest::tool_danger`]. |
 
 Una sección que este Astra no conoce se **conserva, no se rechaza** —
 las secciones se añaden a lo largo de los releases y un daemon más
@@ -421,6 +422,23 @@ Una definición estática de contribución de UI desde el manifiesto.
 | `pointer_events` | boolean | no | `true` | — |
 | `z_index` | integer | no | `0` | — |
 | `props` | tabla de strings | no | vacío | — |
+
+## `[tools]`
+
+**Lo que el plugin declara sobre sus propias herramientas** (`[tools]`), leído mediante [`PluginManifest::tool_danger`]. Se guarda como TOML sin procesar a propósito: un valor que esta compilación no entiende se ignora entrada por entrada y nunca hace ilegible el manifiesto entero — una errata en `[tools.danger]` debe costar esa declaración, no el plugin.
+
+Hoy contiene una tabla, `[tools.danger]`: nombre de herramienta → `"low"`. Es una DECLARACIÓN y solo la mitad de la regla: el daemon respeta un `low` declarado únicamente para una versión del catálogo que revisaron los moderadores (el manifiesto va dentro del paquete revisado, así que un plugin en ejecución no puede subir su declaración después). En cualquier otro caso cada herramienta de un plugin es `High`.
+
+### `[tools.danger]`
+
+Una tabla nombre de herramienta → `"low"`, el único nivel que un plugin puede declarar. El nombre es la herramienta tal como el plugin la registra, sin el prefijo `plugin__<id>__`.
+
+```toml
+[tools.danger]
+read_board = "low"
+```
+
+Indulgente a propósito: cualquier otro valor se ignora solo para esa entrada, con una línea en el registro, y el manifiesto se carga igualmente. Cualquier otra clave bajo `[tools]` pertenece a una Astra más nueva y se omite. Astra respeta un nivel declarado solo para una versión del catálogo que revisaron los moderadores; si no, cada herramienta del plugin pide confirmación como antes.
 
 ## Lo que se rechaza
 

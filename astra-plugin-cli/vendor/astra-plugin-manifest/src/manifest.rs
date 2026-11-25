@@ -60,6 +60,76 @@ pub struct PluginManifest {
     /// installing it without its dependencies is a broken install that LOOKS successful.
     #[serde(default)]
     pub requires: Option<toml::Value>,
+    /// **What the plugin declares about its own tools** (`[tools]`), read through
+    /// [`PluginManifest::tool_danger`]. Kept as raw TOML on purpose: a value this build does not
+    /// understand is ignored entry by entry, and never makes the whole manifest unparseable — a
+    /// typo in `[tools.danger]` must cost that one declaration, not the plugin.
+    ///
+    /// Today it holds one table, `[tools.danger]`: tool name → `"low"`. It is a CLAIM, and only
+    /// half the rule: the daemon honours a declared `low` solely for a catalogue release the
+    /// moderators reviewed (the manifest is inside the reviewed bundle, so a running plugin
+    /// cannot raise its own claim afterwards). Everywhere else every plugin tool is `High`.
+    #[serde(default)]
+    pub tools: Option<toml::Value>,
+}
+
+/// The one level a plugin may declare for a tool in `[tools.danger]`.
+pub const DECLARABLE_TOOL_DANGER: &str = "low";
+
+/// What `[tools.danger]` declares, as [`PluginManifest::tool_danger`] reads it.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ToolDangerDeclarations {
+    /// The tool names (as the plugin lists them, without the `plugin__<id>__` prefix) declared
+    /// `"low"`.
+    pub low: std::collections::BTreeSet<String>,
+    /// One sentence per entry (or section) that was ignored, for the reader's log. Never an
+    /// error: a manifest with a bad declaration still loads.
+    pub ignored: Vec<String>,
+}
+
+impl ToolDangerDeclarations {
+    /// Read the raw `[tools]` value. Lenient by design: anything but a string `"low"` under
+    /// `[tools.danger]` is ignored with a sentence; any other key under `[tools]` is a newer
+    /// build's and is skipped silently.
+    pub fn read(tools: Option<&toml::Value>) -> Self {
+        let mut out = Self::default();
+        let Some(tools) = tools else {
+            return out;
+        };
+        let Some(table) = tools.as_table() else {
+            out.ignored.push(format!(
+                "`tools` must be a table, not {}; no tool danger was read",
+                tools.type_str()
+            ));
+            return out;
+        };
+        let Some(danger) = table.get("danger") else {
+            return out;
+        };
+        let Some(danger) = danger.as_table() else {
+            out.ignored.push(format!(
+                "`[tools.danger]` must be a table of tool name = \"{DECLARABLE_TOOL_DANGER}\", \
+                 not {}; no tool danger was read",
+                danger.type_str()
+            ));
+            return out;
+        };
+        for (name, level) in danger {
+            match level.as_str() {
+                Some(DECLARABLE_TOOL_DANGER) if !name.trim().is_empty() => {
+                    out.low.insert(name.clone());
+                }
+                Some(DECLARABLE_TOOL_DANGER) => out
+                    .ignored
+                    .push("`[tools.danger]` names an empty tool; ignored".to_string()),
+                _ => out.ignored.push(format!(
+                    "`[tools.danger]` {name} = {level} is ignored: the only level a plugin may \
+                     declare is \"{DECLARABLE_TOOL_DANGER}\""
+                )),
+            }
+        }
+        out
+    }
 }
 
 /// The two reserved top-level keys, judged the same way wherever a manifest is read: from the raw
@@ -306,6 +376,11 @@ impl PluginManifest {
         Ok(manifest)
     }
 
+    /// What `[tools.danger]` declares (see [`PluginManifest::tools`]). Never fails.
+    pub fn tool_danger(&self) -> ToolDangerDeclarations {
+        ToolDangerDeclarations::read(self.tools.as_ref())
+    }
+
     /// Basic validation of required fields.
     ///
     /// SECURITY: `plugin.id` becomes a **path component** — `<plugins_dir>/<id>/` —
@@ -517,6 +592,67 @@ command = "python"
         ))
         .unwrap();
         assert_eq!(manifest.plugin.call_timeout_secs, Some(300));
+    }
+
+    const TOOL_DANGER_BASE: &str = r#"
+[plugin]
+id = "dice"
+name = "Dice"
+version = "1.0.0"
+
+[entry]
+command = "python"
+
+[capabilities]
+tools = true
+"#;
+
+    /// `[tools.danger]` parses, and only a string `"low"` is a declaration.
+    #[test]
+    fn tool_danger_reads_low_and_ignores_every_other_value() {
+        let manifest = PluginManifest::from_str(&format!(
+            "{TOOL_DANGER_BASE}\n[tools.danger]\nroll = \"low\"\npeek = \"low\"\n\
+             wipe = \"high\"\nodd = 3\nshout = \"LOW\"\n"
+        ))
+        .expect("a bad level is ignored, never an error");
+        let declared = manifest.tool_danger();
+        assert_eq!(
+            declared.low.iter().map(String::as_str).collect::<Vec<_>>(),
+            vec!["peek", "roll"]
+        );
+        assert_eq!(declared.ignored.len(), 3, "{:?}", declared.ignored);
+        assert!(declared.ignored.iter().any(|l| l.contains("wipe")));
+    }
+
+    /// A manifest from before `[tools]` existed parses and declares nothing.
+    #[test]
+    fn a_manifest_without_tools_declares_nothing() {
+        let declared = PluginManifest::from_str(TOOL_DANGER_BASE)
+            .unwrap()
+            .tool_danger();
+        assert_eq!(declared, ToolDangerDeclarations::default());
+    }
+
+    /// A `[tools]` of the wrong shape, or an unknown key in it, still loads the plugin.
+    #[test]
+    fn a_malformed_tools_section_is_ignored_not_refused() {
+        for extra in [
+            "tools = 5\n",
+            "[tools]\ndanger = \"low\"\n",
+            "[tools]\nfuture = true\n[tools.danger]\nroll = \"low\"\n",
+        ] {
+            let manifest = PluginManifest::from_str(&format!("{extra}{TOOL_DANGER_BASE}"))
+                .unwrap_or_else(|e| panic!("{extra:?} refused the plugin: {e}"));
+            let declared = manifest.tool_danger();
+            if extra.contains("future") {
+                assert!(declared.low.contains("roll") && declared.ignored.is_empty());
+            } else {
+                assert!(
+                    declared.low.is_empty() && declared.ignored.len() == 1,
+                    "{extra:?}"
+                );
+            }
+        }
     }
 
     #[test]

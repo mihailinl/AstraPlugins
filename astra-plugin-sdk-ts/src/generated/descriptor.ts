@@ -8836,6 +8836,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "updateReview": {
               "type": "string",
               "id": 23
+            },
+            "updateSameOwner": {
+              "type": "bool",
+              "id": 24
+            },
+            "updateOwnerChange": {
+              "type": "string",
+              "id": 25
             }
           }
         },
@@ -9248,6 +9256,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "revocation": {
               "type": "PluginRevocationMsg",
               "id": 25
+            },
+            "oneScreenInstall": {
+              "type": "bool",
+              "id": 26
             }
           }
         },
@@ -9542,6 +9554,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "acknowledgedUnreviewedVersion": {
               "type": "string",
               "id": 4
+            },
+            "acknowledgedOwnerChange": {
+              "type": "string",
+              "id": 5
             }
           }
         },
@@ -9554,6 +9570,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "acknowledgedUnreviewedVersion": {
               "type": "string",
               "id": 2
+            },
+            "acknowledgedOwnerChange": {
+              "type": "string",
+              "id": 3
             }
           }
         },
@@ -9566,6 +9586,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "notReviewedVersion": {
               "type": "string",
               "id": 2
+            },
+            "ownerChange": {
+              "type": "string",
+              "id": 3
             }
           }
         },
@@ -11374,6 +11398,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "mayRestyle": {
               "type": "bool",
               "id": 5
+            },
+            "domAccessTrusted": {
+              "type": "bool",
+              "id": 6
             }
           }
         },
@@ -11387,6 +11415,16 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "capabilityEpoch": {
               "type": "string",
               "id": 2
+            },
+            "domTrustedIdlePluginIds": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 3
+            },
+            "domIdlePluginIds": {
+              "rule": "repeated",
+              "type": "string",
+              "id": 4
             }
           }
         },
