@@ -168,8 +168,10 @@ Un script `dom_access` también puede ejecutarse como **de confianza**: Astra
 entonces no pregunta a la persona en un diálogo del sistema por cada acción de la
 página. Solo lo obtiene una versión instalada desde el Registro, de un editor
 `verified` o `astra_team` y marcada como revisada por los moderadores, y solo
-mientras cada archivo bajo `ui/` sea byte a byte el revisado: un archivo
-cambiado, añadido o ilegible ahí devuelve la ventana a preguntar. Un archivo que
+mientras los archivos de `ui/` que carga la ventana sean byte a byte los
+revisados. Si la ventana carga un archivo de `ui/` cambiado, no listado o
+ilegible, pregunta antes de las acciones privilegiadas hasta que se recargue la
+página. Un archivo que la página nunca pide no cambia nada, y un archivo que
 falta es solo un 404.
 
 ## La procedencia de un plugin determina su techo
