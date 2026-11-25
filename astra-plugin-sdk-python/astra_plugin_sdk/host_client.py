@@ -486,8 +486,9 @@ class HostClient:
           said no, now or to this plugin changing one of these settings before
           (Astra asks again about a setting only after it has changed some
           other way, or after a restart). **Do not ask again unasked.**
-        * ``plugin_pb2.PLUGIN_SETTINGS_CHANGE_OUTCOME_TIMED_OUT`` — nobody
-          answered before the card expired (no window open counts).
+        * ``plugin_pb2.PLUGIN_SETTINGS_CHANGE_OUTCOME_TIMED_OUT`` — the card
+          was withdrawn before anyone answered: the account changed, a settings
+          edit made it moot, or Astra is stopping (a card has no clock).
         * ``plugin_pb2.PLUGIN_SETTINGS_CHANGE_OUTCOME_REFUSED`` — not asked, or
           not applied: ``response.code`` says why, ``response.refused_path``
           names the setting when it is about one, and ``response.error`` is a
@@ -574,8 +575,9 @@ class HostClient:
           Record it: **do not offer it again unasked.** Astra's own memory of a
           no ends at a restart, and a command the person deleted is offered as
           new.
-        * ``plugin_pb2.PLUGIN_PROPOSE_COMMAND_OUTCOME_TIMED_OUT`` — nobody
-          answered before the card expired (no window open counts).
+        * ``plugin_pb2.PLUGIN_PROPOSE_COMMAND_OUTCOME_TIMED_OUT`` — the card
+          was withdrawn before anyone answered: the account changed, a settings
+          edit made it moot, or Astra is stopping (a card has no clock).
         * ``plugin_pb2.PLUGIN_PROPOSE_COMMAND_OUTCOME_REFUSED`` — not asked, or
           not kept: ``response.code`` says why, and ``response.error`` is a
           ``PluginError`` — a sentence, and ``retry_after_ms`` for

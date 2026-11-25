@@ -187,7 +187,7 @@ Cada cambio es una ruta de ajuste con puntos y el valor deseado, como JSON — l
 | `APPLIED` | La persona lo permitió; los ajustes contienen ahora lo que pediste | Nada |
 | `UNCHANGED` | Ya lo contenían. No se preguntó a nadie | Nada |
 | `DECLINED` | La persona dijo que no — ahora, o antes a que tu plugin cambiara uno de estos ajustes. Astra vuelve a preguntar por un ajuste así solo cuando ha cambiado de otra forma, o tras un reinicio | Sigue con lo que la persona tiene. **No vuelvas a preguntar sin que te lo pidan** |
-| `TIMED_OUT` | Nadie respondió antes de que caducara la tarjeta (no tener ninguna ventana abierta también cuenta) | Pregunta más tarde, cuando la persona esté |
+| `TIMED_OUT` | La tarjeta se retiró antes de que nadie respondiera: cambió la cuenta, un cambio de ajustes la dejó sin objeto o Astra se está deteniendo. El nombre es anterior a la regla: una tarjeta no tiene reloj | Pregunta más tarde, cuando la persona esté |
 | `REFUSED` | No se preguntó, o no se aplicó: `code` dice por qué, `refused_path` nombra el ajuste cuando se trata de uno, y `error` es un `PluginError` | Lee el código abajo |
 
 | `code` | Cuándo |
@@ -234,7 +234,7 @@ La persona ve una tarjeta que nombra tu plugin y el comando, con tu `reason` en 
 | `SAVED` | La persona lo conservó; `enabled` dice si el comando queda activado una vez conservado (Astra puede conservarlo desactivado) | Guárdalo |
 | `UNCHANGED` | Lo conservado bajo esta clave vino de esta misma oferta — también si la persona lo editó. No se preguntó a nadie | Nada |
 | `DECLINED` | La persona dijo que no — ahora, o antes a exactamente este comando (hasta que Astra se reinicie) | Guárdalo. **No lo vuelvas a ofrecer sin que te lo pidan** |
-| `TIMED_OUT` | Nadie respondió antes de que caducara la tarjeta (no tener ninguna ventana abierta también cuenta) | Ofrécelo más tarde, cuando la persona esté |
+| `TIMED_OUT` | La tarjeta se retiró antes de que nadie respondiera: cambió la cuenta, un cambio de ajustes la dejó sin objeto o Astra se está deteniendo. El nombre es anterior a la regla: una tarjeta no tiene reloj | Ofrécelo más tarde, cuando la persona esté |
 | `REFUSED` | No se preguntó, o no se conservó: `code` dice por qué, y `error` es un `PluginError` | Lee el código abajo |
 
 | `code` | Cuándo |
