@@ -127,9 +127,8 @@ export interface SettingChange {
  * - `"DECLINED"` — the person said no, now or to this plugin changing one of
  *   these settings before (Astra asks again about a setting only after it has
  *   changed some other way, or after a restart). **Do not ask again unasked.**
- * - `"TIMED_OUT"` — the card was withdrawn before anyone answered: the
- *   account changed, a settings edit made it moot, or Astra is stopping (a card
- *   has no clock).
+ * - `"TIMED_OUT"` — the card was withdrawn before anyone answered: a
+ *   settings edit made it moot, or Astra is stopping (a card has no clock).
  * - `"REFUSED"` — not asked, or not applied; `SettingsChangeResult.code` says
  *   why.
  * - `"UNSPECIFIED"` — an outcome this SDK does not know (a newer Astra), or
@@ -184,9 +183,8 @@ export interface SettingsChangeResult {
  *   (until Astra restarts). Record it: **do not offer it again unasked.**
  *   Astra's own memory of a no ends at a restart, and a command the person
  *   deleted is offered as new.
- * - `"TIMED_OUT"` — the card was withdrawn before anyone answered: the
- *   account changed, a settings edit made it moot, or Astra is stopping (a card
- *   has no clock).
+ * - `"TIMED_OUT"` — the card was withdrawn before anyone answered: a
+ *   settings edit made it moot, or Astra is stopping (a card has no clock).
  * - `"REFUSED"` — not asked, or not kept; `CommandOfferResult.code` says why.
  * - `"UNSPECIFIED"` — an outcome this SDK does not know (a newer Astra), or
  *   none at all. Never invented as one of the above.

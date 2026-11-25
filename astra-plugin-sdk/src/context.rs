@@ -260,8 +260,8 @@ pub trait Host: Send + Sync + 'static {
     ///   again about a setting only after it has changed some other way, or
     ///   after a restart). **Do not ask again unasked.**
     /// * `PluginSettingsChangeOutcome::TimedOut` — the card was withdrawn before
-    ///   anyone answered: the account changed, a settings edit made it moot, or
-    ///   Astra is stopping (a card has no clock).
+    ///   anyone answered: a settings edit made it moot, or Astra is stopping (a
+    ///   card has no clock).
     /// * `PluginSettingsChangeOutcome::Refused` — not asked, or not applied:
     ///   `code` says why, `refused_path` names the setting when it is about
     ///   one, and `error` is the same as a [`proto::PluginError`] — a sentence,
@@ -369,8 +369,8 @@ pub trait Host: Send + Sync + 'static {
     ///   not offer it again unasked.** Astra's own memory of a no ends at a
     ///   restart, and a command the person deleted is offered as new.
     /// * `PluginProposeCommandOutcome::TimedOut` — the card was withdrawn before
-    ///   anyone answered: the account changed, a settings edit made it moot, or
-    ///   Astra is stopping (a card has no clock).
+    ///   anyone answered: a settings edit made it moot, or Astra is stopping (a
+    ///   card has no clock).
     /// * `PluginProposeCommandOutcome::Refused` — not asked, or not kept:
     ///   `code` says why, and `error` is the same as a [`proto::PluginError`] —
     ///   a sentence, and `retry_after_ms` for `rate_limited`. The words:

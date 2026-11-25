@@ -190,7 +190,7 @@ Jede Änderung ist ein Einstellungspfad mit Punkten und der gewünschte Wert, al
 | `APPLIED` | Die Person hat es erlaubt; die Einstellungen halten jetzt, was du erbeten hast | Nichts |
 | `UNCHANGED` | Sie hielten es schon. Niemand wurde gefragt | Nichts |
 | `DECLINED` | Die Person hat Nein gesagt — jetzt, oder schon früher dazu, dass dein Plugin eine dieser Einstellungen ändert. Astra fragt zu so einer Einstellung erst wieder, wenn sie sich auf anderem Weg geändert hat, oder nach einem Neustart | Mach mit dem weiter, was die Person hat. **Frag nicht ungebeten noch einmal** |
-| `TIMED_OUT` | Die Karte wurde zurückgezogen, bevor jemand geantwortet hat: Das Konto hat gewechselt, eine Einstellungsänderung hat sie überflüssig gemacht, oder Astra wird beendet. Der Name ist älter als die Regel: Eine Karte hat keine Uhr | Frag später, wenn die Person da ist |
+| `TIMED_OUT` | Die Karte wurde zurückgezogen, bevor jemand geantwortet hat: Eine Einstellungsänderung hat sie überflüssig gemacht, oder Astra wird beendet. Der Name ist älter als die Regel: Eine Karte hat keine Uhr | Frag später, wenn die Person da ist |
 | `REFUSED` | Nicht gefragt oder nicht angewendet: `code` sagt warum, `refused_path` nennt die Einstellung, wenn es um eine geht, und `error` ist ein `PluginError` | Lies den Code unten |
 
 | `code` | Wann |
@@ -237,7 +237,7 @@ Die Person sieht eine Karte, die dein Plugin und den Befehl nennt, mit deinem `r
 | `SAVED` | Die Person hat ihn behalten; `enabled` sagt, ob der Befehl nach dem Behalten eingeschaltet ist (Astra kann ihn ausgeschaltet behalten) | Halte es fest |
 | `UNCHANGED` | Was unter diesem Schlüssel behalten ist, stammt aus genau diesem Angebot — auch nachdem die Person es bearbeitet hat. Niemand wurde gefragt | Nichts |
 | `DECLINED` | Die Person hat Nein gesagt — jetzt, oder schon früher zu genau diesem Befehl (bis Astra neu startet) | Halte es fest. **Biete ihn nicht ungebeten noch einmal an** |
-| `TIMED_OUT` | Die Karte wurde zurückgezogen, bevor jemand geantwortet hat: Das Konto hat gewechselt, eine Einstellungsänderung hat sie überflüssig gemacht, oder Astra wird beendet. Der Name ist älter als die Regel: Eine Karte hat keine Uhr | Biete ihn später an, wenn die Person da ist |
+| `TIMED_OUT` | Die Karte wurde zurückgezogen, bevor jemand geantwortet hat: Eine Einstellungsänderung hat sie überflüssig gemacht, oder Astra wird beendet. Der Name ist älter als die Regel: Eine Karte hat keine Uhr | Biete ihn später an, wenn die Person da ist |
 | `REFUSED` | Nicht gefragt oder nicht behalten: `code` sagt warum, und `error` ist ein `PluginError` | Lies den Code unten |
 
 | `code` | Wann |

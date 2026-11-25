@@ -262,7 +262,7 @@ model is waiting on.
 | `APPLIED` | The person allowed it; the settings now hold what you asked for | Nothing |
 | `UNCHANGED` | They already held it. Nobody was asked | Nothing |
 | `DECLINED` | The person said no — now, or to your plugin changing one of these settings before. Astra asks again about such a setting only after it has changed some other way, or after a restart | Carry on with what the person has. **Do not ask again unasked** |
-| `TIMED_OUT` | The card was withdrawn before anyone answered: the account changed, a settings edit made it moot, or Astra is stopping. The name is older than the rule: a card has no clock | Ask later, when the person is there |
+| `TIMED_OUT` | The card was withdrawn before anyone answered: a settings edit made it moot, or Astra is stopping. The name is older than the rule: a card has no clock | Ask later, when the person is there |
 | `REFUSED` | Not asked, or not applied: `code` says why, `refused_path` names the setting when it is about one, and `error` is a `PluginError` | Read the code below |
 
 | `code` | When |
@@ -359,7 +359,7 @@ newer offer **replaces** the one that is waiting, and the replaced call answers
 | `SAVED` | The person kept it; `enabled` says whether the command is on after it was kept (Astra may keep it switched off) | Record it |
 | `UNCHANGED` | What is kept under this key came from this very offer — also after the person edited it. Nobody was asked | Nothing |
 | `DECLINED` | The person said no — now, or to this very command before (until Astra restarts) | Record it. **Do not offer it again unasked** |
-| `TIMED_OUT` | The card was withdrawn before anyone answered: the account changed, a settings edit made it moot, or Astra is stopping. The name is older than the rule: a card has no clock | Offer it later, when the person is there |
+| `TIMED_OUT` | The card was withdrawn before anyone answered: a settings edit made it moot, or Astra is stopping. The name is older than the rule: a card has no clock | Offer it later, when the person is there |
 | `REFUSED` | Not asked, or not kept: `code` says why, and `error` is a `PluginError` | Read the code below |
 
 | `code` | When |
