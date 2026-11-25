@@ -183,7 +183,7 @@ Ein Plugin mit einem echten Grund, eine von Astras Einstellungen geändert haben
 
 Jede Änderung ist ein Einstellungspfad mit Punkten und der gewünschte Wert, als JSON — die SDKs serialisieren den Wert für dich. Erbitten lassen sich nur die Einstellungen, die der Assistent selbst ändern darf — die Stimme, das KI-Modell, die Sprache; nie der Berechtigungsmodus, ein Schlüssel oder Tool Search —, und jeder Wert wird genau so geprüft wie die eigene Änderung des Assistenten. Die Karte nennt dein Plugin, zeigt jede Einstellung, wie sie ist und wie sie würde, und deinen `reason` in deinen Worten. Alle ändern sich oder keine, und was sich ändert, ist genau das, was die Karte gezeigt hat.
 
-**Der Aufruf dauert, bis die Person antwortet oder die Karte abläuft** — Astras Bestätigungs-Timeout, mindestens 30 Sekunden, 120, wenn die Person ihn nicht geändert hat. Die SDKs setzen keine eigene Frist darauf. Warte nie darauf auf einem Weg, der schnell antworten muss, etwa in einem Tool-Aufruf, auf den das Modell wartet.
+**Der Aufruf dauert, bis die Person antwortet; ein Timeout gibt es nicht.** Die Karte endet auch, und der Aufruf antwortet, wenn dein Plugin stoppt oder die Verbindung trennt, das Konto wechselt oder Astra stoppt. Die SDKs setzen keine eigene Frist darauf. Warte nie darauf auf einem Weg, der schnell antworten muss, etwa in einem Tool-Aufruf, auf den das Modell wartet.
 
 | Ergebnis | Was es bedeutet | Was zu tun ist |
 |---|---|---|
@@ -230,7 +230,7 @@ Halte `SAVED` und `DECLINED` pro Schlüssel im eigenen Zustand deines Plugins fe
 
 Die Person sieht eine Karte, die dein Plugin und den Befehl nennt, mit deinem `reason` in deinen Worten, und zwei Möglichkeiten: Prüfen und Ablehnen. **Behalten wird der Befehl nur über das Workshop-Blatt von Astra** — jeder Auslöser mit seinem vollen Wert, jeder Schritt mit dem, was er tun darf, und ein Schalter zum Aktivieren —, nie über ein bloßes Erlauben, und behalten wird genau das, was das Blatt gezeigt hat. Ein behaltener Befehl trägt das Zeichen deines Plugins; wird dein Plugin deinstalliert, werden seine Befehle ausgeschaltet.
 
-**Der Aufruf dauert, bis die Person antwortet oder die Karte abläuft** — Astras Bestätigungs-Timeout, mindestens 30 Sekunden, 120, wenn die Person ihn nicht geändert hat. Die SDKs setzen keine eigene Frist darauf. Warte nie darauf auf einem Weg, der schnell antworten muss, und **biete einen Befehl nach dem anderen an**: Ein zweites Angebot, während eines von dir wartet, wird als `busy` abgelehnt, selbst eines, das `UNCHANGED` wäre.
+**Der Aufruf dauert, bis die Person antwortet; ein Timeout gibt es nicht.** Die Karte endet auch, und der Aufruf antwortet, wenn dein Plugin stoppt oder die Verbindung trennt, das Konto wechselt, Astra stoppt oder ein neueres Angebot deines Plugins sie ersetzt. Die SDKs setzen keine eigene Frist darauf. Warte nie darauf auf einem Weg, der schnell antworten muss, etwa in einem Tool-Aufruf, auf den das Modell wartet. Ein neueres Angebot **ersetzt** das wartende, und der ersetzte Aufruf antwortet `REFUSED` mit `stopped`.
 
 | Ergebnis | Was es bedeutet | Was zu tun ist |
 |---|---|---|
@@ -249,9 +249,8 @@ Die Person sieht eine Karte, die dein Plugin und den Befehl nennt, mit deinem `r
 | `too_large` | Mehr als **1 MiB** JSON (`propose_command_max_bytes`), die eigene Grenze eines Workshop-Befehls |
 | `invalid_command` | Kein Befehl, den der Leser des Workshops annimmt; `error.message` beginnt meist mit dessen eigenem Code — `E_COMMAND_FORMAT`, `E_COMMAND_UNKNOWN_ACTION`, … —, aber nicht, wenn die Karte selbst nicht gezeigt werden kann (der Name des Befehls und deine Begründung sind zu lang für sie) |
 | `foreign_plugin` | Der Befehl verwendet eine Aktion oder einen Auslöser eines anderen Plugins |
-| `busy` | Eines deiner Angebote wartet schon auf die Person: eine Karte pro Plugin zur selben Zeit |
 | `rate_limited` | **Ein Schub von zwei Angeboten, danach eines alle zwei Minuten**; `error.retry_after_ms` sagt, wann wieder Platz ist. Ein Angebot, das niemanden fragt (`UNCHANGED`, ein gemerktes `DECLINED`), verbraucht nichts |
-| `stopped` | Die Befugnis deines Plugins endete zuerst — es wurde gestoppt, deaktiviert oder zurückgezogen, oder das Konto schaltet Astra nicht mehr frei |
+| `stopped` | Die Befugnis deines Plugins endete zuerst — es wurde gestoppt, deaktiviert oder zurückgezogen, oder das Konto schaltet Astra nicht mehr frei — oder ein neueres Angebot deines Plugins ersetzte dieses, bevor die Person antwortete |
 | `stale` | Der Befehl, den es aktualisiert, hat sich geändert oder ist verschwunden, während die Karte offen war, sodass das, was die Person gesehen hat, nicht das ist, was geschrieben würde. Nichts wurde geschrieben |
 | `write_refused` | Der Befehl ließ sich nicht speichern |
 

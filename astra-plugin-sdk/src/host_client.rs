@@ -341,10 +341,9 @@ impl HostClient {
     /// [`limits::SETTINGS_CHANGE_REASON_MAX_CHARS`](crate::limits::SETTINGS_CHANGE_REASON_MAX_CHARS)
     /// characters, refused (never cut) — so this client checks none of them.
     ///
-    /// No deadline: the call lasts until the person answers or the card
-    /// expires (Astra's confirmation timeout, at least 30 s, and the person
-    /// may set it far longer), and a deadline here would cut a request the
-    /// person was still reading.
+    /// No deadline: the call lasts until the person answers (Astra's card has
+    /// no timeout), and a deadline here would cut a request the person was
+    /// still reading.
     ///
     /// An `Err` is the gates, not the answer: no `request_settings_change`
     /// grant, an account that does not open Astra, or an Astra older than
@@ -377,10 +376,9 @@ impl HostClient {
     /// [`limits::PROPOSE_COMMAND_REASON_MAX_CHARS`](crate::limits::PROPOSE_COMMAND_REASON_MAX_CHARS)
     /// characters, refused (never cut) — so this client checks none of them.
     ///
-    /// No deadline: the call lasts until the person answers or the card
-    /// expires (Astra's confirmation timeout, at least 30 s, and the person
-    /// may set it far longer), and a deadline here would cut an offer the
-    /// person was still reading.
+    /// No deadline: the call lasts until the person answers (Astra's card has
+    /// no timeout) or a newer offer from this plugin replaces it, and a
+    /// deadline here would cut an offer the person was still reading.
     ///
     /// An `Err` is the gates, not the answer: no `propose_commands` grant, an
     /// account that does not open Astra, or an Astra older than this RPC

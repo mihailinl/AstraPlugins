@@ -244,10 +244,11 @@ pub trait Host: Send + Sync + 'static {
     /// shows every value whole, never cut, and a value over 2,000 characters is
     /// refused before any card.
     ///
-    /// The call **lasts until the person answers or the card expires** —
-    /// Astra's confirmation timeout, at least 30 s, 120 s unless the person
-    /// changed it. Never await it on a path that must answer quickly; the SDK
-    /// puts no deadline of its own on it. Read
+    /// The call **lasts until the person answers; there is no timeout**. The
+    /// card also ends, and the call answers, when this plugin stops or
+    /// disconnects, when the account changes, or when Astra stops. Never await
+    /// it on a path that must answer quickly, such as a tool call the model is
+    /// waiting on; the SDK puts no deadline of its own on it. Read
     /// [`outcome()`](proto::PluginSettingsChangeResponse::outcome):
     ///
     /// * `PluginSettingsChangeOutcome::Applied` — the person allowed it; the
@@ -346,12 +347,14 @@ pub trait Host: Send + Sync + 'static {
     /// Enable switch — never by a bare Allow. What is kept is exactly what the
     /// sheet showed.
     ///
-    /// The call **lasts until the person answers or the card expires** —
-    /// Astra's confirmation timeout, at least 30 s, 120 s unless the person
-    /// changed it. Never await it on a path that must answer quickly; the SDK
-    /// puts no deadline of its own on it. Offer one command at a time: a second
-    /// offer while one is waiting is `busy`, even one that would be
-    /// `Unchanged`. Read
+    /// The call **lasts until the person answers; there is no timeout**. The
+    /// card also ends, and the call answers, when this plugin stops or
+    /// disconnects, when the account changes, when Astra stops, or when a
+    /// newer offer from this plugin replaces it. Never await it on a path that
+    /// must answer quickly, such as a tool call the model is waiting on; the
+    /// SDK puts no deadline of its own on it. A newer offer replaces the one
+    /// that is waiting, and the replaced call answers `Refused` with code
+    /// `stopped`. Read
     /// [`outcome()`](proto::PluginProposeCommandResponse::outcome):
     ///
     /// * `PluginProposeCommandOutcome::Saved` — the person kept it; `enabled`
@@ -379,9 +382,9 @@ pub trait Host: Send + Sync + 'static {
     ///   the Workshop's own code: `E_COMMAND_FORMAT`,
     ///   `E_COMMAND_UNKNOWN_ACTION`, … — not when the card itself cannot be
     ///   shown), `foreign_plugin` (it uses another plugin's action or trigger),
-    ///   `busy` (one of this plugin's offers is already waiting),
     ///   `rate_limited` (a burst of two, then one every two minutes), `stopped`
-    ///   (this plugin's authority ended first), `stale` (the command it updates
+    ///   (this plugin's authority ended first, or a newer offer from this
+    ///   plugin replaced this one before the person answered), `stale` (the command it updates
     ///   changed or went while the card was up), `write_refused`.
     ///
     /// ```ignore

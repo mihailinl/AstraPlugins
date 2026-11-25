@@ -221,9 +221,10 @@ whole, as it is and as it would be, and your reason; all of them change, or none
 asked), `"DECLINED"` (**do not ask again unasked**), `"TIMED_OUT"`, or
 `"REFUSED"` with `code` (`rate_limited`, `busy`, `not_assistant_editable`, …),
 `refusedPath` and `error.retryAfterMs`; an outcome this SDK does not know reads as
-`"UNSPECIFIED"`. **The call lasts until the person answers or the card expires**
-— at least 30 s, 120 s by default — and the SDK puts no deadline on it, so never
-await it on a path that must answer quickly. A value JSON cannot hold (`NaN`,
+`"UNSPECIFIED"`. **The call lasts until the person answers; there is no timeout**
+— the card also ends when your plugin stops or disconnects, the account changes
+or Astra stops — and the SDK puts no deadline on it, so never await it on a path
+that must answer quickly. A value JSON cannot hold (`NaN`,
 `undefined`, a function) throws a `TypeError` before anything is sent; nothing
 else is checked client-side — at most `limits.SETTINGS_CHANGE_MAX_CHANGES` (8)
 changes and a reason of `limits.SETTINGS_CHANGE_REASON_MAX_CHARS` (140)
@@ -250,10 +251,13 @@ shape throws. It resolves with a `CommandOfferResult`: `outcome` is `"SAVED"`
 (what is kept under the key came from this very offer, also after the person
 edited it; nobody was asked), `"DECLINED"` (record it; **do not offer it again
 unasked**), `"TIMED_OUT"`, or `"REFUSED"` with `code` (`foreign_plugin`,
-`invalid_command`, `rate_limited`, `busy`, …) and `error.retryAfterMs`; an
+`invalid_command`, `rate_limited`, `stopped`, …) and `error.retryAfterMs`; an
 outcome this SDK does not know reads as `"UNSPECIFIED"`. **The call lasts until
-the person answers or the card expires**, and the SDK puts no deadline on it;
-offer one command at a time — a second offer while one waits is `busy`. A
+the person answers; there is no timeout** — the card also ends when your plugin
+stops or disconnects, the account changes, Astra stops or a newer offer from your
+plugin replaces it — and the SDK puts no deadline on it. A newer offer replaces
+the one that is waiting, and the replaced call answers `"REFUSED"` with
+`stopped`. A
 command JSON cannot hold (`NaN`, `undefined` in a list) throws a `TypeError`
 before anything is sent; nothing else is checked client-side — at most
 `limits.PROPOSE_COMMAND_MAX_BYTES` (1 MiB) of JSON and a reason of

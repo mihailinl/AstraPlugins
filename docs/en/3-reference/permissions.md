@@ -251,10 +251,11 @@ your plugin, shows every setting as it is and as it would be, every value whole
 and never cut (a value over 2,000 characters is refused before any card), and your `reason`, in your words. All of them change, or
 none, and what changes is exactly what the card showed.
 
-**The call lasts until the person answers or the card expires** — Astra's
-confirmation timeout, at least 30 seconds, 120 unless the person changed it. The
-SDKs put no deadline of their own on it. Never await it on a path that must
-answer quickly, such as a tool call the model is waiting on.
+**The call lasts until the person answers; there is no timeout.** The card also
+ends, and the call answers, when your plugin stops or disconnects, when the
+account changes, or when Astra stops. The SDKs put no deadline of their own on
+it. Never await it on a path that must answer quickly, such as a tool call the
+model is waiting on.
 
 | Outcome | What it means | What to do |
 |---|---|---|
@@ -345,11 +346,13 @@ it may do, and an Enable switch — never by a bare Allow, and what is kept is
 exactly what the sheet showed. A kept command carries your plugin's mark;
 uninstalling your plugin switches its commands off.
 
-**The call lasts until the person answers or the card expires** — Astra's
-confirmation timeout, at least 30 seconds, 120 unless the person changed it. The
-SDKs put no deadline of their own on it. Never await it on a path that must
-answer quickly, and **offer one command at a time**: a second offer while one of
-yours is waiting is refused as `busy`, even one that would be `UNCHANGED`.
+**The call lasts until the person answers; there is no timeout.** The card also
+ends, and the call answers, when your plugin stops or disconnects, when the
+account changes, when Astra stops, or when a newer offer from your plugin
+replaces it. The SDKs put no deadline of their own on it. Never await it on a
+path that must answer quickly, such as a tool call the model is waiting on. A
+newer offer **replaces** the one that is waiting, and the replaced call answers
+`REFUSED` with `stopped`.
 
 | Outcome | What it means | What to do |
 |---|---|---|
@@ -368,9 +371,8 @@ yours is waiting is refused as `busy`, even one that would be `UNCHANGED`.
 | `too_large` | More than **1 MiB** of JSON (`propose_command_max_bytes`), a Workshop command's own bound |
 | `invalid_command` | Not a command the Workshop's reader takes; `error.message` usually leads with its own code — `E_COMMAND_FORMAT`, `E_COMMAND_UNKNOWN_ACTION`, … — but not when the card itself cannot be shown (the command's name and your reason too long for it) |
 | `foreign_plugin` | The command uses another plugin's action or trigger |
-| `busy` | One of your offers is already waiting for the person: one card per plugin at a time |
 | `rate_limited` | **A burst of two offers, then one every two minutes**; `error.retry_after_ms` says when there is room again. An offer that asks nobody (`UNCHANGED`, a `DECLINED` remembered) spends nothing |
-| `stopped` | Your plugin's authority ended first — it was stopped, disabled or withdrawn, or the account stopped opening Astra |
+| `stopped` | Your plugin's authority ended first — it was stopped, disabled or withdrawn, or the account stopped opening Astra — or a newer offer from your plugin replaced this one before the person answered |
 | `stale` | The command this updates changed or went while the card was up, so what the person saw is not what would be written. Nothing was |
 | `write_refused` | The command could not be saved |
 
