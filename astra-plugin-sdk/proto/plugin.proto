@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 4c0f86fc58620c50d8b7a7188a7de7834ea8bc6fce16024f75a8aa79028641e6
+// surface-sha256: 90974d4d8699ccc886fa38daae5630e5a6b69385d625ed019e7f71ccf312c07a
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -5010,8 +5010,9 @@ service PluginHostService {
     // sees a card naming this plugin, each setting, what it holds and what it
     // would hold, and the plugin's reason; nothing changes without their
     // Allow, and what changes is exactly what the card showed. The call lasts
-    // until they answer or the card expires (Astra's confirmation timeout,
-    // at least 30 s). The current values are never returned.
+    // until they answer; there is no timeout. The card also ends, and the
+    // call answers, when this plugin stops or disconnects, when the account
+    // changes, or when Astra stops. The current values are never returned.
     rpc RequestSettingsChange(PluginSettingsChangeRequest) returns (PluginSettingsChangeResponse);
 
     // OFFER the person a command to keep: one portable command (a
@@ -5027,8 +5028,10 @@ service PluginHostService {
     // on or off, or declines; nothing is kept without that. The same `key`
     // offered again is an update of the command kept under it (asked again);
     // the very command kept under it is UNCHANGED, nobody asked. The call
-    // lasts until they answer or the card expires (Astra's confirmation
-    // timeout, at least 30 s).
+    // lasts until they answer; there is no timeout. The card also ends, and
+    // the call answers, when a newer offer from this plugin replaces it, when
+    // this plugin stops or disconnects, when the account changes, or when
+    // Astra stops.
     rpc ProposeCommand(PluginProposeCommandRequest) returns (PluginProposeCommandResponse);
 }
 
