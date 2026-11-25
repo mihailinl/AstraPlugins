@@ -6478,10 +6478,6 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "type": "string",
               "id": 4
             },
-            "confirmationTimeoutSeconds": {
-              "type": "int32",
-              "id": 5
-            },
             "allowUnsignedPlugins": {
               "type": "bool",
               "id": 6,
@@ -6496,7 +6492,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
                 "proto3_optional": true
               }
             }
-          }
+          },
+          "reserved": [
+            [
+              5,
+              5
+            ],
+            "confirmation_timeout_seconds"
+          ]
         },
         "ExportSettingsRequest": {
           "fields": {

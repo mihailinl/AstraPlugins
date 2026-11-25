@@ -68,6 +68,9 @@ __all__ = [
 REGISTRY: Mapping[str, frozenset[str]] = {
     "SemanticSettings": frozenset({"mode", "llm_model_id", "memory_enabled"}),
     "AiSettings": frozenset({"use_thinking"}),
+    # A confirmation card used to expire after this many seconds. Astra retired it
+    # on 2026-11-18 (Astra #488): a card now waits until it is answered or stopped.
+    "SafetySettings": frozenset({"confirmation_timeout_seconds"}),
     "HotkeySettings": frozenset({"toggle_listen", "stop_speaking", "open_chat"}),
     # `api_key` is write-only by design: a saved AI endpoint's key reaches the
     # daemon through the settings path and never comes back, so no client can
