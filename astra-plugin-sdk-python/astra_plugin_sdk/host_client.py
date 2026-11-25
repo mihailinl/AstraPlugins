@@ -471,10 +471,12 @@ class HostClient:
         exactly what the card showed — every value whole, never cut; a value
         over 2,000 characters is refused before any card.
 
-        The call **lasts until the person answers or the card expires** —
-        Astra's confirmation timeout, at least 30 s, 120 s unless the person
-        changed it — so never await it on a path that must answer quickly. The
-        SDK puts no deadline of its own on it. It answers ``response.outcome``:
+        The call **lasts until the person answers; there is no timeout**. The
+        card also ends, and the call answers, when this plugin stops or
+        disconnects, when the account changes, or when Astra stops. Never await
+        it on a path that must answer quickly, such as a tool call the model is
+        waiting on. The SDK puts no deadline of its own on it. It answers
+        ``response.outcome``:
 
         * ``plugin_pb2.PLUGIN_SETTINGS_CHANGE_OUTCOME_APPLIED`` — the person
           allowed it; the settings now hold what was asked for.
@@ -484,8 +486,9 @@ class HostClient:
           said no, now or to this plugin changing one of these settings before
           (Astra asks again about a setting only after it has changed some
           other way, or after a restart). **Do not ask again unasked.**
-        * ``plugin_pb2.PLUGIN_SETTINGS_CHANGE_OUTCOME_TIMED_OUT`` — nobody
-          answered before the card expired (no window open counts).
+        * ``plugin_pb2.PLUGIN_SETTINGS_CHANGE_OUTCOME_TIMED_OUT`` — the card
+          was withdrawn before anyone answered: a settings edit made it moot, or
+          Astra is stopping (a card has no clock).
         * ``plugin_pb2.PLUGIN_SETTINGS_CHANGE_OUTCOME_REFUSED`` — not asked, or
           not applied: ``response.code`` says why, ``response.refused_path``
           names the setting when it is about one, and ``response.error`` is a
@@ -552,12 +555,14 @@ class HostClient:
         trigger by its full value and every step with what it may do, and an
         Enable switch — never by a bare Allow.
 
-        The call **lasts until the person answers or the card expires** —
-        Astra's confirmation timeout, at least 30 s, 120 s unless the person
-        changed it — so never await it on a path that must answer quickly. The
-        SDK puts no deadline of its own on it. Offer one command at a time: a
-        second offer while one is waiting is ``busy``, even one that would be
-        ``UNCHANGED``. It answers ``response.outcome``:
+        The call **lasts until the person answers; there is no timeout**. The
+        card also ends, and the call answers, when this plugin stops or
+        disconnects, when the account changes, when Astra stops, or when a newer
+        offer from this plugin replaces it. Never await it on a path that must
+        answer quickly, such as a tool call the model is waiting on. The SDK
+        puts no deadline of its own on it. A newer offer replaces the one that
+        is waiting, and the replaced call answers ``REFUSED`` with ``stopped``.
+        It answers ``response.outcome``:
 
         * ``plugin_pb2.PLUGIN_PROPOSE_COMMAND_OUTCOME_SAVED`` — the person kept
           it; ``response.enabled`` says whether the command is on after it
@@ -570,8 +575,9 @@ class HostClient:
           Record it: **do not offer it again unasked.** Astra's own memory of a
           no ends at a restart, and a command the person deleted is offered as
           new.
-        * ``plugin_pb2.PLUGIN_PROPOSE_COMMAND_OUTCOME_TIMED_OUT`` — nobody
-          answered before the card expired (no window open counts).
+        * ``plugin_pb2.PLUGIN_PROPOSE_COMMAND_OUTCOME_TIMED_OUT`` — the card
+          was withdrawn before anyone answered: a settings edit made it moot, or
+          Astra is stopping (a card has no clock).
         * ``plugin_pb2.PLUGIN_PROPOSE_COMMAND_OUTCOME_REFUSED`` — not asked, or
           not kept: ``response.code`` says why, and ``response.error`` is a
           ``PluginError`` — a sentence, and ``retry_after_ms`` for
@@ -585,10 +591,10 @@ class HostClient:
           Workshop's own code: ``E_COMMAND_FORMAT``,
           ``E_COMMAND_UNKNOWN_ACTION``, … — not when the card itself cannot be
           shown), ``foreign_plugin`` (it uses another
-          plugin's action or trigger), ``busy`` (one of this plugin's offers is
-          already waiting), ``rate_limited`` (a burst of two, then one every two
-          minutes), ``stopped`` (this plugin's authority ended first),
-          ``stale`` (the command it updates changed or went while the card was
+          plugin's action or trigger), ``rate_limited`` (a burst of two, then
+          one every two minutes), ``stopped`` (this plugin's authority ended
+          first, or a newer offer from this plugin replaced this one before the
+          person answered), ``stale`` (the command it updates changed or went while the card was
           up), ``write_refused``.
 
         ::

@@ -218,9 +218,10 @@ them change, or none. It returns `proto::PluginSettingsChangeResponse`: read
 `outcome()` — `Applied`, `Unchanged` (nobody was asked), `Declined` (**do not ask
 again unasked**), `TimedOut`, or `Refused` with `code` (`rate_limited`, `busy`,
 `not_assistant_editable`, …), `refused_path` and `error.retry_after_ms`. **The
-call lasts until the person answers or the card expires** — at least 30 s, 120 s
-by default — and the SDK puts no deadline on it, so never await it on a path that
-must answer quickly. `PluginSettingChange::new` serialises any
+call lasts until the person answers; there is no timeout** — the card also ends
+when your plugin stops or disconnects, the account changes or Astra stops — and
+the SDK puts no deadline on it, so never await it on a path that must answer
+quickly. `PluginSettingChange::new` serialises any
 `serde_json::Value` into `value_json`. At most `limits::SETTINGS_CHANGE_MAX_CHANGES`
 (8) changes and a reason of `limits::SETTINGS_CHANGE_REASON_MAX_CHARS` (140)
 characters; the daemon refuses more, the SDK checks nothing. **No Astra release
@@ -246,10 +247,12 @@ read `outcome()` — `Saved` (with `enabled`: whether the command is on after it
 was kept), `Unchanged` (what is kept under the key came from this very offer,
 also after the person edited it; nobody was asked), `Declined` (record it; **do
 not offer it again unasked**), `TimedOut`, or `Refused` with `code`
-(`foreign_plugin`, `invalid_command`, `rate_limited`, `busy`, …) and
-`error.retry_after_ms`. **The call lasts until the person answers or the card
-expires**, and the SDK puts no deadline on it; offer one command at a time — a
-second offer while one waits is `busy`. At most
+(`foreign_plugin`, `invalid_command`, `rate_limited`, `stopped`, …) and
+`error.retry_after_ms`. **The call lasts until the person answers; there is no
+timeout** — the card also ends when your plugin stops or disconnects, the account
+changes, Astra stops or a newer offer from your plugin replaces it — and the SDK
+puts no deadline on it. A newer offer replaces the one that is waiting, and the
+replaced call answers `Refused` with `stopped`. At most
 `limits::PROPOSE_COMMAND_MAX_BYTES` (1 MiB) of JSON and a reason of
 `limits::PROPOSE_COMMAND_REASON_MAX_CHARS` (140) characters; the daemon refuses
 more, the SDK checks nothing. **No Astra release answers it yet**: an Astra

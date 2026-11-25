@@ -127,8 +127,8 @@ export interface SettingChange {
  * - `"DECLINED"` — the person said no, now or to this plugin changing one of
  *   these settings before (Astra asks again about a setting only after it has
  *   changed some other way, or after a restart). **Do not ask again unasked.**
- * - `"TIMED_OUT"` — nobody answered before the card expired (no window open
- *   counts).
+ * - `"TIMED_OUT"` — the card was withdrawn before anyone answered: a
+ *   settings edit made it moot, or Astra is stopping (a card has no clock).
  * - `"REFUSED"` — not asked, or not applied; `SettingsChangeResult.code` says
  *   why.
  * - `"UNSPECIFIED"` — an outcome this SDK does not know (a newer Astra), or
@@ -183,8 +183,8 @@ export interface SettingsChangeResult {
  *   (until Astra restarts). Record it: **do not offer it again unasked.**
  *   Astra's own memory of a no ends at a restart, and a command the person
  *   deleted is offered as new.
- * - `"TIMED_OUT"` — nobody answered before the card expired (no window open
- *   counts).
+ * - `"TIMED_OUT"` — the card was withdrawn before anyone answered: a
+ *   settings edit made it moot, or Astra is stopping (a card has no clock).
  * - `"REFUSED"` — not asked, or not kept; `CommandOfferResult.code` says why.
  * - `"UNSPECIFIED"` — an outcome this SDK does not know (a newer Astra), or
  *   none at all. Never invented as one of the above.
@@ -214,10 +214,11 @@ export interface CommandOfferResult {
    * (`error.message` usually leads with the Workshop's own code:
    * `E_COMMAND_FORMAT`, `E_COMMAND_UNKNOWN_ACTION`, … — not when the card
    * itself cannot be shown), `foreign_plugin` (it uses another plugin's action
-   * or trigger), `busy` (one of this plugin's offers is already waiting),
+   * or trigger),
    * `rate_limited` (a burst of two, then one every two minutes;
    * `error.retryAfterMs` says when), `stopped` (this plugin's
-   * authority ended first), `stale` (the command it updates changed or went
+   * authority ended first, or a newer offer from this plugin replaced this one
+   * before the person answered), `stale` (the command it updates changed or went
    * while the card was up), `write_refused`. `""` otherwise.
    */
   code: string;
@@ -290,7 +291,7 @@ export interface Host {
    * became of it (`SettingsChangeResult`). Needs `request_settings_change` and
    * an account that opens Astra; a missing grant, an account that does not
    * open Astra, or an Astra older than this RPC (`UNIMPLEMENTED`) rejects like
-   * every host call. Lasts until the person answers or the card expires.
+   * every host call. Lasts until the person answers; there is no timeout.
    *
    * Optional, like `speak`; plugin code calls `ctx.requestSettingsChange()`.
    */
@@ -304,7 +305,8 @@ export interface Host {
    * (high-risk) and an account that opens Astra; a missing grant, an account
    * that does not open Astra, or an Astra older than this RPC
    * (`UNIMPLEMENTED`) rejects like every host call. Lasts until the person
-   * answers or the card expires.
+   * answers, or a newer offer from this plugin replaces it; there is no
+   * timeout.
    *
    * Optional, like `speak`; plugin code calls `ctx.proposeCommand()`.
    */

@@ -557,9 +557,8 @@ export class HostClient implements Host {
    * of at most `limits.SETTINGS_CHANGE_REASON_MAX_CHARS` characters, refused
    * rather than cut — so this client checks none of them.
    *
-   * No deadline: the call lasts until the person answers or the card expires
-   * (Astra's confirmation timeout, at least 30 s, and the person may set it
-   * far longer); a deadline here would cut a request the person was reading.
+   * No deadline: the call lasts until the person answers (Astra's card has no
+   * timeout); a deadline here would cut a request the person was reading.
    */
   async requestSettingsChange(
     changes: SettingChange[],
@@ -582,9 +581,9 @@ export class HostClient implements Host {
    * JSON and a reason of at most `limits.PROPOSE_COMMAND_REASON_MAX_CHARS`
    * characters, refused rather than cut — so this client checks none of them.
    *
-   * No deadline: the call lasts until the person answers or the card expires
-   * (Astra's confirmation timeout, at least 30 s, and the person may set it
-   * far longer); a deadline here would cut an offer the person was reading.
+   * No deadline: the call lasts until the person answers (Astra's card has no
+   * timeout) or a newer offer from this plugin replaces it; a deadline here
+   * would cut an offer the person was reading.
    */
   async proposeCommand(
     key: string,

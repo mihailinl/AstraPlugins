@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 4c0f86fc58620c50d8b7a7188a7de7834ea8bc6fce16024f75a8aa79028641e6
+// surface-sha256: 512ca88c03ff45162e1c4ed27677afe0bca14d8106d7fd1d968e71645459722e
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -5010,8 +5010,9 @@ service PluginHostService {
     // sees a card naming this plugin, each setting, what it holds and what it
     // would hold, and the plugin's reason; nothing changes without their
     // Allow, and what changes is exactly what the card showed. The call lasts
-    // until they answer or the card expires (Astra's confirmation timeout,
-    // at least 30 s). The current values are never returned.
+    // until they answer; there is no timeout. The card also ends, and the
+    // call answers, when this plugin stops or disconnects, when the account
+    // changes, or when Astra stops. The current values are never returned.
     rpc RequestSettingsChange(PluginSettingsChangeRequest) returns (PluginSettingsChangeResponse);
 
     // OFFER the person a command to keep: one portable command (a
@@ -5027,8 +5028,10 @@ service PluginHostService {
     // on or off, or declines; nothing is kept without that. The same `key`
     // offered again is an update of the command kept under it (asked again);
     // the very command kept under it is UNCHANGED, nobody asked. The call
-    // lasts until they answer or the card expires (Astra's confirmation
-    // timeout, at least 30 s).
+    // lasts until they answer; there is no timeout. The card also ends, and
+    // the call answers, when a newer offer from this plugin replaces it, when
+    // this plugin stops or disconnects, when the account changes, or when
+    // Astra stops.
     rpc ProposeCommand(PluginProposeCommandRequest) returns (PluginProposeCommandResponse);
 }
 
@@ -6681,7 +6684,10 @@ enum PluginSettingsChangeOutcome {
     // changed some other way, or after a restart. Do not ask again unasked.
     PLUGIN_SETTINGS_CHANGE_OUTCOME_DECLINED = 3;
 
-    // Nobody answered before the card expired (no window open counts).
+    // Astra dropped the card without an answer: a settings edit changed how
+    // it would be answered, or Astra is stopping. There is no timeout; the
+    // value keeps its old name. (The plugin stopping, the account changing
+    // or, for an offer, a newer offer answers REFUSED `stopped` instead.)
     PLUGIN_SETTINGS_CHANGE_OUTCOME_TIMED_OUT = 4;
 
     // Not asked, or not applied: `code` says why — `not_compiled` (this Astra
@@ -6727,7 +6733,10 @@ enum PluginProposeCommandOutcome {
     // restarts). Do not offer it again unasked.
     PLUGIN_PROPOSE_COMMAND_OUTCOME_DECLINED = 3;
 
-    // Nobody answered before the card expired (no window open counts).
+    // Astra dropped the card without an answer: a settings edit changed how
+    // it would be answered, or Astra is stopping. There is no timeout; the
+    // value keeps its old name. (The plugin stopping, the account changing
+    // or, for an offer, a newer offer answers REFUSED `stopped` instead.)
     PLUGIN_PROPOSE_COMMAND_OUTCOME_TIMED_OUT = 4;
 
     // Not asked, or not kept: `code` says why — `not_compiled` (this Astra

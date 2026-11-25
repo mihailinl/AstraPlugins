@@ -7517,8 +7517,9 @@ class PluginHostServiceServicer(object):
         sees a card naming this plugin, each setting, what it holds and what it
         would hold, and the plugin's reason; nothing changes without their
         Allow, and what changes is exactly what the card showed. The call lasts
-        until they answer or the card expires (Astra's confirmation timeout,
-        at least 30 s). The current values are never returned.
+        until they answer; there is no timeout. The card also ends, and the
+        call answers, when this plugin stops or disconnects, when the account
+        changes, or when Astra stops. The current values are never returned.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -7538,8 +7539,10 @@ class PluginHostServiceServicer(object):
         on or off, or declines; nothing is kept without that. The same `key`
         offered again is an update of the command kept under it (asked again);
         the very command kept under it is UNCHANGED, nobody asked. The call
-        lasts until they answer or the card expires (Astra's confirmation
-        timeout, at least 30 s).
+        lasts until they answer; there is no timeout. The card also ends, and
+        the call answers, when a newer offer from this plugin replaces it, when
+        this plugin stops or disconnects, when the account changes, or when
+        Astra stops.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')

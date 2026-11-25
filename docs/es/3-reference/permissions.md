@@ -180,14 +180,14 @@ Un plugin con una razón real para querer cambiar uno de los ajustes de Astra �
 
 Cada cambio es una ruta de ajuste con puntos y el valor deseado, como JSON — los SDK serializan el valor por ti. Solo se pueden pedir los ajustes que el propio asistente puede cambiar — la voz, el modelo de IA, el idioma; nunca el modo de permisos, una clave ni Tool Search —, y cada valor se comprueba exactamente igual que el cambio propio del asistente. La tarjeta nombra tu plugin, muestra cada ajuste tal como está y como quedaría, y tu `reason`, con tus palabras. Cambian todos o ninguno, y lo que cambia es exactamente lo que mostró la tarjeta.
 
-**La llamada dura hasta que la persona responde o la tarjeta caduca** — el tiempo de confirmación de Astra, al menos 30 segundos, 120 si la persona no lo cambió. Los SDK no le ponen ningún plazo propio. Nunca la esperes en un camino que deba responder rápido, como una llamada a herramienta que el modelo está esperando.
+**La llamada dura hasta que la persona responde; no hay tiempo límite.** La tarjeta también termina, y la llamada responde, cuando tu plugin se detiene o se desconecta, cambia la cuenta o Astra se detiene. Los SDK no le ponen ningún plazo propio. Nunca la esperes en un camino que deba responder rápido, como una llamada a herramienta que el modelo está esperando.
 
 | Resultado | Qué significa | Qué hacer |
 |---|---|---|
 | `APPLIED` | La persona lo permitió; los ajustes contienen ahora lo que pediste | Nada |
 | `UNCHANGED` | Ya lo contenían. No se preguntó a nadie | Nada |
 | `DECLINED` | La persona dijo que no — ahora, o antes a que tu plugin cambiara uno de estos ajustes. Astra vuelve a preguntar por un ajuste así solo cuando ha cambiado de otra forma, o tras un reinicio | Sigue con lo que la persona tiene. **No vuelvas a preguntar sin que te lo pidan** |
-| `TIMED_OUT` | Nadie respondió antes de que caducara la tarjeta (no tener ninguna ventana abierta también cuenta) | Pregunta más tarde, cuando la persona esté |
+| `TIMED_OUT` | La tarjeta se retiró antes de que nadie respondiera: un cambio de ajustes la dejó sin objeto o Astra se está deteniendo. El nombre es anterior a la regla: una tarjeta no tiene reloj | Pregunta más tarde, cuando la persona esté |
 | `REFUSED` | No se preguntó, o no se aplicó: `code` dice por qué, `refused_path` nombra el ajuste cuando se trata de uno, y `error` es un `PluginError` | Lee el código abajo |
 
 | `code` | Cuándo |
@@ -227,14 +227,14 @@ Guarda `SAVED` y `DECLINED` por clave en el estado propio de tu plugin, y al arr
 
 La persona ve una tarjeta que nombra tu plugin y el comando, con tu `reason` en tus palabras, y dos opciones: Revisar y Denegar. **El comando solo se conserva desde la hoja del Workshop de Astra** — cada disparador con su valor completo, cada paso con lo que puede hacer, y un interruptor para activarlo —, nunca con un simple Permitir, y lo que se conserva es exactamente lo que mostró la hoja. Un comando conservado lleva la marca de tu plugin; desinstalar tu plugin desactiva sus comandos.
 
-**La llamada dura hasta que la persona responde o la tarjeta caduca** — el tiempo de confirmación de Astra, al menos 30 segundos, 120 si la persona no lo cambió. Los SDK no le ponen ningún plazo propio. Nunca la esperes en un camino que deba responder rápido, y **ofrece un comando cada vez**: una segunda oferta mientras una tuya espera se rechaza como `busy`, incluso una que sería `UNCHANGED`.
+**La llamada dura hasta que la persona responde; no hay tiempo límite.** La tarjeta también termina, y la llamada responde, cuando tu plugin se detiene o se desconecta, cambia la cuenta, Astra se detiene o una oferta más reciente de tu plugin la reemplaza. Los SDK no le ponen ningún plazo propio. Nunca la esperes en un camino que deba responder rápido, como una llamada a herramienta que el modelo está esperando. Una oferta más reciente **reemplaza** a la que espera, y la llamada reemplazada responde `REFUSED` con `stopped`.
 
 | Resultado | Qué significa | Qué hacer |
 |---|---|---|
 | `SAVED` | La persona lo conservó; `enabled` dice si el comando queda activado una vez conservado (Astra puede conservarlo desactivado) | Guárdalo |
 | `UNCHANGED` | Lo conservado bajo esta clave vino de esta misma oferta — también si la persona lo editó. No se preguntó a nadie | Nada |
 | `DECLINED` | La persona dijo que no — ahora, o antes a exactamente este comando (hasta que Astra se reinicie) | Guárdalo. **No lo vuelvas a ofrecer sin que te lo pidan** |
-| `TIMED_OUT` | Nadie respondió antes de que caducara la tarjeta (no tener ninguna ventana abierta también cuenta) | Ofrécelo más tarde, cuando la persona esté |
+| `TIMED_OUT` | La tarjeta se retiró antes de que nadie respondiera: un cambio de ajustes la dejó sin objeto o Astra se está deteniendo. El nombre es anterior a la regla: una tarjeta no tiene reloj | Ofrécelo más tarde, cuando la persona esté |
 | `REFUSED` | No se preguntó, o no se conservó: `code` dice por qué, y `error` es un `PluginError` | Lee el código abajo |
 
 | `code` | Cuándo |
@@ -246,9 +246,8 @@ La persona ve una tarjeta que nombra tu plugin y el comando, con tu `reason` en 
 | `too_large` | Más de **1 MiB** de JSON (`propose_command_max_bytes`), el límite propio de un comando del Workshop |
 | `invalid_command` | No es un comando que acepte el lector del Workshop; `error.message` suele empezar por su propio código — `E_COMMAND_FORMAT`, `E_COMMAND_UNKNOWN_ACTION`, … —, pero no cuando la propia tarjeta no se puede mostrar (el nombre del comando y tu motivo no caben en ella) |
 | `foreign_plugin` | El comando usa una acción o un disparador de otro plugin |
-| `busy` | Una de tus ofertas ya está esperando a la persona: una tarjeta por plugin a la vez |
 | `rate_limited` | **Una ráfaga de dos ofertas, luego una cada dos minutos**; `error.retry_after_ms` dice cuándo vuelve a haber hueco. Una oferta que no pregunta a nadie (`UNCHANGED`, un `DECLINED` recordado) no gasta nada |
-| `stopped` | La autoridad de tu plugin terminó antes — se detuvo, se desactivó o se retiró, o la cuenta dejó de dar acceso a Astra |
+| `stopped` | La autoridad de tu plugin terminó antes — se detuvo, se desactivó o se retiró, o la cuenta dejó de dar acceso a Astra — o una oferta más reciente de tu plugin reemplazó a esta antes de que la persona respondiera |
 | `stale` | El comando que actualiza cambió o desapareció mientras la tarjeta estaba abierta, así que lo que vio la persona no es lo que se escribiría. No se escribió nada |
 | `write_refused` | No se pudo guardar el comando |
 

@@ -160,9 +160,10 @@ the daemon's `PluginSettingsChangeResponse`: `outcome` is
 `PLUGIN_SETTINGS_CHANGE_OUTCOME_APPLIED`, `…_UNCHANGED` (nobody was asked),
 `…_DECLINED` (**do not ask again unasked**), `…_TIMED_OUT`, or `…_REFUSED` with
 `code` (`rate_limited`, `busy`, `not_assistant_editable`, …), `refused_path` and
-`error.retry_after_ms`. **The call lasts until the person answers or the card
-expires** — at least 30 s, 120 s by default — and the SDK puts no deadline on it,
-so never await it on a path that must answer quickly. A value JSON cannot hold
+`error.retry_after_ms`. **The call lasts until the person answers; there is
+no timeout** — the card also ends when your plugin stops or disconnects, the
+account changes or Astra stops — and the SDK puts no deadline on it, so never
+await it on a path that must answer quickly. A value JSON cannot hold
 (`NaN`) raises before anything is sent; nothing else is checked client-side — at
 most `limits.SETTINGS_CHANGE_MAX_CHANGES` (8) changes and a reason of
 `limits.SETTINGS_CHANGE_REASON_MAX_CHARS` (140) characters, and the daemon refuses
@@ -190,10 +191,12 @@ of another shape raises `ValueError`. It returns the daemon's
 on after it was kept), `…_UNCHANGED` (what is kept under the key came from this
 very offer, also after the person edited it; nobody was asked), `…_DECLINED`
 (record it; **do not offer it again unasked**), `…_TIMED_OUT`, or `…_REFUSED`
-with `code` (`foreign_plugin`, `invalid_command`, `rate_limited`, `busy`, …) and
-`error.retry_after_ms`. **The call lasts until the person answers or the card
-expires**, and the SDK puts no deadline on it; offer one command at a time — a
-second offer while one waits is `busy`. A dict JSON cannot hold (`NaN`) raises
+with `code` (`foreign_plugin`, `invalid_command`, `rate_limited`, `stopped`, …) and
+`error.retry_after_ms`. **The call lasts until the person answers; there is no
+timeout** — the card also ends when your plugin stops or disconnects, the account
+changes, Astra stops or a newer offer from your plugin replaces it — and the SDK
+puts no deadline on it. A newer offer replaces the one that is waiting, and the
+replaced call answers `REFUSED` with `stopped`. A dict JSON cannot hold (`NaN`) raises
 before anything is sent; nothing else is checked client-side — at most
 `limits.PROPOSE_COMMAND_MAX_BYTES` (1 MiB) of JSON and a reason of
 `limits.PROPOSE_COMMAND_REASON_MAX_CHARS` (140) characters, and the daemon

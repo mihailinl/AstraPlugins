@@ -214,9 +214,10 @@ export interface PluginContext {
    * `limits.SETTINGS_CHANGE_REASON_MAX_CHARS` characters — the daemon refuses
    * more, it never cuts.
    *
-   * **It lasts until the person answers or the card expires** (Astra's
-   * confirmation timeout, at least 30 s): never await it on a path that must
-   * answer quickly.
+   * **It lasts until the person answers; there is no timeout.** The card also
+   * ends, and the call answers, when this plugin stops or disconnects, when the
+   * account changes, or when Astra stops. Never await it on a path that must
+   * answer quickly, such as a tool call the model is waiting on.
    *
    * ```ts
    * const asked = await ctx.requestSettingsChange(
@@ -256,10 +257,12 @@ export interface PluginContext {
    * and a `reason` of at most `limits.PROPOSE_COMMAND_REASON_MAX_CHARS`
    * characters — the daemon refuses more, it never cuts.
    *
-   * **It lasts until the person answers or the card expires** (Astra's
-   * confirmation timeout, at least 30 s): never await it on a path that must
-   * answer quickly. Offer one command at a time: a second offer while one is
-   * waiting is `"REFUSED"` with `busy`, even one that would be `"UNCHANGED"`.
+   * **It lasts until the person answers; there is no timeout.** The card also
+   * ends, and the call answers, when this plugin stops or disconnects, when the
+   * account changes, when Astra stops, or when a newer offer from this plugin
+   * replaces it. Never await it on a path that must answer quickly, such as a
+   * tool call the model is waiting on. A newer offer replaces the one that is
+   * waiting, and the replaced call answers `"REFUSED"` with `stopped`.
    *
    * ```ts
    * const [morning] = commandsFromAstraFile(MORNING_ASTRA);
