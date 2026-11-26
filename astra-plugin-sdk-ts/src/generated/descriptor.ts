@@ -4019,6 +4019,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "key": {
               "type": "string",
               "id": 2
+            },
+            "changedSinceKept": {
+              "type": "bool",
+              "id": 3
+            },
+            "rekeepable": {
+              "type": "bool",
+              "id": 4
             }
           }
         },
