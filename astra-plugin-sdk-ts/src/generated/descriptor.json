@@ -4011,6 +4011,14 @@
             "key": {
               "type": "string",
               "id": 2
+            },
+            "changedSinceKept": {
+              "type": "bool",
+              "id": 3
+            },
+            "rekeepable": {
+              "type": "bool",
+              "id": 4
             }
           }
         },

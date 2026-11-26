@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: c6940fe9cf91f758538f98f750ce080437d5f48a3906361ed16e03e0622edeb6
+// surface-sha256: f21b419aedfc70854812dc042c6eb17024686f226151e7e6201914cc9c546e71
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -2594,6 +2594,16 @@ message CommandDefinition {
 message PluginSourceMarker {
     string plugin_id = 1;
     string key = 2;
+
+    // The command is not what the person last kept (an edit since, theirs or the assistant's):
+    // its High steps ask before they run until it is kept again from its sheet
+    // (`CommandService.GetPluginProposalSheet` / `AcceptPluginProposal` with `command_id`).
+    bool changed_since_kept = 3;
+
+    // Changed since kept AND it can be kept again from a sheet. False for a command whose steps
+    // the catalogue's reader cannot describe: its High steps keep asking, one card each, and a
+    // window offers no review that would only fail.
+    bool rekeepable = 4;
 }
 
 // The Workshop released a withdrawal from an installed command that stays OFF (the safer side):
