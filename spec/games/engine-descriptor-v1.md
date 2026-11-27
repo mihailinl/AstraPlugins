@@ -722,6 +722,20 @@ the descriptor, so a catalogue never signs one. A client that evaluates
     evaluation found. Even that line never goes into any log that a
     problem report attaches, nor into a support bundle a player sends:
     whether someone plays with mods is itself about their mods;
+  - one exception, the player's own act for one report: a game's "Send a
+    report" may attach the game's own logs of the last start (BepInEx's,
+    UE4SS's, Unity's `Player.log`, the log in the picked folder), which
+    name the mods of a start with mods, only when the player ticked that
+    for THAT report, in words that say the logs name their mods. The tick
+    starts off for every report and is never remembered. Without it none
+    of those logs goes in, and the archive does not say why. A start
+    without mods loads Astra's files alone: its logs are not something an
+    evaluation found, and may go in unticked, with the user name in their
+    paths masked;
+  - the brief a player copies from a game's row for their own AI agent
+    may name where those logs are (the picked folder's among them) and
+    whether the last start was with mods: Astra sends it nowhere, the
+    player pastes it themselves;
   - not a runner beyond what it needs. A runner is given exactly the
     `entry` path and the `tell` value: never the list of mods, the other
     loaders or their versions.
