@@ -203,6 +203,8 @@ BUNDLE_COPIES = {
     "releases/bundle-gap-between-entries/characters/scout.astrachar": "hostile/gap-between-entries.astrachar",
     "releases/bundle-vrm0-licence-other/characters/scout.astrachar": "hostile/vrm0-licence-other.astrachar",
     "releases/bundle-animset-wave/packs/wave.astrapack": "valid/animset-wave.astrapack",
+    "releases/bundle-animset-builtin-only/packs/act.astrapack": "valid/animset-builtin-only-in-gi.astrapack",
+    "releases/bundle-animset-builtin-and-missing/packs/act.astrapack": "hostile/animset-builtin-and-missing-file-in-gi.astrapack",
     "releases/bundle-model-aiko/characters/aiko.astrachar": "valid/model-aiko.astrachar",
     "releases/bundle-renamed/packs/wave.zip": "valid/animset-wave.astrapack",
     "releases/bundle-audio-licence-undeclared/characters/scout.astrachar": "hostile/audio-licence-undeclared.astrachar",

@@ -3086,6 +3086,54 @@
       "note": "the same clips/sheet.png in a 3D pack is a texture, not a clip: an animset with nothing to play is refused at step 10, because its entry's `clips` could never be 1-4096"
     },
     {
+      "name": "animset-builtin-only-in-gi",
+      "file": "archives/valid/animset-builtin-only-in-gi.astrapack",
+      "verdict": "held",
+      "flags": [
+        "F_CONTENT_LICENCE_DECLARED"
+      ],
+      "embedded_in_gi": true,
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
+      "note": "every [[clips]] row is builtin: (compiled into the engine, no bytes) and the bundle is embedded in a GI release: step 10 exempts it, because a GI-embedded pack never enters the animsets index"
+    },
+    {
+      "name": "animset-builtin-and-missing-file-in-gi",
+      "file": "archives/hostile/animset-builtin-and-missing-file-in-gi.astrapack",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FORMAT",
+      "detail_contains": "no clip file",
+      "embedded_in_gi": true,
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
+      "note": "one builtin: row and one row naming clips/walk.fbx, which is not in the bundle: mixed, so not exempt even inside a GI release"
+    },
+    {
+      "name": "animset-builtin-only-standalone",
+      "file": "archives/valid/animset-builtin-only-in-gi.astrapack",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FORMAT",
+      "detail_contains": "no clip file",
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
+      "note": "the bytes of animset-builtin-only-in-gi judged standalone (no embedded_in_gi): refused, because a standalone pack enters the animsets index"
+    },
+    {
+      "name": "animset-no-clip-rows-in-gi",
+      "file": "archives/hostile/animset-no-clip-rows-in-gi.astrapack",
+      "verdict": "refuse",
+      "code": "E_CONTENT_FORMAT",
+      "detail_contains": "no clip file",
+      "embedded_in_gi": true,
+      "declared_licence": {
+        "": "CC-BY-4.0"
+      },
+      "note": "no [[clips]] row at all: nothing builtin to exempt, refused even inside a GI release"
+    },
+    {
       "name": "character-with-pixel-pack",
       "file": "archives/valid/character-with-pixel-pack.astrachar",
       "verdict": "held",
@@ -4837,7 +4885,7 @@
     "E_PUBLISH_REGION_CLOSED": "a begin-door state (the request's region is not open to publishing), not a property of a file; the checker covers no doors",
     "E_CONTENT_HANDLE_REQUIRED": "door-level refusal from minice-id claims; the bundle checker covers no doors"
   },
-  "expected_checks": 533,
+  "expected_checks": 540,
   "declared_licence": {
     "code": "E_CONTENT_LICENCE_DECLARATION_INVALID",
     "valid": [

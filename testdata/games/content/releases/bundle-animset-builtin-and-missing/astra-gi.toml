@@ -1,0 +1,20 @@
+# content check golden: the content catalogue's animset-builtin-and-missing-file-in-gi.astrapack, byte for byte: one builtin: row and one row naming a clip file the pack does not hold -- refused E_CONTENT_FORMAT.
+schema = 1
+
+[integration]
+id = "someone.bundle-animset-builtin-and-missing"
+name = "Bundle Animset Builtin And Missing"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "packs/act.astrapack"
+kind = "animations"
+title = "act"
+credit = "someone"
+licence = "CC0-1.0"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"
