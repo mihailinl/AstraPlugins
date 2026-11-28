@@ -8759,6 +8759,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "installable": {
               "type": "bool",
               "id": 6
+            },
+            "installSizeBytes": {
+              "type": "uint64",
+              "id": 7
+            },
+            "installSourceHost": {
+              "type": "string",
+              "id": 8
             }
           }
         },

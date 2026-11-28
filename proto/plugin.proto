@@ -12,7 +12,7 @@
 // Output: astra-proto/generated/plugin.proto
 //
 // protocol: 1
-// surface-sha256: 2cb2bfa8c020b4602a13c1ae29bc12e1245257c10f03cbdb42bf0054180d0cd2
+// surface-sha256: 3c4ba942a8b241fc1a26448be58f5e8cd8c34ffe9714b4df09c41b5d64995b9f
 // ─────────────────────────────────────────────────────────────────────────────
 
 syntax = "proto3";
@@ -5291,6 +5291,12 @@ message PluginRuntimeRequirement {
     // a UI must then offer `download_url` INSTEAD of an install button — a
     // button that starts an install which cannot happen is worse than no button.
     bool installable = 6;
+
+    // What the install would download, for the offer: the pin's size and the host
+    // this edition fetches from first. 0 / "" when `installable` is false or on
+    // Windows (winget).
+    uint64 install_size_bytes = 7;
+    string install_source_host = 8;
 }
 
 message PluginStatusMsg {
