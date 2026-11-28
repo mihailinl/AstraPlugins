@@ -1683,6 +1683,9 @@
           "description": "The content digest of the command as the plugin offered it (local members aside).",
           "type": "string"
         },
+        "kept_content": {
+          "description": "The command as it was kept, in its portable form (`command::portable::portable_command`),\nso a later re-keep sheet can mark what changed since. DISPLAY data only — what the run may\ndo is decided by `digest` alone — written only by the daemon's keep (with the digest), left\nout when the command is too big to keep a copy of, and absent on a keep from before it\nexisted."
+        },
         "key": {
           "description": "The plugin's own name for the command.",
           "type": "string"
