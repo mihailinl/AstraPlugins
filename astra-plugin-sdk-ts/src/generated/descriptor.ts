@@ -5501,6 +5501,11 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
               "oneof": [
                 "activateExternalWindows"
               ]
+            },
+            "_activateOverFullscreen": {
+              "oneof": [
+                "activateOverFullscreen"
+              ]
             }
           },
           "fields": {
@@ -5620,6 +5625,13 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "activateExternalWindows": {
               "type": "bool",
               "id": 23,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "activateOverFullscreen": {
+              "type": "bool",
+              "id": 28,
               "options": {
                 "proto3_optional": true
               }
@@ -8747,6 +8759,14 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "installable": {
               "type": "bool",
               "id": 6
+            },
+            "installSizeBytes": {
+              "type": "uint64",
+              "id": 7
+            },
+            "installSourceHost": {
+              "type": "string",
+              "id": 8
             }
           }
         },
@@ -11741,6 +11761,10 @@ export const descriptorJson: { nested: Record<string, unknown> } = {
             "subject": {
               "type": "string",
               "id": 11
+            },
+            "rekeepable": {
+              "type": "bool",
+              "id": 12
             }
           }
         },
