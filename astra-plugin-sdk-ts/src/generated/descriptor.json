@@ -5493,6 +5493,11 @@
               "oneof": [
                 "activateExternalWindows"
               ]
+            },
+            "_activateOverFullscreen": {
+              "oneof": [
+                "activateOverFullscreen"
+              ]
             }
           },
           "fields": {
@@ -5612,6 +5617,13 @@
             "activateExternalWindows": {
               "type": "bool",
               "id": 23,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "activateOverFullscreen": {
+              "type": "bool",
+              "id": 28,
               "options": {
                 "proto3_optional": true
               }
@@ -11733,6 +11745,10 @@
             "subject": {
               "type": "string",
               "id": 11
+            },
+            "rekeepable": {
+              "type": "bool",
+              "id": 12
             }
           }
         },
