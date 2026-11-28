@@ -1,0 +1,20 @@
+# content check golden: the content catalogue's animset-builtin-only-in-gi.astrapack, byte for byte, as an animations part: every clip row is builtin:, and a GI-embedded pack never enters the animsets index -- accepted.
+schema = 1
+
+[integration]
+id = "someone.bundle-animset-builtin-only"
+name = "Bundle Animset Builtin Only"
+version = "0.1.0"
+license = "MIT"
+
+[[integration.content]]
+path = "packs/act.astrapack"
+kind = "animations"
+title = "act"
+credit = "someone"
+licence = "CC0-1.0"
+
+[target]
+exe = "*"
+platforms = ["windows-x64"]
+anti_cheat = "none"

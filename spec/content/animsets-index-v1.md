@@ -58,7 +58,7 @@ with no clip file is refused at ingest, `E_CONTENT_FORMAT`** (ingest-v1.md §3
 step 10): its entry's `clips` could never be at least 1, so it would be
 accepted, confirmed and reviewed and then never listed (golden
 `archives/hostile/animset-no-clips.astrapack`). The rule is the animset's
-alone; a pack inside a character's `.astrachar` is not judged by it.
+alone; a pack inside a character's `.astrachar` is not judged by it. A pack embedded in a game-integration release whose every `[[clips]]` row's `file` starts `builtin:` is exempt, because a GI-embedded pack never enters this index (ingest-v1.md §3 step 10).
 
 **`states`**, in this order:
 

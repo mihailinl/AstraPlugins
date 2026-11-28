@@ -620,7 +620,7 @@ probes, the names, the sizes and the 32 MiB budget, Stored-only types, the
 raw read, the manifest and its digests), step 10 (every GLB and `.gltf` in
 it, by the rules above), step 11 (the licence verdict on **every** GLB and
 `.gltf` in it, not only the body) and step 12's rule that every file is in
-exactly one part. Two steps have nothing to run on here: step 9 is the
+exactly one part. A GI-embedded pack whose `animpack.toml` has at least one `[[clips]]` row, every one `file = "builtin:…"`, passes step 10's animset-holds-a-clip rule (ingest-v1.md §3 step 10; golden `animset-builtin-only-in-gi`); a mixed pack still does not. Two steps have nothing to run on here: step 9 is the
 server's blocklist, which this gate does not hold, and step 12's
 parts-mismatch half compares declared part digests, which a game
 integration does not declare. A refusal **refuses the release with

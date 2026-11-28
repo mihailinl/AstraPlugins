@@ -1085,6 +1085,31 @@ class EntrySourcesAreReadFromBytes(unittest.TestCase):
         self.assertRedOn(Mutation("clip_files", lambda part, kind: orig(part, kind) or ["clips/none.fbx"]),
                          "archives/animset-no-clips")
 
+    def test_the_gi_exemption_for_an_all_builtin_pack(self):
+        """Four verdicts, read from the committed bytes: only a GI-embedded pack whose EVERY clip row is
+        `builtin:` skips step 10's no-clip refusal."""
+        arch = cg.DATA / "archives"
+        in_gi = (arch / "valid/animset-builtin-only-in-gi.astrapack").read_bytes()
+        mixed = (arch / "hostile/animset-builtin-and-missing-file-in-gi.astrapack").read_bytes()
+        no_rows = (arch / "hostile/animset-no-clip-rows-in-gi.astrapack").read_bytes()
+        lic = {"declared_licence": {"": "CC-BY-4.0"}}
+
+        def code(raw, **ctx):
+            try:
+                return cg.ingest_bundle(raw, {**lic, **ctx})["verdict"]
+            except cg.Refusal as r:
+                return r.code
+        self.assertEqual(code(in_gi, embedded_in_gi=True), "held")
+        self.assertEqual(code(mixed, embedded_in_gi=True), "E_CONTENT_FORMAT")
+        self.assertEqual(code(in_gi), "E_CONTENT_FORMAT", "standalone: the same bytes are refused")
+        self.assertEqual(code(no_rows, embedded_in_gi=True), "E_CONTENT_FORMAT")
+
+    def test_the_exemption_widened_to_any_builtin_row_or_to_standalone(self):
+        orig = cg.all_clips_builtin
+        any_row = lambda part: bool(orig(part)) or b"builtin:" in part.get("animpack.toml", b"")
+        self.assertRedOn(Mutation("all_clips_builtin", any_row), "archives/animset-builtin-and-missing-file-in-gi")
+        self.assertRedOn(Mutation("all_clips_builtin", lambda part: True), "archives/animset-no-clip-rows-in-gi")
+
     def test_states_taken_from_the_clip_stems_although_rows_are_declared(self):
         orig = cg.animset_states
         self.assertRedOn(

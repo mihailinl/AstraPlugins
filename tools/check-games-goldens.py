@@ -729,7 +729,7 @@ def bundle_verdict(path: str, raw: bytes, licence, budget: ReleaseBudget | None 
     # valid) declared licence string -- content's own mapping table decides the object (common-v1.md §3.1.1)
     declared = {r: "CC-BY-4.0" for r in roots} if licence else {}
     try:
-        got = _ingest_walked(raw, files, {"declared_licence": declared})
+        got = _ingest_walked(raw, files, {"declared_licence": declared, "embedded_in_gi": True})
     except CG.Refusal as r:
         return {"status": "bundle", "refusal": {"code": r.code, "detail": f"{path}!{r.detail}"}, "body": None}
     except Exception as e:  # noqa: BLE001 -- content's reader raised on a hostile shape: refuse, never crash
